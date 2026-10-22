@@ -47,7 +47,7 @@ Usage:
   config aks [--project=<project>] [--name=<name>] [--region=<region>] [--count=<count>]  [--vm=<vm>] [--disk=<disk>] [--key=<key>]
   config externalregistry [--regurl=<regurl>] [--reguser=<reguser>] [--regpassword=<regpassword>]
   config registry [--disk=<disk>] [--ingress]
-  config seaweedfs [--s3] [--console]
+  config seaweedfs [--s3]
   config (status|export|reset)
   config use [<n>] [--delete] [--rename=<rename>]
   config full
@@ -122,7 +122,6 @@ Usage:
   --failover            select failover support on components supporting it as postgres
   --backup              select automatic backup on components support it as postgres
   --s3                  activate s3 compatible ingress on components supporting it
-  --console             activate a s3 console ingress on components supporting it (Currently MINIO)
   --quota               select quota checker module
   --milvus              select MILVUS vector database
   --registry            activate the support for a private image registry for custom actions (by default it will install one)

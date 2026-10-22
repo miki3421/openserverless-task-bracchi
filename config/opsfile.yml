@@ -1017,18 +1017,13 @@ tasks:
           VAL: "{{.__disk}}"
           DEF: "50"
 
-  seaweefs:
+  seaweedfs:
     silent: true
     cmds:
     - |
       if {{.__s3}}
       then config SEAWEEDFS_CONFIG_INGRESS_S3_ENABLED=true
       fi
-    - |
-      if {{.__console}}
-      then config SEAWEEDFS_CONFIG_INGRESS_CONSOLE_ENABLED=true
-      fi
-
   minimal:
     silent: true
     cmds:

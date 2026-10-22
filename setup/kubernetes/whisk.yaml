@@ -245,5 +245,3 @@ spec:
     ingress:
       s3-enabled: ${SEAWEEDFS_CONFIG_INGRESS_S3_ENABLED:-true}
       s3-hostname: ${SEAWEEDFS_CONFIG_INGRESS_S3_HOSTNAME:-auto}
-      console-enabled: ${SEAWEEDFS_CONFIG_INGRESS_CONSOLE_ENABLED:-false}
-      console-hostname: ${SEAWEEDFS_CONFIG_INGRESS_CONSOLE_HOSTNAME:-auto}              
