@@ -43,7 +43,11 @@ upgrade from the currently published latest version.
    source/target identities and checksums. Preserve service configuration. After
    each step verify node readiness, managed components, storage identity and
    application-specific read-only probes before advancing. A binary copy alone
-   is not a database-compatible rollback mechanism.
+   is not a database-compatible rollback mechanism. Container runtime major
+   transitions also require successful fresh synthetic runtime/action creation,
+   verification of the active runtime version, and review of custom containerd
+   templates and registry configuration. See the [K3s containerd configuration
+   guidance](https://docs.k3s.io/advanced#configuring-containerd).
 7. Remove legacy platform resources only after the final recovery gates pass.
    Review namespace/PVC consequences and cluster-scoped CRDs/RBAC individually;
    preserve unrelated resources. Keep a recovery path independent of the namespace
