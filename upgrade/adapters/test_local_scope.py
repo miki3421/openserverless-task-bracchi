@@ -19,6 +19,8 @@
 import ast
 import copy
 import hashlib
+import contextlib
+import io
 import json
 import os
 from pathlib import Path
@@ -73,5 +75,30 @@ class LocalScopeTests(unittest.TestCase):
         bindings['step']('first','fixture.py');bindings['step']('second','fixture.py')
         self.assertTrue(callable(bindings['source']));self.assertNotIn('mutated',bindings['PLAN'])
         self.assertEqual(json.loads((self.root/'adapter-journal.json').read_text())['completed'],['first','second'])
+    def test_target_plan_preserves_original_auth_and_arbitrary_tenant_count(self):
+        claims=['couchdb-pvc-couchdb-0','redis-pvc-redis-0','registry-pvc','seaweedfs-pvc',
+                'nuvolaris-mongodb-pvc-nuvolaris-mongodb-0','postgres-db-nuvolaris-postgres-1-0',
+                'nuvolaris-etc-data-nuvolaris-etcd-0','nuvolaris-milvus','nuvolaris-operator-deploy-pvc',
+                'nuvolaris-static-pvc-nuvolaris-static-0']
+        spec={'nuvolaris':{'apihost':'original.example','protocol':'http'},
+              'openwhisk':{'namespaces':{'nuvolaris':'original-system-auth','whisk-system':'original-whisk-auth'}},
+              'milvus':{'password':{}},'redis':{'nuvolaris':{'prefix':'nuvolaris:'}},
+              'components':{k:True for k in ['openwhisk','invoker','cron','static','quota']}}
+        users=[{'kind':'WhiskUser','metadata':{'name':'tenant-'+str(i)},'spec':{'namespace':'tenant-'+str(i),'auth':'original-'+str(i)}} for i in range(5)]
+        configuration={'resources':[{'kind':'Whisk','spec':spec},*users,
+            *[{'kind':'PersistentVolumeClaim','metadata':{'name':name,'uid':'uid-'+name},'spec':{'resources':{'requests':{'storage':'1Gi'}}}} for name in claims],
+            {'kind':'StatefulSet','metadata':{'name':'controller'},'spec':{'template':{'spec':{'containers':[{'name':'controller','env':[
+                {'name':'CONFIG_whisk_couchdb_databases_'+k,'value':'nuvolaris_'+v} for k,v in [('WhiskAuth','subjects'),('WhiskEntity','whisks'),('WhiskActivation','activations')]]}]}}}}]}
+        payload=self.root/'unpack/payload';raw=json.dumps(configuration).encode();(payload/'artifacts/config/config.json').write_bytes(raw)
+        receipt={'components':[{'id':'platform-configuration','files':[{'path':'config/config.json','bytes':len(raw),'sha256':hashlib.sha256(raw).hexdigest()}]}]}
+        (payload/'receipt.json').write_text(json.dumps(receipt))
+        (payload/'plan.json').write_text(json.dumps({'source':{'brand':'nuvolaris'},'inventorySha256':'fixture','volumeCoverage':[{'name':n} for n in claims]}))
+        bindings={'ROOT':self.root,'DATA_ROOT':self.data,'PLAN':{'labId':'0'*32},'PROFILE':{'target':{'images':{'operator':'local/operator:fixture'},'operator':{'candidateImage':'local/operator:fixture'},'k3sVersion':'fixture'}},'Path':Path,'json':json,'hashlib':hashlib}
+        with contextlib.redirect_stdout(io.StringIO()):exec(compile((ADAPTERS/'prepare_target_plan.py').read_text(),'plan','exec'),bindings)
+        result=json.loads((self.root/'planning/target-plan.private.json').read_text());namespaces=result['finalWhiskSpec']['openwhisk']['namespaces']
+        self.assertEqual(namespaces['nuvolaris'],'original-system-auth');self.assertEqual(namespaces['whisk-system'],'original-whisk-auth')
+        self.assertNotEqual(namespaces['openserverless'],namespaces['nuvolaris'])
+        self.assertEqual(result['finalWhiskSpec']['openserverless']['apihost'],'original.example')
+        self.assertEqual([u['spec'] for u in result['users']],[u['spec'] for u in users]);self.assertEqual(len(result['persistentVolumes']),10)
 
 if __name__=='__main__':unittest.main()

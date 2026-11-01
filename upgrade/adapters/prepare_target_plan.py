@@ -35,6 +35,8 @@ def mapped(value):
     if isinstance(value,list):return [mapped(v) for v in value]
     return value
 spec=mapped(original['spec'])
+# Branding applies to service settings, never to saved OpenWhisk identities.
+spec['openwhisk']['namespaces']=copy.deepcopy(original['spec']['openwhisk']['namespaces'])
 users=[r for r in configuration['resources'] if r['kind']=='WhiskUser']
 if any(u['spec']['namespace']=='openserverless' for u in users):raise ValueError('Reserved target namespace collision')
 if 'openserverless' in spec['openwhisk']['namespaces']:raise ValueError('Reserved target identity collision')
