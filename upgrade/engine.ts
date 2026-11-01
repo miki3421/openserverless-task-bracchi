@@ -44,7 +44,7 @@ async function facts(profile:UpgradeProfile) {
   checkSystemFile(SOURCE_KUBECONFIG);checkSystemFile("/usr/local/bin/k3s");
   const taskRoot=resolve(import.meta.dir,"..");
   if((await command(["git","-c","safe.directory="+taskRoot,"-C",taskRoot,"rev-parse","HEAD"])).trim()!==profile.engineCommit||
-      (await command(["git","-c","safe.directory="+taskRoot,"-C",taskRoot,"status","--porcelain","--untracked-files=no"])).trim())throw new Error("upgrade_code_revision_mismatch");
+      (await command(["git","--no-optional-locks","-c","safe.directory="+taskRoot,"-C",taskRoot,"status","--porcelain","--untracked-files=no"])).trim())throw new Error("upgrade_code_revision_mismatch");
   await command(["python3","-I","-c","import sys,yaml;assert sys.version_info[:2]==(3,12)"]);
   if((await command(["systemctl","is-active","k3s.service"])).trim()!=="active")throw new Error("local_k3s_service_required");
   const version=await command(["/usr/local/bin/k3s","--version"]);
