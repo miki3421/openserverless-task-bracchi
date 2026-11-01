@@ -29,7 +29,7 @@ Usage:
   update backup-collect --inventory=<file> --component=<id> --artifacts=<directory> [--tools=<directory>] [--json]
   update backup-all [--inventory=<file>] [--artifacts=<directory>] [--tools=<directory>] [--json]
   update backup-assemble --inventory=<file> --artifacts=<directory> [--json]
-  update backup-pack --inventory=<file> --backup-plan=<file> --artifacts=<directory> --archive=<directory> --password-file=<file> --tools=<directory> [--workspace=<directory>] [--json]
+  update backup-pack [--inventory=<file>] [--backup-plan=<file>] [--artifacts=<directory>] [--archive=<directory>] [--password-file=<file>] [--tools=<directory>] [--workspace=<directory>] [--json]
   update backup-unpack --archive=<directory> --password-file=<file> --tools=<directory> --workspace=<directory> [--json]
   update backup-verify --inventory=<file> --receipt=<file> --artifacts=<directory> [--json]
   update (--check | --plan) [--manifest=<file> | --index=<source>] [--to=<release>] [--channel=<channel>] [--context=<context>] [--namespace=<namespace>] [--instance=<instance>] [--json]
@@ -163,3 +163,12 @@ and namespace UIDs; context names alone are insufficient. Missing or stale
 configuration stops before collection. Supplying both inventory and artifacts
 explicitly bypasses the profile. Progress and selected destination go to stderr;
 normal output is a short summary, with structured output available via `--json`.
+
+`backup-pack` also supports the private profile: add a `pack` object with absolute
+`backupPlan`, `archive`, `password` and `workspace` paths. Inventory, artifacts and
+tools come from the same profile. The inventory digest and full source identity
+are rechecked against the saved plan before encryption. Prepare the independent
+key beforehand; the command never prints or generates it implicitly. Archive and
+workspace destinations must be fresh; rerunning does not replace an archive.
+Fully explicit options bypass profile defaults. Unpacking retains explicit
+source-independent arguments and does not use this profile.

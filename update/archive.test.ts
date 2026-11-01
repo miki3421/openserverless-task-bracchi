@@ -144,3 +144,33 @@ test.skipIf(!process.env.OPS_TEST_BINARY)("real CLI exposes archive tasks with l
   }
  }finally{rmSync(root,{recursive:true,force:true});}
 });
+
+test("private pack profile resolves no-argument encryption and rejects a different source", async()=>{
+ const {resolvePackProfile}=await import("./archive"); const f=fixture();
+ try {
+  const profile={schemaVersion:1,kind:"ops-backup-profile",inventory:f.options.inventory,
+   artifacts:f.artifacts,tools:join(f.root,"tools"),inventorySha256:f.inventory.inventorySha256,source:f.plan.source,
+   pack:{backupPlan:f.options.plan,archive:f.options.archive,password:f.password,workspace:f.options.workspace}};
+  writeFileSync(join(f.root,"backup.json"),JSON.stringify(profile),{mode:0o600});
+  const options=resolvePackProfile({inventory:"",archive:"",json:"true"},f.root);
+  expect(options.inventory).toBe(f.options.inventory);expect(options.backupPlan).toBe(f.options.plan);
+  expect(options.password).toBe(f.password);expect(options.json).toBe("true");
+  profile.source={...profile.source,clusterUid:"another-cluster"};
+  writeFileSync(join(f.root,"backup.json"),JSON.stringify(profile));
+  expect(()=>resolvePackProfile({},f.root)).toThrow("profile_source_mismatch");
+  const explicit={inventory:"i",backupPlan:"p",artifacts:"a",archive:"r",password:"k",tools:"t"};
+  expect(resolvePackProfile(explicit,"/no-profile")).toBe(explicit);
+  const unpack={unpack:true};expect(resolvePackProfile(unpack,"/no-profile")).toBe(unpack);
+ }finally{rmSync(f.root,{recursive:true,force:true});}
+});
+
+test.skipIf(!process.env.OPS_TEST_BINARY)("real CLI routes no-argument backup-pack and fails before encryption without a profile",()=>{
+ const root=mkdtempSync(join(tmpdir(),"ops-pack-default-cli-"));chmodSync(root,0o700);
+ try {
+  const result=Bun.spawnSync([process.env.OPS_TEST_BINARY!,"update","backup-pack"],{cwd:root,timeout:30000,
+   env:{...process.env,OPS_ROOT:join(import.meta.dir,".."),OPS_PWD:root,OPS_HOME:root}});
+  expect(result.exitCode).not.toBe(0);expect(result.stderr.toString()).toContain("OPS backup archive stopped:");
+  expect(result.stderr.toString()).not.toContain("Usage:");
+  expect(existsSync(join(root,"archive"))).toBe(false);
+ }finally{rmSync(root,{recursive:true,force:true});}
+});

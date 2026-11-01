@@ -578,3 +578,10 @@ backup by modification date or assume that a kubeconfig context name identifies
 a cluster. Explicit paths remain available for advanced use. The same no-argument
 command resumes a verified collection; create a fresh inventory, artifact root
 and profile for a new backup generation rather than reusing old snapshots.
+
+The same profile can provide `backup-pack` defaults through `pack.backupPlan`,
+`pack.archive`, `pack.password` and `pack.workspace` (absolute paths). Prepare the
+key separately and keep an independent recovery copy. Then
+`ops update backup-pack` encrypts and verifies the collected artifacts without
+contacting the source cluster. Existing archive/workspace paths are refused.
+This does not imply the archive has already been copied off the source VM.

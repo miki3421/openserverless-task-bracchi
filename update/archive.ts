@@ -17,7 +17,8 @@
 
 
 import { chmodSync, closeSync, constants, lstatSync, mkdirSync, openSync, readFileSync, readdirSync, writeSync } from "node:fs";
-import { dirname, join, relative, resolve } from "node:path";
+import { dirname, isAbsolute, join, relative, resolve } from "node:path";
+import { homedir } from "node:os";
 import { randomUUID, createHash } from "node:crypto";
 import { canonical } from "./releases";
 import { protectedArtifactReader, readPrivateJSON, validateInventory, verifyBackupReceipt,
@@ -211,10 +212,28 @@ export async function unpackArchive(options:{archive:string;workspace:string;pas
   return {...verification,snapshot:record.snapshot,encryptedRepositoryFullDataVerified:true,archiveRestoredAndVerified:true,
     sourceConnectionRequired:false,semanticRestoreVerified:false,backupComplete:false,uninstallAllowed:false};
 }
+export function resolvePackProfile(options: any, opsHome: string, base = process.cwd()): any {
+  if (options.unpack === true || options.unpack === "true") return options;
+  const required = ["inventory", "backupPlan", "artifacts", "archive", "password", "tools"];
+  if (required.every(key => typeof options[key] === "string" && options[key])) return options;
+  const profile = readPrivateJSON(join(opsHome, "backup.json"));
+  if (profile?.schemaVersion !== 1 || profile.kind !== "ops-backup-profile" || !profile.pack)
+    throw new Error("archive_profile_not_configured");
+  const defaults = { inventory: profile.inventory, artifacts: profile.artifacts, tools: profile.tools, ...profile.pack };
+  if ([...required, "workspace"].some(key => typeof defaults[key] !== "string" || !isAbsolute(defaults[key])))
+    throw new Error("invalid_archive_profile");
+  const selected = { ...defaults, ...Object.fromEntries(Object.entries(options).filter(([,v]) => v !== "" && v !== undefined)) };
+  const inventory = readPrivateJSON(resolve(base, selected.inventory)), plan = readPrivateJSON(resolve(base, selected.backupPlan));
+  validateOfflinePlan(inventory, plan);
+  if (profile.inventorySha256 !== inventory.inventorySha256 || canonical(profile.source) !== canonical(plan.source))
+    throw new Error("archive_profile_source_mismatch");
+  return selected;
+}
 export async function main() {
   process.umask(0o077);
   if(process.argv.includes("--help")){console.log("Usage: ops update backup-pack --inventory=<file> --backup-plan=<file> --artifacts=<directory> --archive=<new-directory> --password-file=<file> --tools=<directory> [--workspace=<new-directory>] [--json]\n       ops update backup-unpack --archive=<directory> --password-file=<file> --tools=<directory> --workspace=<new-directory> [--json]");return;}
-  const o=JSON.parse(process.env.OPS_UPDATE_REQUEST||"{}"),base=process.env.OPS_PWD||process.cwd();
+  const base=process.env.OPS_PWD||process.cwd();
+  const o=resolvePackProfile(JSON.parse(process.env.OPS_UPDATE_REQUEST||"{}"),process.env.OPS_HOME||join(homedir(),".ops"),base);
   const path=(key:string)=>{if(typeof o[key]!=="string"||!o[key])throw new Error("archive_option_required");return resolve(base,o[key]);};
   const archive=path("archive"),workspace=typeof o.workspace==="string"&&o.workspace?resolve(base,o.workspace):archive+"-work-"+randomUUID();
   if((o.unpack===true||o.unpack==="true")&&!(typeof o.workspace==="string"&&o.workspace))throw new Error("archive_workspace_required");
