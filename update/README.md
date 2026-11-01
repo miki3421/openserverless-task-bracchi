@@ -555,3 +555,26 @@ Concurrent sequence runs are refused by an exclusive lock. This command does
 not coordinate application/cron quiescence: its result is an online collection,
 not a final consistent migration backup. See `docopts.md` for resume and stale
 lock handling. Source removal remains blocked.
+
+For routine use, `ops update backup-all` reads the private `OPS_HOME/backup.json`
+profile. Prepare this once from the selected inventory and native plan:
+
+```json
+{
+  "schemaVersion": 1,
+  "kind": "ops-backup-profile",
+  "inventory": "/private/inventory.json",
+  "artifacts": "/private/artifacts",
+  "tools": "/private/tools",
+  "inventorySha256": "<exact inventory digest>",
+  "source": "<replace with the complete source object from the native plan>"
+}
+```
+
+The example is a template, not a ready profile: `source` must be an object.
+Keep the file private and owned by the operator. The task verifies the saved
+source against the actual cluster before collecting. It does not select a
+backup by modification date or assume that a kubeconfig context name identifies
+a cluster. Explicit paths remain available for advanced use. The same no-argument
+command resumes a verified collection; create a fresh inventory, artifact root
+and profile for a new backup generation rather than reusing old snapshots.

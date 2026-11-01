@@ -17,7 +17,7 @@
 
 
 import { test, expect } from "bun:test";
-import { runSequence, collectionOrder } from "./sequence";
+import { runSequence, collectionOrder, resolveSequenceOptions, assertProfileBinding } from "./sequence";
 import { chmodSync, mkdtempSync, mkdirSync, rmSync, symlinkSync, writeFileSync, linkSync, readFileSync, statSync, readdirSync, copyFileSync, existsSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -505,4 +505,45 @@ test("sequence refuses changed definitions mid-run and detects dependency cycles
     f.plan.bindings.find(b => b.artifactId === "postgres-data")!.dependsOn = ["mongodb-data"];
     expect(() => collectionOrder(f.plan, f.plan.bindings.map(b => b.artifactId))).toThrow("dependency_cycle");
   } finally { f.clean(); }
+});
+
+test("backup-all resolves a private source-bound profile without arguments and retains explicit path mode", () => {
+  const f = sequenceFixture();
+  try {
+    const path = join(f.root, "backup.json");
+    const profile = { schemaVersion: 1, kind: "ops-backup-profile", inventory: join(f.root, "inventory.json"),
+      artifacts: join(f.root, "artifacts"), tools: join(f.root, "tools"), inventorySha256: f.inventory.inventorySha256,
+      source: structuredClone(f.plan.source) };
+    writeFileSync(path, JSON.stringify(profile), { mode: 0o600 });
+    const selected = resolveSequenceOptions({}, "/unrelated-project", f.root);
+    expect(selected.inventory).toBe(profile.inventory); expect(selected.artifacts).toBe(profile.artifacts);
+    expect(selected.tools).toBe(profile.tools);
+    expect(() => assertProfileBinding(selected.profile, f.inventory, f.plan)).not.toThrow();
+    for (const key of ["clusterUid", "namespaceUid", "uid", "context"]) {
+      const changed = structuredClone(f.plan); (changed.source as any)[key] = "different-identity";
+      expect(() => assertProfileBinding(selected.profile, f.inventory, changed)).toThrow("profile_source_mismatch");
+    }
+    const wrongInventory = structuredClone(f.inventory); wrongInventory.inventorySha256 = "f".repeat(64);
+    expect(() => assertProfileBinding(selected.profile, wrongInventory, f.plan)).toThrow("profile_source_mismatch");
+    const explicit = resolveSequenceOptions({ inventory: "new.json", artifacts: "new-artifacts" }, f.root, "/missing-home");
+    expect(explicit.profile).toBeNull(); expect(explicit.inventory).toBe(join(f.root, "new.json"));
+    chmodSync(path, 0o644);
+    expect(() => resolveSequenceOptions({}, f.root, f.root)).toThrow("not_private_regular_file");
+    chmodSync(path, 0o600); profile.artifacts = "relative-unsafe-default";
+    writeFileSync(path, JSON.stringify(profile));
+    expect(() => resolveSequenceOptions({}, f.root, f.root)).toThrow("invalid_backup_profile");
+    rmSync(path); expect(() => resolveSequenceOptions({}, f.root, f.root)).toThrow("not_configured");
+  } finally { f.clean(); }
+});
+test.skipIf(!process.env.OPS_TEST_BINARY)("real CLI accepts backup-all without arguments and stops when no profile exists", () => {
+  const root = mkdtempSync(join(tmpdir(), "ops-backup-default-cli-")); chmodSync(root, 0o700);
+  try {
+    const result = Bun.spawnSync([process.env.OPS_TEST_BINARY!, "update", "backup-all"], {
+      cwd: root, timeout: 30000, env: { ...process.env, OPS_ROOT: join(import.meta.dir, ".."), OPS_HOME: root, OPS_PWD: root },
+    });
+    expect(result.exitCode).not.toBe(0);
+    expect(result.stderr.toString()).toContain("No private backup profile configured.");
+    expect(result.stderr.toString()).not.toContain("Usage:");
+    expect(readdirSync(root).filter(n => n.startsWith(".backup-sequence"))).toEqual([]);
+  } finally { rmSync(root, { recursive: true, force: true }); }
 });

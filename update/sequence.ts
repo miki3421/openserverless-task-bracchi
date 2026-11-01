@@ -18,7 +18,9 @@
 
 import { existsSync, lstatSync, mkdirSync, rmdirSync } from "node:fs";
 import { randomUUID } from "node:crypto";
-import { join, resolve } from "node:path";
+import { isAbsolute, join, resolve } from "node:path";
+import { homedir } from "node:os";
+import { canonical } from "./releases";
 import { expectedBackupArtifacts, planBackup, readPrivateJSON, protectedArtifactReader, verifyPartialBackup,
   verifyBackupReceipt, verifyLiveInventory, assembleBackup, type BackupPlan } from "./backup";
 import { collectNativeComponent } from "./native";
@@ -27,6 +29,30 @@ import { privateJSON } from "./portable";
 import { reader } from "./inventory";
 import type { MigrationInventory } from "./migration";
 
+// Paths come from one protected profile, never from guessing among backup folders.
+export function resolveSequenceOptions(options: any, base: string, opsHome: string) {
+  let profile: any = null;
+  if (!options.inventory || !options.artifacts) {
+    const path = join(opsHome, "backup.json");
+    if (!existsSync(path)) throw new Error("backup_profile_not_configured");
+    profile = readPrivateJSON(path);
+    if (profile?.schemaVersion !== 1 || profile.kind !== "ops-backup-profile" ||
+        !profile.source || !/^[a-f0-9]{64}$/.test(profile.inventorySha256) ||
+        [profile.inventory, profile.artifacts].some(p => typeof p !== "string" || !isAbsolute(p)) ||
+        (profile.tools !== undefined && (typeof profile.tools !== "string" || !isAbsolute(profile.tools))))
+      throw new Error("invalid_backup_profile");
+  }
+  const inventory = options.inventory || profile?.inventory, artifacts = options.artifacts || profile?.artifacts;
+  const tools = options.tools || profile?.tools;
+  if (typeof inventory !== "string" || !inventory || typeof artifacts !== "string" || !artifacts ||
+      (tools !== undefined && typeof tools !== "string")) throw new Error("sequence_options_required");
+  return { inventory: resolve(base, inventory), artifacts: resolve(base, artifacts),
+    tools: tools ? resolve(base, tools) : undefined, profile };
+}
+export function assertProfileBinding(profile: any, inventory: MigrationInventory, plan: BackupPlan) {
+  if (profile && (profile.inventorySha256 !== inventory.inventorySha256 || canonical(profile.source) !== canonical(plan.source)))
+    throw new Error("backup_profile_source_mismatch");
+}
 export function collectionOrder(plan: BackupPlan, expected: string[]): string[] {
   if (expected.some(id => !/^[a-z0-9][a-z0-9-]*$/.test(id))) throw new Error("sequence_invalid_component");
   const pending = new Set(expected), order: string[] = [];
@@ -103,26 +129,36 @@ export async function runSequence(inventory: MigrationInventory, plan: BackupPla
 export async function main() {
   process.umask(0o077);
   if (process.argv.includes("--help")) {
-    console.log("Usage: ops update backup-all --inventory=<file> --artifacts=<private-directory> [--tools=<directory>] [--json]"); return;
+    console.log("Usage: ops update backup-all [--inventory=<file>] [--artifacts=<private-directory>] [--tools=<directory>] [--json]"); return;
   }
   const options = JSON.parse(process.env.OPS_UPDATE_REQUEST || "{}");
-  if (typeof options.inventory !== "string" || !options.inventory || typeof options.artifacts !== "string" || !options.artifacts)
-    throw new Error("sequence_options_required");
   const base = process.env.OPS_PWD || process.cwd();
-  const inventory = readPrivateJSON(resolve(base, options.inventory)) as MigrationInventory;
+  const selected = resolveSequenceOptions(options, base, process.env.OPS_HOME || join(homedir(), ".ops"));
+  const inventory = readPrivateJSON(selected.inventory) as MigrationInventory;
   const read = reader({ namespace: inventory.source.namespace, instance: inventory.source.instance,
     context: inventory.source.context, root: process.env.OPS_ROOT || resolve(import.meta.dir, "..") });
   await verifyLiveInventory(inventory, read);
   const plan = planBackup(inventory, read);
-  const tools = typeof options.tools === "string" && options.tools ? resolve(base, options.tools) : undefined;
-  const result = await runSequence(inventory, plan, resolve(base, options.artifacts), {
+  assertProfileBinding(selected.profile, inventory, plan);
+  const tools = selected.tools;
+  console.error(`Online backup: ${plan.source.namespace}/${plan.source.instance}; destination: ${selected.artifacts}`);
+  const result = await runSequence(inventory, plan, selected.artifacts, {
     verifyLive: () => verifyLiveInventory(inventory, read),
     qualifyMilvus: () => { if (!tools) throw new Error("qualified_milvus_tool_directory_required"); return verifyMilvusTool(tools); },
-    collect: (id, output) => collectNativeComponent(inventory, plan, id, output, read, undefined, undefined, tools),
+    collect: (id, output) => {
+      console.error(`Collecting ${id}...`);
+      return collectNativeComponent(inventory, plan, id, output, read, undefined, undefined, tools);
+    },
   });
-  console.log(JSON.stringify(result, null, 2));
+  if (options.json === true || options.json === "true") console.log(JSON.stringify(result, null, 2));
+  else console.log(`Online collection verified: ${result.collected.length} collected, ${result.reused.length} reused. ` +
+    "Migration consistency, encryption and restore remain unverified. Source removal remains blocked.");
 }
-if (import.meta.main) main().catch(() => {
+if (import.meta.main) main().catch((error) => {
+  if (error?.message === "backup_profile_not_configured")
+    console.error("No private backup profile configured. Configure OPS_HOME/backup.json or supply --inventory and --artifacts.");
+  if (error?.message === "backup_profile_source_mismatch")
+    console.error("Backup profile does not match the inventoried cluster. No collectors were started.");
   console.error("OPS backup sequence stopped: inspect private component and sequence reports. Existing backups are retained; no credentials are shown.");
   process.exitCode = 1;
 });

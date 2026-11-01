@@ -27,7 +27,7 @@ Usage:
   update inventory [--namespace=<namespace>] [--instance=<instance>] [--context=<context>] [--json]
   update backup-plan --inventory=<file> [--json]
   update backup-collect --inventory=<file> --component=<id> --artifacts=<directory> [--tools=<directory>] [--json]
-  update backup-all --inventory=<file> --artifacts=<directory> [--tools=<directory>] [--json]
+  update backup-all [--inventory=<file>] [--artifacts=<directory>] [--tools=<directory>] [--json]
   update backup-assemble --inventory=<file> --artifacts=<directory> [--json]
   update backup-pack --inventory=<file> --backup-plan=<file> --artifacts=<directory> --archive=<directory> --password-file=<file> --tools=<directory> [--workspace=<directory>] [--json]
   update backup-unpack --archive=<directory> --password-file=<file> --tools=<directory> --workspace=<directory> [--json]
@@ -153,3 +153,13 @@ The sequence does not stop application writes or cron, encrypt the backup, or
 verify a database restore. Success reports `per-component-online`, with
 `backupComplete` and `uninstallAllowed` still false. A final migration needs a
 separate coordinated quiescence phase and fresh collections.
+
+With no arguments, `backup-all` uses the private `backup.json` in `OPS_HOME`
+(default `~/.ops`). This schema-1 `ops-backup-profile` contains absolute paths
+`inventory`, `artifacts`, optional `tools`, plus `inventorySha256` and the exact
+`source` object from its native backup plan. It must be owned by the current user
+with mode 0600. The live plan must match that saved source, including cluster
+and namespace UIDs; context names alone are insufficient. Missing or stale
+configuration stops before collection. Supplying both inventory and artifacts
+explicitly bypasses the profile. Progress and selected destination go to stderr;
+normal output is a short summary, with structured output available via `--json`.
