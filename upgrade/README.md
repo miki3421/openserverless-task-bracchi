@@ -13,6 +13,11 @@ Unsupported layouts, foreign cluster workloads, incomplete native mappings and
 source identity drift stop the operation. Other versions and production use
 require separate qualification and profiles.
 
+The source setup may contain unused cert-manager Deployments. They are accepted
+only with TLS disabled and no Certificates, Issuers or ClusterIssuers. The new
+non-TLS control plane does not recreate this unused addon. Certificates and
+foreign PVCs or workloads require an explicit migration adapter.
+
 The sequence closes ingress, suspends scheduled work, stops action execution,
 collects a fresh native backup, encrypts it, checks the archive and verifies an
 independent unpack on the same server. It recovers the data in a distinct native

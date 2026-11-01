@@ -75,8 +75,18 @@ async function facts(profile:UpgradeProfile) {
   const workloads=(await kube(["get","deployments,statefulsets,daemonsets,cronjobs","-A"])).items;
   const known=/^(controller|couchdb|nuvolaris-operator|nuvolaris-static|nuvolaris-system-api|nuvolaris-streamer-api|nuvolaris-postgres-1|nuvolaris-mongodb|nuvolaris-etcd|nuvolaris-milvus-standalone|redis|seaweedfs|registry|kubegres-controller-manager|cron-init)$/;
   const system=/^(coredns|metrics-server|local-path-provisioner|traefik|svclb-traefik-[a-z0-9]+)$/;
-  if(workloads.some((x:any)=>x.metadata.namespace==="kube-system"?!system.test(x.metadata.name):(x.metadata.namespace!=="nuvolaris"||!known.test(x.metadata.name))))
+  const unusedCertManager=/^cert-manager(?:-cainjector|-webhook)?$/;
+  const certManager=workloads.filter((x:any)=>x.metadata.namespace==="cert-manager");
+  if(certManager.length && ((await kube(["get","certificates.cert-manager.io,issuers.cert-manager.io","-A"])).items.length ||
+      (await kube(["get","clusterissuers.cert-manager.io"])).items.length))
+    throw new Error("certificate_resources_require_explicit_migration");
+  if(workloads.some((x:any)=>x.metadata.namespace==="kube-system"?!system.test(x.metadata.name):
+      x.metadata.namespace==="cert-manager"?x.kind!=="Deployment"||!unusedCertManager.test(x.metadata.name):
+      x.metadata.namespace!=="nuvolaris"||!known.test(x.metadata.name)))
     throw new Error("foreign_cluster_workloads_require_explicit_mapping");
+  if((await kube(["get","pvc","-A"])).items.some((x:any)=>x.metadata.namespace!=="nuvolaris")||
+      (await kube(["get","pods","-A"])).items.some((x:any)=>!["nuvolaris","kube-system","cert-manager"].includes(x.metadata.namespace)))
+    throw new Error("foreign_cluster_resources_require_explicit_mapping");
   if(workloads.some((x:any)=>x.kind!=="CronJob"&&(x.kind==="DaemonSet"?
       (x.status?.numberReady||0)<(x.status?.desiredNumberScheduled||0):
       (x.status?.readyReplicas||0)<(x.spec.replicas??1))))throw new Error("source_workloads_not_ready");
