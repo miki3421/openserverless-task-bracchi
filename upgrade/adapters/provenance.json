@@ -1,0 +1,138 @@
+{
+  "kind": "ported-qualified-legacy-recovery-workers",
+  "sourceTaskCommit": "1e681b28fd54e4132be1a233f8e246fa98c2c8a2",
+  "sourceOperatorCommit": "a8b3585422f26ea85a69348e40d7ff0ad4d41054",
+  "targetOperatorCommit": "657ab941511e3e2b8706f4ab4011c385ba70273c",
+  "changes": [
+    "Explicit local-server mode replaces isolated-VM network assumptions; host/cluster/run namespace are independently bound.",
+    "A distinct native namespace on the original cluster avoids a second K3s bootstrap.",
+    "Active volumes use a separate persistent data root.",
+    "Tenant event actions are never excluded or upgraded by the generic executor."
+  ],
+  "files": {
+    "guest_library.py": {
+      "priorWorkerSha256": "35bddd8ab48578b6d0ff5c93b785393eddf05d18657e59983be065f2ddb74d63",
+      "portedSha256": "caef7106f46e1b4c52547ee8a49adda674a6cf2233cab3cdf0035afac77045b2"
+    },
+    "restore_redis.py": {
+      "priorWorkerSha256": "134fb662270660b8bc5348eb17e3b54dd49fe9bd8d4a208eb9e8f2145a262337",
+      "portedSha256": "8fca9c87a455f1cedc4bc6db02b1a2f64f9e6abe50f1a5c3ffd547c5a0ce0209"
+    },
+    "restore_etcd.py": {
+      "priorWorkerSha256": "4c1c73d806ec5d89573e622c2aea7079cbf04e3a5d6e56face4d6fbb4baaf2f8",
+      "portedSha256": "9fa0f18b2d34b0c818a2c5fe9f73feec8abeb4cc50da5948d9f6c9522e3f780a"
+    },
+    "restore_etcd_verify.py": {
+      "priorWorkerSha256": "6eb00adeec9a2e3fabb7d7c38f63aefff45c32b3e13b7e1eca466aa3a45cda67",
+      "portedSha256": "67f4897428f0f78e3455b3af488fda2bb4c18a72dd8aef0bd0701911dcb85e17"
+    },
+    "restore_seaweed.py": {
+      "priorWorkerSha256": "4c86e5d557b521b1639a4362314905198821db83a021c309d25624178df31f79",
+      "portedSha256": "89193faf7d73c66fe1422fd86f4b65b1d3274483a044e49152a8985a31b19027"
+    },
+    "restore_ferretdb.py": {
+      "priorWorkerSha256": "a4749d6d9192446515cf9ea60565de6659ebf3eb813edc13c89b8a73506a9f06",
+      "portedSha256": "385983862978058111d4d769f68daccff2b3cb7c8c40c067551a935983009462"
+    },
+    "verify_ferretdb.py": {
+      "priorWorkerSha256": "a01a21a0b53cec2858c720cce0cfd15b549bd914792da279840ee3d8b323453b",
+      "portedSha256": "35d8996a5bd7958cef48b014398a5cbf2912855ad4ed62f2d1cddcce48763061"
+    },
+    "restore_registry.py": {
+      "priorWorkerSha256": "1aef121b2f5ce28ab6ada8ccb16c827c1a607a4bd1b6ebaeb08f4d1cad8b5b66",
+      "portedSha256": "a2b9563049c92077b8ec4301d13582fd418a6000cf570c5be463f0e818906e39"
+    },
+    "restore_legacy_volumes.py": {
+      "priorWorkerSha256": "76158b29a534e88eb020093220fd378735db06f1451ad579b3237cc5179d380b",
+      "portedSha256": "a3986e5f20c0d15dc05ebd7b9a8399bebc76464a2fa517827505518ef89a34f4"
+    },
+    "restore_milvus.py": {
+      "priorWorkerSha256": "307f425a36e5d685488f40e49eda0af39801acde88349e5f5c038a0bfe007c59",
+      "portedSha256": "b42db623a8da80581780233d7545cee1933ee78ef7cd2f82a2a16c868b3b8958"
+    },
+    "verify_milvus.py": {
+      "priorWorkerSha256": "5ee0246037c3d7332019a7b0b0c1afbda05b020bb313982b34a73fbd2fa3be88",
+      "portedSha256": "7cdbcad1f32ace54c62a7ee5e65030fb66354ada8880c1b053028aa0816bb30c"
+    },
+    "mongo_assertions.py": {
+      "priorWorkerSha256": "16210d0bbf9ed0b99b77ff7dd6b1d7980f77390c8fe57e9803ccb8d30d69a8b5",
+      "portedSha256": "609c16f86e8a906c5c0e1ab596c6eb9c90cead7b08fc59a09486999bea9bb8b7"
+    },
+    "milvus_metadata.py": {
+      "priorWorkerSha256": "91bf6fd43cc12c0096525f83b2267bcf113b31367dade1f954dd9e720903e9b2",
+      "portedSha256": "a28bdcc32495fe233820d09a82eae4e7a36bfac7d6129347dcce67ef6ccfe182"
+    },
+    "milvus_import.py": {
+      "priorWorkerSha256": "b53e8fbf078b3845bee6155bd4b9bcf9eedd5a0bc8731e1aadeeb5ac62b207c6",
+      "portedSha256": "fbc55219bd766a205c32ef32716cb6b5723385b68a1e06607f817beb5af76b9a"
+    },
+    "prepare_target_databases.py": {
+      "priorWorkerSha256": "edc086c72b66672ed114511b5f927e96ee5132ad7d8eccc748f3f42d31ff8014",
+      "portedSha256": "5c5980320ab50c4e465232f22aa348296f6a3082406e9528008c2c4c15920983"
+    },
+    "prepare_promotion_checkpoint.py": {
+      "priorWorkerSha256": "49fdabbb5310d431263837f3d67151d08335e557f5d274469091e33ea1321c49",
+      "portedSha256": "0472610f8c4fc0eb0bffccc8a606a6da8a0e88c20e7a95e0e4280eafdfd7857b"
+    },
+    "promotion_library.py": {
+      "priorWorkerSha256": "8e348971ea649032682ba2d988b27f3ea2971f7d413e45bec10828a3c0017674",
+      "portedSha256": "af740ac481c2686a5d00f16c05139668a0fd82523b8cf5ce92f33ff4a3fd85db"
+    },
+    "bootstrap_090.py": {
+      "priorWorkerSha256": "4a02360487f7fd12fb7dc84c5bdb4c2d625a8c7e47a3c7ce58a44507fdfae431",
+      "portedSha256": "ab9b939cdd2a68c16305b31ee466f2016906a6b87357d42be3055f953d1c0749"
+    },
+    "start_090_data.py": {
+      "priorWorkerSha256": "b565b38af0480dcff00abd033a5f604cb7c30b86e08d726b79ccec33dc9aa108",
+      "portedSha256": "d78f052cff04ff25d1ade0a4cebf932b55b00deb086d88bdbfc20b2a1591e3eb"
+    },
+    "prepare_090_tasks.py": {
+      "priorWorkerSha256": "f12dd74d0b6829a73a93df6b9fab5714bc5c439623fdf31e9880ee7a5a515e3a",
+      "portedSha256": "81a123ee1220cda8426e7edcf4daeae7a458f0fd9a8ae25a99a852eab3b6c50b"
+    },
+    "reconcile_090_iam.py": {
+      "priorWorkerSha256": "a6e9b0359705df21d2afe482a0eff610ccb278fcf6b54fb8ad6c579bb7186072",
+      "portedSha256": "a41e627bad64ab7d64c66285214bf68c56eede5135ebb12bdf827438ae9c9077"
+    },
+    "start_090_platform.py": {
+      "priorWorkerSha256": "b1f42bff1b1d4fde454b0a9a2bb47f05fde6d359731f4e70053fa3cdb2f1d636",
+      "portedSha256": "e66d679601cb7be0116407d6b4fcc8e31f12576f02b705c72085582c30a0bef4"
+    },
+    "wait_090_platform.py": {
+      "priorWorkerSha256": "0f0a9989b78103b04ac48b7178c38b5186a28562e1319cb4d352fbe8225dad17",
+      "portedSha256": "90679526eb8429854f877024e4c94f5290d0ff62d3599987aa830b1706704a2e"
+    },
+    "reconcile_090_pod_dns.py": {
+      "priorWorkerSha256": "50bed024da45ef84736ffb76aefa7bee3775048548599014ce1beab63c5eea9e",
+      "portedSha256": "4be22ddc6dc3e03d9310b7f7f14616643fe9b53e60b958de67d9505a9e1bd227"
+    },
+    "verify_090_data.py": {
+      "priorWorkerSha256": "3cac09c72b755680a4fe4ddf126f05a0187c0203b99c85178e5d8bd5e728052e",
+      "portedSha256": "319a21c4b3d95c62faaf589215d57f173adf7909f696303eb590a5a1645f5d00"
+    },
+    "finalize_090_routes.py": {
+      "priorWorkerSha256": "37e69e4e7e229348df2c0613086306c5cf35cbbbff471875b793548bcff37683",
+      "portedSha256": "828636c1c4e56dbd417af37c956d2e744a31458974abc99e22a8b80d139c05f4"
+    },
+    "deploy_090_apis.py": {
+      "priorWorkerSha256": "091dc1fa572d4bb081828383439d86e2810a3d113f4ac3d0adcdf5791be47dd4",
+      "portedSha256": "3a8f83c258bad850bbbedc2945f5f41235b58c9913834e5bec5e3e2620acfece"
+    },
+    "verify_090_inventory.py": {
+      "priorWorkerSha256": "967918e1c7fa568f70d1b9c6f690198eaa3b621fa142ce62c43b5f6cc91b8fa8",
+      "portedSha256": "db46dd2297128e9a3442dd29a708208f96bc1309bf8cfc4a3086ace23b6d65b2"
+    },
+    "etcd_checkpoint.py": {
+      "priorWorkerSha256": "3ab8ec71e59504219fdb8e764f9b5582b37d9c6a219f9466150bfb668546411e",
+      "portedSha256": "fb6a7e6e753217bad9cc3889d6502f995a4cbb900f217c895a34753958995de7"
+    },
+    "restore_postgres.py": {
+      "priorWorkerSha256": "0d7b81b6cbb29329961a2fc2ac88031e2cea2f0bf457b4fc7c2448d8651a1a0d",
+      "portedSha256": "c08f72b83857496eb7e9ac7d17074657114d398de0fae79046d3619defc96065"
+    },
+    "restore_couchdb.py": {
+      "priorWorkerSha256": "86ab2c8f9339649b232ceb9ee9034e89708c29ccf40b48fae4e3ffea09511c5f",
+      "portedSha256": "8a702155fc05a0db8263ef61ba510ee50cef532a8e60c77d294b837a1f2f65a9"
+    }
+  }
+}

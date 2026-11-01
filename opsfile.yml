@@ -28,4 +28,7 @@ tasks:
   update:
     desc: Deploys updates for Openserverless components
 
- 
+  upgrade:
+    desc: migrate a supported local installation using the protected upgrade profile
+
+
