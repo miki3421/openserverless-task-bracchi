@@ -78,3 +78,15 @@ do not overwrite reports or mark a repaired replay as a clean first run.
 The existing per-component online snapshot and same-physical-host backup
 limitations remain. A production migration still needs its separately accepted
 consistency, off-host recovery and application qualification evidence.
+
+The namespace/member conversion must also distinguish persistent etcd data from
+expired Milvus sessions. In this replay, 324 key/value pairs were unchanged while
+four native-recovery Milvus session keys disappeared after their leases expired.
+Keep the original checkpoint hash and full key set as evidence. An exception is
+permitted only for a missing key under the exact recovered Milvus
+`<root>/meta/session/` prefix, with an explicitly classified role and a nonzero
+checkpoint lease. Query that exact lease on the restored etcd server and require
+the matching lease ID with `ttl: -1`. Missing metadata, another prefix or role,
+live or unverified leases, added keys and changed values remain failures. Do not
+replace this with a blanket exclusion of leased keys. Record the exception and
+run the corrected check under a new attempt identity before starting Milvus.
