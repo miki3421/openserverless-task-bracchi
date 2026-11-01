@@ -27,6 +27,7 @@ Usage:
   update inventory [--namespace=<namespace>] [--instance=<instance>] [--context=<context>] [--json]
   update backup-plan --inventory=<file> [--json]
   update backup-collect --inventory=<file> --component=<id> --artifacts=<directory> [--tools=<directory>] [--json]
+  update backup-all --inventory=<file> --artifacts=<directory> [--tools=<directory>] [--json]
   update backup-assemble --inventory=<file> --artifacts=<directory> [--json]
   update backup-pack --inventory=<file> --backup-plan=<file> --artifacts=<directory> --archive=<directory> --password-file=<file> --tools=<directory> [--workspace=<directory>] [--json]
   update backup-unpack --archive=<directory> --password-file=<file> --tools=<directory> --workspace=<directory> [--json]
@@ -137,3 +138,18 @@ Archive integrity is separate from database recovery and final write quiescence.
 `cli`, `operator`, `runtimes`, `apply`, and `secrets` retain their existing
 behavior. These commands can change the installation or local configuration;
 they are independent of the read-only planner and do not execute its plan.
+
+`backup-all` collects every required component sequentially in dependency order,
+then assembles and verifies the combined receipt. The artifact root must already
+exist and be private. Existing successful components are reused only after
+identity, method, PVC, byte count and checksum verification; failed/incomplete
+component directories stop the run and are never overwritten. All existing
+partials are checked before any new collection. An exclusive lock prevents
+concurrent sequence runs. After interruption inspect the source and retained
+files before explicitly removing a stale `.backup-sequence.lock` directory.
+Do not run individual collectors concurrently against the same artifact root.
+Each run keeps a private `.backup-sequence-<id>.json` report, including on failure.
+The sequence does not stop application writes or cron, encrypt the backup, or
+verify a database restore. Success reports `per-component-online`, with
+`backupComplete` and `uninstallAllowed` still false. A final migration needs a
+separate coordinated quiescence phase and fresh collections.

@@ -17,6 +17,7 @@
 
 
 import { test, expect } from "bun:test";
+import { runSequence, collectionOrder } from "./sequence";
 import { chmodSync, mkdtempSync, mkdirSync, rmSync, symlinkSync, writeFileSync, linkSync, readFileSync, statSync, readdirSync, copyFileSync, existsSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -321,15 +322,15 @@ test.skipIf(!process.env.OPS_TEST_BINARY)("real CLI discovers backup commands an
     const bin = process.env.OPS_BIN || process.execPath.slice(0, process.execPath.lastIndexOf("/"));
     for (const name of readdirSync(bin)) if (statSync(join(bin, name)).isFile()) copyFileSync(join(bin, name), join(root, name));
     const tasks = join(import.meta.dir, "..");
-    for (const command of ["backup-plan", "backup-collect", "backup-verify", "backup-assemble"]) {
+    for (const command of ["backup-plan", "backup-collect", "backup-verify", "backup-assemble", "backup-all"]) {
       const args = [process.env.OPS_TEST_BINARY!, "update", command, "--inventory=missing $(touch NEVER_CREATED).json", "--json"];
       if (command === "backup-collect") args.push("--component=redis-acl", "--artifacts=fresh");
       if (command === "backup-verify") args.push("--receipt=receipt.json", "--artifacts=artifacts");
-      if (command === "backup-assemble") args.push("--artifacts=artifacts");
+      if (["backup-assemble", "backup-all"].includes(command)) args.push("--artifacts=artifacts");
       const result = Bun.spawnSync(args, { cwd: root, timeout: 30000,
         env: { ...process.env, OPS_ROOT: tasks, OPS_PWD: root, OPS_HOME: root, OPS_BIN: root, PATH: root + ":" + process.env.PATH } });
       expect(result.exitCode).not.toBe(0);
-      const expected = command === "backup-collect" ? "OPS native backup stopped:" : "OPS backup adapter failed:";
+      const expected = command === "backup-all" ? "OPS backup sequence stopped:" : command === "backup-collect" ? "OPS native backup stopped:" : "OPS backup adapter failed:";
       expect(result.stderr.toString()).toContain(expected);
       expect(existsSync(join(root, "NEVER_CREATED"))).toBe(false);
       expect(existsSync(join(root, "fresh"))).toBe(false);
@@ -408,4 +409,100 @@ test("missing or failed components cannot be assembled into a successful whole b
     await expect(assembleBackup(f.inventory, f.plan, root, async () => {})).rejects.toThrow("invalid_or_failed_partial_backup");
     expect(existsSync(join(root, "receipt.json"))).toBe(false);
   } finally { rmSync(root, { recursive: true, force: true }); }
+});
+
+function sequenceFixture() {
+  const f = receiptFixture(), root = mkdtempSync(join(tmpdir(), "ops-backup-sequence-")); chmodSync(root, 0o700);
+  const calls: string[] = [], bytes = Buffer.from("synthetic backup bytes");
+  const collect = async (id: string, directory: string) => {
+    calls.push(id); mkdirSync(directory, { mode: 0o700 });
+    const component = f.receipt.components.find(c => c.id === id)!;
+    writeFileSync(join(directory, component.files[0].path), bytes, { mode: 0o600 });
+    writeFileSync(join(directory, "collection.json"), JSON.stringify({ status: "component-collected-partial-backup", componentId: id }), { mode: 0o600 });
+    writeFileSync(join(directory, "receipt.json"), JSON.stringify({ ...f.receipt, components: [component] }), { mode: 0o600 });
+  };
+  const hooks = { verifyLive: async () => {}, qualifyMilvus: async () => {}, collect };
+  return { ...f, root, calls, collect, hooks, clean: () => rmSync(root, { recursive: true, force: true }) };
+}
+test("sequence orders dependencies, assembles coverage and reuses valid partials without recollecting", async () => {
+  const f = sequenceFixture();
+  try {
+    await f.collect("milvus-data", join(f.root, "milvus-data")); f.calls.length = 0;
+    const result = await runSequence(f.inventory, f.plan, f.root, f.hooks);
+    expect(result.reused).toEqual(["milvus-data"]); expect(result.collected.length).toBe(11);
+    expect(f.calls.indexOf("postgres-data")).toBeLessThan(f.calls.indexOf("mongodb-data"));
+    expect(f.calls.indexOf("redis-acl")).toBeLessThan(f.calls.indexOf("redis-data"));
+    expect(result.artifactIntegrityVerified).toBe(true); expect(result.backupComplete).toBe(false);
+    expect(result.sourceQuiescenceVerified).toBe(false); expect(result.uninstallAllowed).toBe(false);
+    const original = readFileSync(join(f.root, "receipt.json")); f.calls.length = 0;
+    const resumed = await runSequence(f.inventory, f.plan, f.root, f.hooks);
+    expect(resumed.reused.length).toBe(12); expect(f.calls).toEqual([]);
+    expect(readFileSync(join(f.root, "receipt.json"))).toEqual(original);
+  } finally { f.clean(); }
+});
+test("sequence stops on first collector failure and retains preceding successes for explicit resume", async () => {
+  const f = sequenceFixture();
+  try {
+    const order = collectionOrder(f.plan, f.plan.bindings.map(b => b.artifactId));
+    await expect(runSequence(f.inventory, f.plan, f.root, { ...f.hooks, collect: async (id, path) => {
+      if (id === order[1]) throw new Error(CANARY); await f.collect(id, path);
+    } })).rejects.toThrow("backup_sequence_stopped");
+    expect(f.calls).toEqual([order[0]]); expect(existsSync(join(f.root, "receipt.json"))).toBe(false);
+    expect(existsSync(join(f.root, ".backup-sequence.lock"))).toBe(false);
+    const reports = readdirSync(f.root).filter(n => n.startsWith(".backup-sequence-"));
+    expect(reports).toHaveLength(1); const report = readFileSync(join(f.root, reports[0]), "utf8");
+    expect(report).not.toContain(CANARY); expect(JSON.parse(report).component).toBe(order[1]);
+    f.calls.length = 0;
+    const result = await runSequence(f.inventory, f.plan, f.root, f.hooks);
+    expect(result.reused).toEqual([order[0]]); expect(f.calls).not.toContain(order[0]);
+  } finally { f.clean(); }
+});
+test("failed, corrupt, linked, foreign and incomplete partials stop before any collection", async () => {
+  for (const mutation of ["failed", "corrupt", "foreign", "missing", "symlink", "method", "pvc", "public"]) {
+    const f = sequenceFixture();
+    try {
+      const id = "redis-data", dir = join(f.root, id); await f.collect(id, dir); f.calls.length = 0;
+      if (mutation === "failed") writeFileSync(join(dir, "collection.json"), JSON.stringify({ status: "failed", componentId: id }));
+      if (mutation === "corrupt") writeFileSync(join(dir, id + ".bin"), "changed bytes");
+      if (mutation === "missing") rmSync(join(dir, "receipt.json"));
+      if (mutation === "symlink") { const path = join(dir, id + ".bin"); rmSync(path); symlinkSync("/etc/passwd", path); }
+      if (mutation === "public") chmodSync(join(dir, id + ".bin"), 0o644);
+      if (["foreign", "method", "pvc"].includes(mutation)) {
+        const path = join(dir, "receipt.json"), receipt = readPrivateJSON(path);
+        if (mutation === "foreign") receipt.source.uid = "another-source";
+        if (mutation === "method") receipt.components[0].method = "unknown-method";
+        if (mutation === "pvc") receipt.components[0].pvcs = [];
+        writeFileSync(path, JSON.stringify(receipt));
+      }
+      await expect(runSequence(f.inventory, f.plan, f.root, f.hooks)).rejects.toThrow();
+      expect(f.calls).toEqual([]); expect(existsSync(join(f.root, "receipt.json"))).toBe(false);
+    } finally { f.clean(); }
+  }
+});
+test("sequence rejects locks, changed source, collection blockers and unqualified missing Milvus before collection", async () => {
+  for (const kind of ["lock", "source", "blocker", "tool"]) {
+    const f = sequenceFixture();
+    try {
+      if (kind === "lock") mkdirSync(join(f.root, ".backup-sequence.lock"), { mode: 0o700 });
+      if (kind === "blocker") f.plan.collectionBlockers.push("unmapped_pvc:unknown");
+      await expect(runSequence(f.inventory, f.plan, f.root, { ...f.hooks,
+        verifyLive: async () => { if (kind === "source") throw new Error("source changed"); },
+        qualifyMilvus: async () => { if (kind === "tool") throw new Error("tool mismatch"); },
+      })).rejects.toThrow();
+      expect(f.calls).toEqual([]);
+      if (kind === "lock") expect(existsSync(join(f.root, ".backup-sequence.lock"))).toBe(true);
+    } finally { f.clean(); }
+  }
+});
+test("sequence refuses changed definitions mid-run and detects dependency cycles before collection", async () => {
+  const f = sequenceFixture();
+  try {
+    let reads = 0;
+    await expect(runSequence(f.inventory, f.plan, f.root, { ...f.hooks,
+      verifyLive: async () => { if (++reads === 3) throw new Error("source changed"); },
+    })).rejects.toThrow();
+    expect(f.calls).toHaveLength(1); expect(existsSync(join(f.root, "receipt.json"))).toBe(false);
+    f.plan.bindings.find(b => b.artifactId === "postgres-data")!.dependsOn = ["mongodb-data"];
+    expect(() => collectionOrder(f.plan, f.plan.bindings.map(b => b.artifactId))).toThrow("dependency_cycle");
+  } finally { f.clean(); }
 });

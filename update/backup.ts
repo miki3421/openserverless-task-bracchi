@@ -278,13 +278,16 @@ export interface BackupReceipt {
 }
 export async function verifyBackupReceipt(receipt: BackupReceipt, plan: BackupPlan, inventory: MigrationInventory,
     files: ArtifactReader) {
+  return verifyReceiptComponents(receipt, plan, inventory, files, expectedBackupArtifacts(inventory));
+}
+async function verifyReceiptComponents(receipt: BackupReceipt, plan: BackupPlan, inventory: MigrationInventory,
+    files: ArtifactReader, expected: string[]) {
   if (!plan || plan.schemaVersion !== 1 || plan.kind !== "ops-native-backup-plan" ||
       !receipt || receipt.schemaVersion !== 1 || receipt.kind !== "ops-native-backup-receipt" ||
       receipt.inventorySha256 !== inventory.inventorySha256 || plan.inventorySha256 !== inventory.inventorySha256 ||
       canonical(receipt.source) !== canonical(plan.source) || canonical(receipt.procedure) !== canonical(BACKUP_PROCEDURE) ||
       !["per-component-online", "quiesced-final"].includes(receipt.consistency))
     throw new Error("backup_receipt_identity_mismatch");
-  const expected = expectedBackupArtifacts(inventory);
   if (!Array.isArray(receipt.components) || canonical(receipt.components.map(c => c.id).sort()) !== canonical(expected))
     throw new Error("incomplete_or_duplicate_backup_components");
   // Packer integrity never asserts that source quiescence or semantic coverage was independently verified.
@@ -359,6 +362,15 @@ export function protectedArtifactReader(directory: string): ArtifactReader {
     const fd = privateFD(full);
     return { privateRegularFile: true, stream: createReadStream(full, { fd, autoClose: true }) };
   } };
+}
+// Reuse the same identity, method, PVC and streaming checksum checks for resume.
+export async function verifyPartialBackup(inventory: MigrationInventory, plan: BackupPlan, directory: string, id: string) {
+  if (!expectedBackupArtifacts(inventory).includes(id)) throw new Error("unexpected_backup_component");
+  const progress = readPrivateJSON(join(directory, "collection.json"));
+  const receipt = readPrivateJSON(join(directory, "receipt.json")) as BackupReceipt;
+  if (progress.status !== "component-collected-partial-backup" || progress.componentId !== id ||
+      receipt.consistency !== "per-component-online") throw new Error("invalid_or_failed_partial_backup");
+  return verifyReceiptComponents(receipt, plan, inventory, protectedArtifactReader(directory), [id]);
 }
 export async function assembleBackup(inventory: MigrationInventory, plan: BackupPlan, directory: string,
     verifyDefinitions: () => Promise<void>) {

@@ -541,3 +541,17 @@ Run focused tests with the Bun bundled in `ops`:
 bun test update setup/kubernetes/images.test.ts
 OPS_TEST_BINARY=/path/to/installed/ops bun test update/plan.test.ts
 ```
+
+### Sequential online collection
+
+Use `ops update backup-all --inventory=/private/inventory.json
+--artifacts=/private/artifacts --tools=/private/tools --json` to run the existing
+collectors in dependency order. Create the private artifact root first. The
+command reuses validated successful component directories, stops at the first
+failure, and assembles/verifies all receipts after collection. Failed directories
+are evidence and require explicit operator handling; they are not retried or
+replaced. Resume validates all existing partials before any new collection.
+Concurrent sequence runs are refused by an exclusive lock. This command does
+not coordinate application/cron quiescence: its result is an online collection,
+not a final consistent migration backup. See `docopts.md` for resume and stale
+lock handling. Source removal remains blocked.

@@ -81,6 +81,15 @@ tasks:
     cmds:
       - bun native.ts
 
+  backup-all:
+    desc: collect all native backup components sequentially, resume verified partials and verify combined coverage
+    silent: true
+    env:
+      OPS_UPDATE_REQUEST: >-
+        {"inventory":{{toJson (default "" .__inventory)}},"artifacts":{{toJson (default "" .__artifacts)}},"tools":{{toJson (default "" .__tools)}},"json":{{toJson (default false .__json)}}}
+    cmds:
+      - bun sequence.ts
+
   backup-verify:
     desc: verify native backup artifact integrity and declared inventory coverage without restoring data
     silent: true
