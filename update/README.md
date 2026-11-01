@@ -208,6 +208,14 @@ then insufficient to prove tenant authentication or private-object isolation.
 Record the inherited policy and separately qualify the target's intended public
 and private access using operations that exercise authorization.
 
+For the 0.1.0 to 0.9.0 route, follow the mandatory IAM acceptance sequence in
+[the migration checklist](migration-0.1.0-to-0.9.0.md). The independent November 1
+archive replay reproduced an anonymous `200` on a private bucket despite matching
+IAM bytes and successful native data checks. After anonymous grants were replaced
+with the declared web-bucket allowlist, both tenants passed authenticated object
+GET/Range, anonymous and peer denial, and public web-content checks. Native-stage
+normalization does not replace reconciliation after the final 0.9.0 restore.
+
 After **all** filer/IAM contents and mapped tenant definitions are restored,
 run the explicit security step before enabling ingress or applications:
 
