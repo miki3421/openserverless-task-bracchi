@@ -28,14 +28,17 @@ def collection(deletes=True):
 
 class MilvusRows(unittest.TestCase):
     def test_upsert_log_versions_are_not_visible_row_count(self):
-        result=verify_visible_rows(collection(),[{}, {}, {}],{'rowCount':3})
+        result=verify_visible_rows(collection(),[{}, {}, {}],[{'count(*)':3}])
         self.assertEqual(result['nativeInsertRows'],12);self.assertEqual(result['restoredVisibleRows'],3)
         self.assertFalse(result['sourceLogicalFingerprintRecorded'])
     def test_missing_query_rows_or_unexplained_reduction_fail(self):
-        for rows,stats in [([{}],{'rowCount':3}),([{}]*13,{'rowCount':13}),([] ,{'rowCount':True})]:
+        for rows,stats in [([{}],[{'count(*)':3}]),([{}]*13,[{'count(*)':13}]),([] ,[{'count(*)':True}])]:
             with self.assertRaises(ValueError):verify_visible_rows(collection(),rows,stats)
-        with self.assertRaises(ValueError):verify_visible_rows(collection(False),[{}]*3,{'rowCount':3})
+        with self.assertRaises(ValueError):verify_visible_rows(collection(False),[{}]*3,[{'count(*)':3}])
+    def test_segment_statistics_are_not_a_count_query(self):
+        for result in [{'rowCount':12},[],[{'rowCount':3}],[{'count(*)':-1}],[{'count(*)':3}]*2]:
+            with self.assertRaises(ValueError):verify_visible_rows(collection(),[{}]*3,result)
     def test_exact_insert_rows_remain_strict_without_deletes(self):
-        self.assertEqual(verify_visible_rows(collection(False),[{}]*12,{'rowCount':'12'})['restoredVisibleRows'],12)
+        self.assertEqual(verify_visible_rows(collection(False),[{}]*12,[{'count(*)':'12'}])['restoredVisibleRows'],12)
 
 if __name__=='__main__':unittest.main()

@@ -75,9 +75,9 @@ for index, collection in enumerate(collections):
             raise ValueError('Restored Milvus collection load deadline exceeded')
         time.sleep(1)
     expected_count = sum(segment_row_count(s) for p in collection.get('partition_backups', []) for s in p.get('segment_backups', []))
-    rows = success('entities/query', dict(params, filter='', outputFields=['*'], limit=expected_count + 1), 'root:' + root_password)
-    statistics=success('collections/get_stats',params,'root:'+root_password)
-    row_evidence.append(verify_visible_rows(collection,rows,statistics))
+    rows = success('entities/query', dict(params, filter='', outputFields=['*'], limit=expected_count + 1, consistencyLevel='Strong'), 'root:' + root_password)
+    counted=success('entities/query',dict(params,filter='',outputFields=['count(*)'],consistencyLevel='Strong'),'root:'+root_password)
+    row_evidence.append(verify_visible_rows(collection,rows,counted))
     root_rows[(database, name)] = canonical_rows(rows)
 profiles = []
 for row in lab.configuration['resources']:
@@ -90,7 +90,7 @@ for index, profile in enumerate(profiles):
     own = [(db, name) for db, name in root_rows if db == profile['database']]
     token = profile['username'] + ':' + profile['password']
     for database, name in own:
-        rows = success('entities/query', {'dbName': database, 'collectionName': name, 'filter': '', 'outputFields': ['*'], 'limit': len(json.loads(root_rows[(database,name)]))+1}, token)
+        rows = success('entities/query', {'dbName': database, 'collectionName': name, 'filter': '', 'outputFields': ['*'], 'limit': len(json.loads(root_rows[(database,name)]))+1, 'consistencyLevel':'Strong'}, token)
         if canonical_rows(rows) != root_rows[(database, name)]:
             raise ValueError('Milvus tenant data differs from restored root reference')
         owner_checks.append({'tenantIndex': index, 'documents': len(rows)})

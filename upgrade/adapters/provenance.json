@@ -144,8 +144,8 @@
       "upgrade/adapters/promotion_library.py": "726e86f3a15eb501e5f803b7fb650526b08d9311b783fa661175aa73a29f503b",
       "upgrade/adapters/prepare_fresh_restore.py": "ea11fa161933b5ba9ca3a9f8d65b32da10267192c4e8a8a1923dbe0cd6a01c86",
       "upgrade/adapters/restore_scope.py": "b5fa0bd365d8404838499ff4bb8a7655d9b5ccc70fbac54ed4119762a0501ca7",
-      "upgrade/adapters/milvus_metadata.py": "b5c85b1303982a237ec5952be494f9cf44c3c22335c9538cbd370e7a7afdb3ba",
-      "upgrade/adapters/verify_milvus.py": "d9e7a19182f3f6e5586a763607f36bbb58d17390698d58c0b280fc0da479d821"
+      "upgrade/adapters/milvus_metadata.py": "62fb3a491c998b7fcea0e21bb1021c3c1f46fc2b64ccfe294e7c3f3d7643bc2c",
+      "upgrade/adapters/verify_milvus.py": "d2d2f5f6fdb5bb724cea5fd75bd554af64b66fa7c5530d117e98cef139386fa0"
     }
   }
 }
