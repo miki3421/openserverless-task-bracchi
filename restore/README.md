@@ -9,7 +9,8 @@ Nuvolaris0.1 installation with the qualified ten-PVC layout, collected by the
 canonical backup engine's `ops-native-v1` kind collector, into a distinct empty
 single-node AMD64 K3s cluster at the pinned target version. Classic kind backups,
 arbitrary versions, nonstandard layouts and existing installations are rejected.
-The route remains unqualified until a populated application restore passes.
+The completed synthetic rehearsal and its exact scope are recorded in
+[the qualification report](qualification-kind-010-to-k3s-090.md).
 
 The profile explicitly identifies the source cluster/namespace/Whisk and the
 destination UUID, hostname, address and Kubernetes UID. It selects one immutable

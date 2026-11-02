@@ -138,7 +138,7 @@
   "restoreRouteExtension": {
     "baseUpgradeCommit": "6743f490718ba2d011600eb7d6477bd1affa303e",
     "route": "kind-010-to-k3s-090",
-    "qualification": "local candidate; populated cross-layout recovery pending",
+    "qualification": "synthetic native kind0.1 to K3s0.9 automated rehearsal passed; operator-led repeat pending",
     "files": {
       "upgrade/adapters/driver.py": "235ab59c9ebbcd5036ac70d5649a75e4a47b90b543c70c8f0c5388806a92299c",
       "upgrade/adapters/promotion_library.py": "726e86f3a15eb501e5f803b7fb650526b08d9311b783fa661175aa73a29f503b",
@@ -149,6 +149,8 @@
       "upgrade/adapters/prepare_target_databases.py": "358effbd2a182df23746fb659c29982ede860b533f199cd2dafc4a8d6f7b66f0",
       "upgrade/adapters/restore_etcd.py": "bd086fec2f76d1c95b8534d0efa83c2ddd0aff247bdefc0ee00e95cb92a7c73d",
       "upgrade/adapters/etcd_readiness.py": "bdae5dcf5f920c80f4334dd28b5e214ba52ba8199889b5869cac1db591b68534"
-    }
+    },
+    "executedTaskCommit": "78600137b5fdd5bca9590dab2a2ac334a6e26d69",
+    "qualificationReport": "restore/qualification-kind-010-to-k3s-090.md"
   }
 }
