@@ -32,11 +32,15 @@ def validate(cfg, directory):
           report['source_invocation_unchanged'] is True, 'Complete successful online collection required')
     plan = read_json(directory / 'plan.json', cfg); validate_plan(cfg, plan, report['plan_digest'])
     inventory = plan['inventory']; expected = set(NATIVE_FILES)
+    if cfg.online.get('collector') == 'ops-native-v1': expected.add('source-selection.json')
     expected.update(extra_files(inventory['extra_pvcs']))
     for ns, observed in inventory['namespaces'].items():
         app_root = directory / 'applications' / ns
         app = read_json(app_root / 'applications-report.json', cfg)
         validate_applications(app, app_root, configuration_sha256=cfg.fingerprint, expected_plan=observed['plan'])
+        if cfg.online.get('collector') == 'ops-native-v1':
+            from .native_ops import validate_payload
+            validate_payload(cfg, app_root, observed['plan'])
         expected.add(f'applications/{ns}/applications-report.json')
         for component in app['components'].values():
             expected.update(f'applications/{ns}/' + a['file'] for a in component['artifacts'])
@@ -67,6 +71,8 @@ def collect(cfg, plan, approval, workspace, *, io_factory=OnlineIO, component_fa
 
 
 def _collect(cfg, plan, approval, workspace, io_factory, component_factory):
+    check(cfg.online.get('collector') != 'ops-native-v1' or component_factory is not Components,
+          'Use ops backup for the shared native kind collector')
     os.umask(0o077); cfg.directory(cfg.root)
     # Refuse plaintext acquisition when the later encryption key is unavailable.
     # Read metadata only: the password value is never loaded here.
@@ -98,6 +104,8 @@ def _collect(cfg, plan, approval, workspace, io_factory, component_factory):
               'plan_digest': approval, 'status': 'failed', 'services_stopped': False, 'started_at': now(),
               'finished_at': None, 'source_invocation_unchanged': False, 'artifacts': []}
     write_json(workspace / 'plan.json', plan, cfg)
+    if cfg.online.get('collector') == 'ops-native-v1':
+        write_json(workspace / 'source-selection.json', cfg.document, cfg)
     snapshot = '/var/lib/etcd/.ops-online-' + uuid.uuid4().hex + '.db'
     snapshot_attempted = False
     try:

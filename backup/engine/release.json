@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
   "repository": "https://github.com/miki3421/ops-k3s-backup",
-  "revision": "215685a9651c654be00ad8cbadcd7eb46427652a",
+  "revision": "124aa98cc1fadbee53543ee4c0f006c49d7939df",
   "files": [
     {
       "path": "adapters/ops-native/LICENSE",
@@ -15,8 +15,8 @@
     },
     {
       "path": "adapters/ops-native/cluster.ts",
-      "bytes": 14420,
-      "sha256": "8973880fd8ceb02ab5886b06eaaa244436098f47e23753b988eece5a5e314f74"
+      "bytes": 16224,
+      "sha256": "a9ce0e00e9eedb84371e32146915b1b9a32aa2112444f333faae8710f7f00c5c"
     },
     {
       "path": "adapters/ops-native/empty-milvus.ts",
@@ -27,6 +27,11 @@
       "path": "adapters/ops-native/files.ts",
       "bytes": 626,
       "sha256": "8a31f54cebc5ce79ae88eac6e0220a47fa8fbc72d114f7b4a0af486f30832d0b"
+    },
+    {
+      "path": "adapters/ops-native/kind.ts",
+      "bytes": 1215,
+      "sha256": "c3670fd62746aa84e8f089d356fe8fba961a630a38b0ee47ec458fa916a37d9e"
     },
     {
       "path": "adapters/ops-native/postgres-binding.ts",
@@ -150,8 +155,8 @@
     },
     {
       "path": "scripts/backup_manifest.py",
-      "bytes": 11284,
-      "sha256": "534d049459b91587016d01be28149cb42b61e621f3b12bb73c287a5f1b4465b5"
+      "bytes": 11358,
+      "sha256": "fdd786c670936e093aecc1ddda737aa65a12478f25ea16bd9ebd4da011899338"
     },
     {
       "path": "scripts/capture_host_files.py",
@@ -304,9 +309,14 @@
       "sha256": "15e665e4fea554fdbddd39882b5ddd8d034901e69b0400208c9b1c0e6be5d55e"
     },
     {
+      "path": "scripts/kind_adapter/native_ops.py",
+      "bytes": 12031,
+      "sha256": "88c75c9c7167a82da3e6bf1cfcf1e9b8d0a72e947317d4c148dac9da6fc9d016"
+    },
+    {
       "path": "scripts/kind_adapter/online_collection.py",
-      "bytes": 10718,
-      "sha256": "de8df960e3a844cbed5fd779317bd2a484883ac25f735540776b4a5db2f05a9a"
+      "bytes": 11277,
+      "sha256": "2d37685ec615635a66777c088424d31f432d1bf2b75660dba915971961a9cb59"
     },
     {
       "path": "scripts/kind_adapter/online_components.py",
@@ -315,13 +325,13 @@
     },
     {
       "path": "scripts/kind_adapter/online_inventory.py",
-      "bytes": 10984,
-      "sha256": "1613e63665349c81905e5aedf0af334523fc116add3b1f800c2e05944129d823"
+      "bytes": 11270,
+      "sha256": "c096719f64f1bf9607dac031b6eccb981661389533f9b83ca60cd3ac1ffaa216"
     },
     {
       "path": "scripts/kind_adapter/online_io.py",
-      "bytes": 8290,
-      "sha256": "aac0f0aa5c6e637684fb84f57a7537c3890c20bbbe90e2639ac153b5d257e33f"
+      "bytes": 8716,
+      "sha256": "46f60863e3347948b1b2ab3d36498aa6fb34e8826f399628d9701121d7a76ea7"
     },
     {
       "path": "scripts/kind_adapter/profiles.py",
@@ -332,6 +342,11 @@
       "path": "scripts/kind_backup.py",
       "bytes": 3311,
       "sha256": "ce62e1e4afbb3a7c03e53c29f9db6b53ceae3acdc5404afc2615d4d3fc2bafbd"
+    },
+    {
+      "path": "scripts/kind_native_network.py",
+      "bytes": 7078,
+      "sha256": "1f89a7183baa6c68a425176f5784a5a243b5f8383c90baacfabe7a036820f1c0"
     },
     {
       "path": "scripts/kind_online_backup.py",
@@ -370,8 +385,8 @@
     },
     {
       "path": "scripts/ops_backup.py",
-      "bytes": 16923,
-      "sha256": "dd0584542e0162bb880bd2d3c30bea8af5693ce3ed66ec6c8f9b3ee3e201e69c"
+      "bytes": 17353,
+      "sha256": "b3cfd4abc03eea4d943073b7e50e0382c05d45fd70ba5410fb80c328242d6db3"
     },
     {
       "path": "scripts/pack-real-backup.py",

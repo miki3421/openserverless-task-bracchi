@@ -125,6 +125,10 @@ def observe(cfg, io):
             check(len(pod['spec']['containers']) == 1, 'Multi-container collectors require explicit qualification')
             for claim, row in fs.items():
                 if row['pod'] == name: row['mount'] = filesystem_mapping(pod, claim)
+        if cfg.online.get('collector') == 'ops-native-v1':
+            plan = {**plan, 'collector': 'ops-native-v1', 'nativePlan': plan,
+                    'requiredComponents': ['ops-native-payload'],
+                    'pvcs': {name: 'ops-native-payload' for name in plan['pvcs']}}
         namespaces[namespace] = {'plan': plan, 'pods': pins, 'method_pods': methods, 'filesystems': fs}
     images = io.execute(docker(cfg.kind, 'exec', cfg.source['container_id'], 'ctr', '--namespace', 'k8s.io',
                                'images', 'list', '-q')).decode().splitlines()

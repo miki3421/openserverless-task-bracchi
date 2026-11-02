@@ -166,6 +166,17 @@ class KindBackend:
     def __init__(self, cfg, archive, run, bun):
         self.cfg, self.archive, self.run = cfg, archive, run
         write_json(run / 'source.json', cfg.document, archive)
+        cfg.native_source_file = run / 'source.json'
+        cfg.native_run = run
+        if bun: cfg.native_bun = Path(bun)
+
+    @property
+    def component_factory(self):
+        if self.cfg.online.get('collector') == 'ops-native-v1':
+            from kind_adapter.native_ops import NativeComponents
+            return NativeComponents
+        from kind_adapter.online_components import Components
+        return Components
 
     def preflight(self):
         from kind_adapter import docker
@@ -177,15 +188,15 @@ class KindBackend:
         prefix = docker(self.cfg.kind, 'exec', self.cfg.source['container_id'], 'ctr', '--namespace', 'k8s.io')
         selected, targets, proof = inspect_cache(prefix, observed['kind']['node_info']['architecture'])
         check(selected == observed['images'] and targets == observed['image_scope']['targets'], 'Image roots changed during preflight')
-        from kind_adapter.online_components import Components
-        for namespace, info in observed['namespaces'].items(): Components(self.cfg, io, namespace, info, None).preflight()
+        for namespace, info in observed['namespaces'].items():
+            self.component_factory(self.cfg, io, namespace, info, None).preflight()
         write_json(self.run / 'cache-coverage.json', proof, self.archive)
         return {'profile': 'single-node-online-kind', 'sourceClusterUid': self.cfg.source['cluster_uid'],
                 'planDigest': fingerprint(self.plan)}
 
     def collect(self):
         self.collection = self.run / 'collection'
-        kind_collect(self.cfg, self.plan, self.plan['digest'], self.collection)
+        kind_collect(self.cfg, self.plan, self.plan['digest'], self.collection, component_factory=self.component_factory)
 
     def assemble(self):
         kind_validate(self.cfg, self.collection)

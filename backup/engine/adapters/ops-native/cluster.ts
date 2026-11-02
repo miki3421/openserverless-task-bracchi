@@ -39,12 +39,17 @@ export function checkedSource(configPath: string) {
   return { config, read, rawRead };
 }
 
-export function clusterCoverage(config: any, inventory: any, plan: any, read: any) {
+export function clusterCoverage(config: any, inventory: any, plan: any, read: any, platform: "k3s" | "kind" = "k3s") {
   const all = (resource: string) => read(["get", resource, "-A", "-ojson"], true).items;
   const nodes = read(["get", "nodes", "-ojson"], true).items;
-  if (nodes.length !== 1 || !nodes[0].status?.nodeInfo?.kubeletVersion?.includes("+k3s") ||
+  if (!["k3s", "kind"].includes(platform) || nodes.length !== 1 ||
+      (platform === "k3s" ? !nodes[0].status?.nodeInfo?.kubeletVersion?.includes("+k3s") :
+        !/^v\d+\.\d+\.\d+(?:[-+].*)?$/.test(nodes[0].status?.nodeInfo?.kubeletVersion || "") ||
+        nodes[0].status.nodeInfo.kubeletVersion.includes("+k3s") ||
+        !/^[a-f0-9]{64}$/.test(config.kindTransport?.containerId || "") ||
+        config.kindTransport.node !== config.source.node || nodes[0].metadata.name !== config.source.node) ||
       !nodes[0].status.conditions?.some((c: any) => c.type === "Ready" && c.status === "True"))
-    throw new Error("qualified_single_node_k3s_required");
+    throw new Error("qualified_single_node_" + platform + "_required");
   const crds = all("customresourcedefinitions.apiextensions.k8s.io");
   const whisks = ["nuvolaris", "openserverless"].flatMap(brand => crds.some((r: any) => r.metadata.name === "whisks." + brand + ".org")
     ? all("whisks." + brand + ".org") : []);
@@ -73,11 +78,12 @@ export function clusterCoverage(config: any, inventory: any, plan: any, read: an
   for (const pod of all("pods")) for (const volume of pod.spec?.volumes || []) {
     const path = volume.hostPath?.path;
     if (!path) continue;
-    const native = pod.metadata.namespace === "kube-system" &&
-      (path === "/run/xtables.lock" || path === "/var/lib/rancher/k3s/storage");
+    const native = platform === "k3s" ? pod.metadata.namespace === "kube-system" &&
+      (path === "/run/xtables.lock" || path === "/var/lib/rancher/k3s/storage") :
+      kindSystemPath(pod, path, config.source.node);
     if (!native && !covered(path)) throw new Error("unmapped_host_path_requires_adapter");
     hostPaths.push({ namespace: pod.metadata.namespace, pod: pod.metadata.name, volume: volume.name, path,
-      method: native ? "native-k3s-rebuild-or-covered-pv" : "explicit-host-files" });
+      method: native ? "native-" + platform + "-rebuild-or-covered-pv" : "explicit-host-files" });
   }
   const sorted = (rows: any[]) => rows.sort((a, b) => canonical(a).localeCompare(canonical(b)));
   return { sourceClusterUid: plan.source.clusterUid, nodeUid: nodes[0].metadata.uid,
@@ -89,7 +95,23 @@ export function clusterCoverage(config: any, inventory: any, plan: any, read: an
     hostPaths: sorted(hostPaths), exclusions: sorted([...excluded]), nativeControlPlaneRequired: true, cachedImagesRequired: true };
 }
 
-export async function preflight(configPath: string, output: string) {
+export function kindSystemPath(pod: any, path: string, node: string): boolean {
+  if (pod.metadata.namespace !== "kube-system" || pod.spec.nodeName !== node) return false;
+  const certificates = ["/etc/ssl/certs", "/etc/ca-certificates", "/usr/local/share/ca-certificates", "/usr/share/ca-certificates"];
+  const paths: Record<string, string[]> = {
+    ["etcd-" + node]: ["/etc/kubernetes/pki/etcd", "/var/lib/etcd"],
+    ["kube-apiserver-" + node]: [...certificates, "/etc/kubernetes/pki"],
+    ["kube-controller-manager-" + node]: [...certificates, "/etc/kubernetes/pki", "/etc/kubernetes/controller-manager.conf", "/usr/libexec/kubernetes/kubelet-plugins/volume/exec"],
+    ["kube-scheduler-" + node]: ["/etc/kubernetes/scheduler.conf"],
+  };
+  if (paths[pod.metadata.name]?.includes(path)) return true;
+  if (pod.metadata.name.startsWith("kindnet-") && pod.metadata.labels?.app === "kindnet")
+    return ["/etc/cni/net.d", "/run/xtables.lock", "/lib/modules", "/var/run/nri"].includes(path);
+  return pod.metadata.name.startsWith("kube-proxy-") && pod.metadata.labels?.["k8s-app"] === "kube-proxy" &&
+    ["/run/xtables.lock", "/lib/modules"].includes(path);
+}
+
+export async function preflight(configPath: string, output: string, platform: "k3s" | "kind" = "k3s") {
   const { config, read, rawRead } = checkedSource(configPath);
   const { source, stack } = config;
   output = resolve(output);
@@ -99,7 +121,7 @@ export async function preflight(configPath: string, output: string) {
     throw new Error("capture_parent_not_private");
   const inventory = await inventoryMigration({ ...stack, context: source.context }, read, undefined, localClient(import.meta.dir));
   const plan = planBackup(inventory, read);
-  const cluster = clusterCoverage(config, inventory, plan, rawRead);
+  const cluster = clusterCoverage(config, inventory, plan, rawRead, platform);
   if (plan.collectionBlockers.some((b: string) => b !== "milvus_native_backup_requires_qualification"))
     throw new Error("capture_collection_blockers_present");
   if (plan.bindings.some((b: any) => b.artifactId === "milvus-data")) {
@@ -156,7 +178,7 @@ export async function collectOne(configPath: string, workspace: string, componen
   return collectNativeComponent(inventory, plan, component, workspace + "/" + component, read);
 }
 
-export async function collectAll(configPath: string, workspace: string) {
+export async function collectAll(configPath: string, workspace: string, platform: "k3s" | "kind" = "k3s") {
   const { config, read, rawRead } = checkedSource(configPath);
   const inventory = readPrivateJSON(join(workspace, "inventory.json")), plan = readPrivateJSON(join(workspace, "plan.json"));
   const saved = readPrivateJSON(join(workspace, "cluster-plan.json"));
@@ -164,7 +186,7 @@ export async function collectAll(configPath: string, workspace: string) {
     await verifyLiveInventory(inventory, read);
     if (plan.ferretdbBackend && canonical(planBackup(inventory, read).ferretdbBackend || null) !== canonical(plan.ferretdbBackend))
       throw new Error("ferretdb_backend_binding_changed");
-    if (canonical(clusterCoverage(config, inventory, plan, rawRead)) !== canonical(saved))
+    if (canonical(clusterCoverage(config, inventory, plan, rawRead, platform)) !== canonical(saved))
       throw new Error("cluster_scope_changed_during_capture");
   };
   return runSequence(inventory, plan, workspace, { verifyLive: check,

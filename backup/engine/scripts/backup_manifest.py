@@ -23,6 +23,7 @@ REQUIRED_FILES = {
     'seaweedfs': {'seaweedfs/filer.meta', 'seaweedfs/filer-manifest.json'},
     'openwhisk-catalog': {'openwhisk-catalog.json'},
     'admin-api-python-environment': {'admin-api-python-environment.tar'},
+    'ops-native-payload': {'ops-native.tar', 'ops-native-manifest.json'},
 }
 CLAIM_METHODS = (
     ('postgres-db-openserverless-postgres-', 'postgres'),

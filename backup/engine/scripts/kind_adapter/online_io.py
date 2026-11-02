@@ -26,8 +26,12 @@ class OnlineConfig:
         self.document = data
         self.online = data['online']
         required = {'namespaces', 'excluded_pvcs', 'etcd_container', 'etcd_status_tool'}
-        check(isinstance(self.online, dict) and required <= set(self.online) <= required | {'profile', 'extra_pvcs'},
+        check(isinstance(self.online, dict) and required <= set(self.online) <= required | {'profile', 'extra_pvcs', 'collector'},
               'Closed online settings required')
+        check(self.online.get('collector', 'classic-v1') in {'classic-v1', 'ops-native-v1'}, 'Unknown kind collector')
+        if self.online.get('collector') == 'ops-native-v1':
+            check(isinstance(self.online['namespaces'], list) and len(self.online['namespaces']) == 1 and not self.online.get('extra_pvcs'),
+                  'Native kind collection currently requires one standard OPS installation')
         from .profiles import profile
         profile(self)
         namespaces = self.online['namespaces']
