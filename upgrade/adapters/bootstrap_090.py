@@ -74,8 +74,11 @@ if not task.exists():
 head = p.run('task-commit', ['git', '-C', str(task), 'rev-parse', 'HEAD'], env={**os.environ, 'GIT_CONFIG_COUNT':'1','GIT_CONFIG_KEY_0':'safe.directory','GIT_CONFIG_VALUE_0':str(task)}).stdout.decode().strip()
 if head != p.plan['taskCommit']:
     raise ValueError('Task commit differs')
-config = home / '.kube/config'; shutil.copyfile('/etc/rancher/k3s/k3s.yaml', config)
-os.chown(config, account.pw_uid, account.pw_gid); config.chmod(0o600)
+helpers={}
+exec(compile(source('kubeconfig_sync.py'),'kubeconfig_sync.py','exec'),helpers)
+refreshed=helpers['refresh_kubeconfigs']('/etc/rancher/k3s/k3s.yaml', ROOT/'source-rollback/kubeconfig.private.yaml',
+    home, account.pw_uid, account.pw_gid, PLAN['guestIp'], PLAN['hostname'], p.root/'kubeconfig-before-refresh')
+p.state.update(refreshed)
 p.state['homeToolingPrepared'] = True; p.save()
 print(json.dumps({'freshClusterUid':p.cluster_uid, 'k3sVersion':'v1.36.4+k3s1', 'imageArchivesImported':3,
                   'dnsReady':True, 'opsInstalledInUserHome':True, 'tasksPinned':head, 'applicationsInvoked':False}))

@@ -71,6 +71,13 @@ integrity, unchanged target pins, staged inputs and source maintenance are check
 again. Completed restores are reused; the interrupted verification gets separate
 attempt logs. Other interruptions still require a separate recovery review.
 
+After the K3s CA rotation, refresh both the user kubeconfig and the OPS-preferred
+`~/.ops/tmp/kubeconfig`, including existing saved aliases for this local server.
+The refresh preserves the selected local endpoint, replaces CA and client
+credentials together, retains private prior copies and rejects foreign clusters,
+links and multiple contexts. Completion also runs the actual user
+`ops setup status`; privileged API reads alone do not verify the user CLI path.
+
 Phase messages explain the action and purpose. Native component messages report
 START, PASS or ALREADY VERIFIED; arbitrary worker output stays in private logs.
 The user executes the complete upgrade during the fresh-VM rehearsal; read-only
