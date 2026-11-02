@@ -19,7 +19,7 @@ import copy,hashlib,io,json,os,sys,tarfile,tempfile,unittest
 from pathlib import Path
 sys.path.insert(0,str(Path(__file__).resolve().parent))
 from lib import validate_profile,selected_snapshot,extract_native,private_json,interface_name,interface_address
-from service_dns import dns_question,valid_dns_response
+from service_dns import dns_question,valid_dns_response,bound_dns_endpoint
 guard={};exec(compile((Path(__file__).resolve().parents[1]/'upgrade/adapters/restore_scope.py').read_text(),'restore_scope.py','exec'),guard)
 promotion_binding=guard['promotion_binding']
 
@@ -30,6 +30,13 @@ def profile():
       'user':{'uid':1000,'name':'fixture','home':'/home/fixture'},'archive':{'repository':'/private/repository','snapshot':'e'*64,'passwordFile':'/private/password','restic':'/private/restic','resticSha256':'f'*64},'assets':{'directory':'/private/assets','manifestSha256':'0'*64},'maxRestoreBytes':1024**3}
 
 class RestoreContract(unittest.TestCase):
+    def test_dns_query_endpoint_is_bound_to_ready_selected_pod(self):
+        p={'metadata':{'uid':'dns','namespace':'kube-system','name':'coredns-x'},'status':{'phase':'Running','podIP':'10.54.0.2','conditions':[{'type':'Ready','status':'True'}]}}
+        s={'metadata':{'namespace':'kube-system','labels':{'kubernetes.io/service-name':'kube-dns'}},'endpoints':[{'addresses':['10.54.0.2'],'conditions':{'ready':True},'targetRef':{'kind':'Pod','name':'coredns-x','uid':'dns'}}]}
+        self.assertEqual(bound_dns_endpoint([p],[s]),'10.54.0.2')
+        for key,value in [('addresses',['192.0.2.10']),('targetRef',{'kind':'Pod','name':'other','uid':'other'}),('conditions',{'ready':False})]:
+            wrong=copy.deepcopy(s);wrong['endpoints'][0][key]=value
+            with self.assertRaises(ValueError):bound_dns_endpoint([p],[wrong])
     def test_dns_requires_correlated_successful_service_answer(self):
         import struct
         question=dns_question(42);response=struct.pack('!HHHHHH',42,0x8180,1,1,0,0)+question[12:]+b'\xc0\x0c\0\1\0\1\0\0\0\1\0\4\x0a\x37\0\1'

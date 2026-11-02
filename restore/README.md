@@ -27,6 +27,9 @@ backup, and verifies every portable artifact before the first backend restore.
 Pinned target system images are imported before the first pod. CoreDNS is then
 started and a real query for the Kubernetes service must pass before any native
 backend recovery; ingress and other addons remain disabled at that stage.
+On the host without a default route, that query uses a ready CoreDNS pod address
+bound to the selected DNS Service/EndpointSlice and pod UID. It does not require
+adding a host route for the virtual service subnet.
 
 Only the portable application/backend payload and verified OCI application
 images are used. The kind node image, source bootstrap and kind Kubernetes etcd

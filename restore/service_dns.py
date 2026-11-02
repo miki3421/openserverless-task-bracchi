@@ -17,6 +17,7 @@
 
 """Start the pinned fresh-cluster DNS before restoring backends with service names."""
 import json,os,socket,struct,subprocess,time
+import ipaddress
 from pathlib import Path
 from lib import require,private_json
 
@@ -28,6 +29,20 @@ def valid_dns_response(request,response):
     if len(response)<len(request):return False
     identifier,flags,questions,answers,_,_=struct.unpack('!HHHHHH',response[:12])
     return identifier==struct.unpack('!H',request[:2])[0]and flags&0x8000!=0 and flags&15==0 and questions==1 and answers>0 and response[12:len(request)]==request[12:]
+
+def bound_dns_endpoint(pods,slices):
+    ready={p['metadata']['uid']:p for p in pods if p['metadata']['namespace']=='kube-system'and p.get('status',{}).get('phase')=='Running'and any(c['type']=='Ready'and c['status']=='True'for c in p['status'].get('conditions',[]))}
+    addresses=[]
+    for row in slices:
+        require(row['metadata']['namespace']=='kube-system'and row['metadata']['labels'].get('kubernetes.io/service-name')=='kube-dns','unexpected_dns_endpoint_slice')
+        for endpoint in row.get('endpoints')or[]:
+            if endpoint.get('conditions',{}).get('ready')is not True:continue
+            ref=endpoint.get('targetRef',{});pod=ready.get(ref.get('uid'))
+            require(pod is not None and ref.get('kind')=='Pod'and ref.get('name')==pod['metadata']['name'],'dns_endpoint_pod_binding_mismatch')
+            require(endpoint['addresses']==[pod['status']['podIP']],'dns_endpoint_address_binding_mismatch')
+            address=endpoint['addresses'][0];require(ipaddress.ip_address(address)in ipaddress.ip_network('10.54.0.0/16'),'dns_endpoint_outside_target_pods');addresses.append(address)
+    require(addresses,'ready_dns_endpoint_required')
+    return sorted(set(addresses))[0]
 
 def enable_dns(path,target,kube,run):
     path=Path(path);config=private_json(path,0)
@@ -53,13 +68,19 @@ def enable_dns(path,target,kube,run):
     run('isolated-dns-ready',kube+['-n','kube-system','rollout','status','deployment/coredns','--timeout=180s'])
     service=json.loads(run('isolated-dns-service',kube+['-n','kube-system','get','service/kube-dns','-ojson']))
     require(service['spec']['clusterIP']=='10.55.0.10'and{(p['port'],p['protocol'])for p in service['spec']['ports']} >= {(53,'UDP'),(53,'TCP')},'target_dns_service_binding_mismatch')
+    pods=json.loads(run('isolated-dns-pods',kube+['-n','kube-system','get','pods','-l','k8s-app=kube-dns','-ojson']))['items']
+    slices=json.loads(run('isolated-dns-endpoint-slices',kube+['-n','kube-system','get','endpointslices','-l','kubernetes.io/service-name=kube-dns','-ojson']))['items']
+    address=bound_dns_endpoint(pods,slices)
     deadline=time.monotonic()+45
     while True:
         identifier=int.from_bytes(os.urandom(2),'big');question=dns_question(identifier)
         with socket.socket(socket.AF_INET,socket.SOCK_DGRAM)as client:
             client.settimeout(3)
-            try:client.sendto(question,('10.55.0.10',53));response,_=client.recvfrom(4096);valid=valid_dns_response(question,response)
+            # Without a host default route, Linux cannot initially route the
+            # virtual service address before OUTPUT DNAT. Query its exact ready
+            # pod endpoint instead; keep Service/EndpointSlice/Pod UID binding.
+            try:client.sendto(question,(address,53));response,_=client.recvfrom(4096);valid=valid_dns_response(question,response)
             except OSError:valid=False
         if valid:break
         require(time.monotonic()<deadline,'target_service_dns_query_failed');time.sleep(2)
-    return {'dnsReadyBeforeNativeRestore':True,'localServiceDnsQueryPassed':True,'clusterUidUnchanged':True}
+    return {'dnsReadyBeforeNativeRestore':True,'localServiceDnsQueryPassed':True,'clusterUidUnchanged':True,'queryTransport':'verified-coredns-pod-endpoint'}
