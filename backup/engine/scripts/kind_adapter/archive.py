@@ -62,6 +62,35 @@ class Restic:
         return process.stdout.decode('utf-8')
 
 
+def private_restore_parents(cfg, destination, restored):
+    """Tighten only restore-created prefix directories inside the private target.
+
+    Restic restores absolute source paths below the target and may explicitly
+    create missing prefix directories with0755 despite umask077. Never chmod
+    payload files or follow a link while preparing this verified boundary.
+    """
+    destination = cfg.directory(destination)
+    restored = Path(restored)
+    check(restored.is_relative_to(destination) and restored != destination and
+          '..' not in restored.parts, 'Restored payload outside private target')
+    fd = os.open(destination, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW)
+    try:
+        for part in restored.relative_to(destination).parts[:-1]:
+            child = os.open(part, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW, dir_fd=fd)
+            try:
+                info = os.fstat(child)
+                check(stat.S_ISDIR(info.st_mode) and info.st_uid == os.geteuid(),
+                      'Restore prefix owner mismatch')
+                os.fchmod(child, 0o700)
+            except BaseException:
+                os.close(child); raise
+            os.close(fd); fd = child
+    finally:
+        os.close(fd)
+    # The actual payload root retains its independently captured private mode.
+    return cfg.directory(restored)
+
+
 def seal(cfg, collection, repository, evidence, restic_factory=Restic, *, validator=validate_collection,
          tag='kind-cold-v1', receipt_name='kind-collection.json', result_schema='ops-kind-sealed.v1'):
     os.umask(0o077)
@@ -94,6 +123,7 @@ def seal(cfg, collection, repository, evidence, restic_factory=Restic, *, valida
     cfg.directory(destination, create=True, fresh=True)
     restic.call('restore', ['restore', snapshot, '--target', str(destination)])
     restored = destination / collection.relative_to('/')
+    private_restore_parents(cfg, destination, restored)
     restored_report = validator(cfg, restored)
     check(restored_report == report and digest(restored / receipt_name) == report_hash,
           'Restored receipt mismatch')
