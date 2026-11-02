@@ -48,6 +48,9 @@ class NoRedirect(urllib.request.HTTPRedirectHandler):
 opener = urllib.request.build_opener(urllib.request.ProxyHandler({}), NoRedirect())
 counter = 0
 
+class CouchResponseBudgetExceeded(ValueError):
+    pass
+
 def request(method, path, value=None, allowed=(200, 201, 202)):
     global counter
     counter += 1
@@ -60,7 +63,7 @@ def request(method, path, value=None, allowed=(200, 201, 202)):
     except urllib.error.HTTPError as error:
         status = error.code; raw = error.read(32 * 1024 * 1024 + 1)
     if len(raw) > 32 * 1024 * 1024:
-        raise ValueError('CouchDB mapping response exceeds limit')
+        raise CouchResponseBudgetExceeded('CouchDB mapping response exceeds limit')
     with (lab.logs / ('couch-response-' + str(counter) + '.private.json')).open('xb') as f:
         f.write(raw)
     if status not in allowed:
@@ -70,12 +73,18 @@ def request(method, path, value=None, allowed=(200, 201, 202)):
 def logical_database(name, consume=None):
     base = '/' + urllib.parse.quote(name, safe='')
     before = request('GET', base)[1]
-    count = 0; last = None; digest = hashlib.sha256()
+    count = 0; last = None; digest = hashlib.sha256(); page_limit = 200
     while True:
-        args = {'include_docs': 'true', 'attachments': 'true', 'revs': 'true', 'limit': '200'}
+        args = {'include_docs': 'true', 'attachments': 'true', 'revs': 'true', 'limit': str(page_limit)}
         if last is not None:
             args.update(startkey=json.dumps(last), skip='1')
-        page = request('GET', base + '/_all_docs?' + urllib.parse.urlencode(args))[1]
+        try:
+            page = request('GET', base + '/_all_docs?' + urllib.parse.urlencode(args))[1]
+        except CouchResponseBudgetExceeded:
+            if page_limit == 1:
+                raise
+            page_limit = max(1, page_limit // 2)
+            continue
         if page['total_rows'] != before['doc_count']:
             raise ValueError('CouchDB mapping count changed during pagination')
         for row in page['rows']:
@@ -86,7 +95,7 @@ def logical_database(name, consume=None):
             count += 1; last = row['id']
         if consume is not None:
             consume([row['doc'] for row in page['rows']])
-        if len(page['rows']) < 200:
+        if len(page['rows']) < page_limit:
             break
     after = request('GET', base)[1]
     if before['update_seq'] != after['update_seq'] or count != before['doc_count']:

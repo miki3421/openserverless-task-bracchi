@@ -62,3 +62,9 @@ a reduction from insert rows only when native delete logs were captured. Every
 native artifact remains checksummed and tenant credential/peer-read checks still
 run. This is not a source logical fingerprint: final application readback remains
 required, including when native file recovery succeeds.
+
+CouchDB database mapping preserves revision trees, attachments and security
+objects. If an attachment-expanded page exceeds32MiB, pagination reduces the
+page size and retries the same cursor before consuming any document. Sequence,
+ordering, document-count and digest checks still apply. A single document that
+exceeds the per-response bound remains unsupported and stops the restore.

@@ -145,7 +145,8 @@
       "upgrade/adapters/prepare_fresh_restore.py": "ea11fa161933b5ba9ca3a9f8d65b32da10267192c4e8a8a1923dbe0cd6a01c86",
       "upgrade/adapters/restore_scope.py": "b5fa0bd365d8404838499ff4bb8a7655d9b5ccc70fbac54ed4119762a0501ca7",
       "upgrade/adapters/milvus_metadata.py": "62fb3a491c998b7fcea0e21bb1021c3c1f46fc2b64ccfe294e7c3f3d7643bc2c",
-      "upgrade/adapters/verify_milvus.py": "d2d2f5f6fdb5bb724cea5fd75bd554af64b66fa7c5530d117e98cef139386fa0"
+      "upgrade/adapters/verify_milvus.py": "d2d2f5f6fdb5bb724cea5fd75bd554af64b66fa7c5530d117e98cef139386fa0",
+      "upgrade/adapters/prepare_target_databases.py": "358effbd2a182df23746fb659c29982ede860b533f199cd2dafc4a8d6f7b66f0"
     }
   }
 }
