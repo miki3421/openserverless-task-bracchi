@@ -20,6 +20,22 @@ under the License.
 
 Type `ops <task>` to see usage and subtasks.
 
+## Local server upgrade
+
+```text
+Usage:
+  ops upgrade [--check] [--json]
+  ops upgrade status [--json]
+
+Options:
+  --check   Validate the protected local upgrade profile and offline inputs without changing the cluster.
+  --json    Print a structured, credential-free result.
+```
+
+`ops upgrade` runs the versioned local-server migration selected by the protected
+`OPS_HOME/upgrade.json` profile. See `upgrade/README.md` for the supported
+rehearsal route, maintenance window, retained recovery material and limitations.
+
 ## OpenServerless Administration Tasks
 
 ```text
@@ -27,6 +43,7 @@ Type `ops <task>` to see usage and subtasks.
   config      Manage the Apache OpenServerless configuration
   setup       Setup the Apache OpenServerless platform on multiple environments
   update      Inspect releases, inventory applications and plan updates without applying changes
+  upgrade     Migrate a supported local installation using a protected versioned profile
   debug       Debug utilities for the Apache OpenServerless platform
   cloud       OpenServerless setup utilities for supported Deployment models on Cloud Providers
   util        Utilities

@@ -30,5 +30,11 @@ tasks:
 
   upgrade:
     desc: migrate a supported local installation using the protected upgrade profile
+    silent: true
+    env:
+      OPS_UPGRADE_REQUEST: >-
+        {"check":{{toJson (default false .__check)}},"status":{{toJson (default false .status)}},"json":{{toJson (default false .__json)}}}
+    cmds:
+      - bun upgrade/main.ts
 
 
