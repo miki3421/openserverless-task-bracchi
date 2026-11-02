@@ -23,7 +23,7 @@ export function parseConfigYAML(value: string): Record<string, unknown> {
   if (typeof value !== "string" || Buffer.byteLength(value, "utf8") > 1024 ** 2)
     throw new Error("native_yaml_input_invalid");
   try {
-    const result = Bun.spawnSync(["python3", "-I", "-c", PARSE], {
+    const result = Bun.spawnSync(["python3", "-I", "-B", "-c", PARSE], {
       stdin: Buffer.from(value, "utf8"), stdout: "pipe", stderr: "pipe",
       env: { PATH: process.env.PATH || "/usr/bin:/bin" }, timeout: 5000,
     });

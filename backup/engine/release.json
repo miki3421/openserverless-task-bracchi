@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
   "repository": "https://github.com/miki3421/ops-k3s-backup",
-  "revision": "e44df545309df6ee4ecf94fb77a6e28319d89576",
+  "revision": "3c4562c75d0d329227ea6a61ecd19cad5e6b29ab",
   "files": [
     {
       "path": "adapters/ops-native/LICENSE",
@@ -115,8 +115,8 @@
     },
     {
       "path": "adapters/ops-native/yaml.ts",
-      "bytes": 1638,
-      "sha256": "8a6f4305cac5a1f790670d7afc91311208997f3c131aeebf01c920da3966483c"
+      "bytes": 1644,
+      "sha256": "9ae65e73b8b0e0af6ab03ef7a138ec13a679a6af43c594977a06e4fa57999128"
     },
     {
       "path": "scripts/archive_selection.py",
@@ -155,8 +155,8 @@
     },
     {
       "path": "scripts/cluster_config.py",
-      "bytes": 7164,
-      "sha256": "4a21a1c1177e8cec4d94123d53c5c71631dc86f960d83375396153a738b2949b"
+      "bytes": 7959,
+      "sha256": "eaac3a8a8efb3b14a9a18f2548947f4ba551c7ddcd54e0c95e6b0ae8522868ee"
     },
     {
       "path": "scripts/cluster_credentials.py",
@@ -360,8 +360,8 @@
     },
     {
       "path": "scripts/ops_backup.py",
-      "bytes": 16684,
-      "sha256": "9bbc624ff6d43353e5899e8c478c13284da9df81e48292892706fa9e8ae8ed04"
+      "bytes": 16702,
+      "sha256": "a695f4e78411bf652211488f20b39916c74539bb418683d03167ec244c3b6dcf"
     },
     {
       "path": "scripts/pack-real-backup.py",

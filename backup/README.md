@@ -48,3 +48,8 @@ edit this generated snapshot. There is one collector implementation.
 
 This branch has synthetic local verification only. The previously accepted K3s
 migration rehearsal does not qualify this combined driver on a real source.
+
+Native sudo helpers use explicit Python `-B` and accept the selected source
+administrator's protected configuration without changing its ownership or mode.
+No bytecode is added to the immutable release during failure handling; `status`
+retains the same complete integrity checks after an unsuccessful helper.

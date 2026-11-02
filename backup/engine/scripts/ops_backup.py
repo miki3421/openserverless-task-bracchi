@@ -94,7 +94,7 @@ class NativeBackend:
     def preflight(self):
         self.cfg.require_source()
         self.command('sudo-access', ['sudo', '-n', 'true'], 30)
-        self.command('cache-check', ['sudo', '-n', sys.executable, str(ROOT / 'scripts/inspect-k3s-cache.py'),
+        self.command('cache-check', ['sudo', '-n', sys.executable, '-B', str(ROOT / 'scripts/inspect-k3s-cache.py'),
                                      '--config', str(self.config_path)], 600)
         self.bridge('source-preflight', 'preflight', self.workspace)
         cluster = read_json(self.workspace / 'cluster-plan.json', self.archive)
@@ -104,11 +104,11 @@ class NativeBackend:
                 'planDigest': fingerprint({'cluster': cluster, 'ops': self.plan})}
 
     def collect(self):
-        self.command('native-capture', ['sudo', '-n', sys.executable, str(ROOT / 'scripts/collect-k3s-online.py'),
+        self.command('native-capture', ['sudo', '-n', sys.executable, '-B', str(ROOT / 'scripts/collect-k3s-online.py'),
                      '--config', str(self.config_path), '--workspace', str(self.capture / 'native')], 7200)
         self.bridge('ops-collect-all', 'collect-all', self.workspace)
         if self.cfg.data['scope']['host_paths'] or self.cfg.data['scope']['environment_files']:
-            self.command('explicit-host-files', ['sudo', '-n', sys.executable, str(ROOT / 'scripts/capture_host_files.py'),
+            self.command('explicit-host-files', ['sudo', '-n', sys.executable, '-B', str(ROOT / 'scripts/capture_host_files.py'),
                          '--config', str(self.config_path), '--workspace', str(self.capture / 'extras')], 3600)
 
     def assemble(self):

@@ -1,5 +1,5 @@
 import { test, expect } from "bun:test";
-import { copyFileSync, cpSync, existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { chownSync, copyFileSync, cpSync, existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
 import { flag, request, verifyEngine } from "./main";
@@ -67,4 +67,48 @@ test("every release member is versioned for a fresh checkout", () => {
   const names = new Set(listing.stdout.toString().split("\0"));
   const manifest = JSON.parse(readFileSync(join(import.meta.dir, "engine/release.json"), "utf8"));
   for (const row of manifest.files) expect(names.has("backup/engine/" + row.path)).toBe(true);
+});
+
+
+test.skipIf(process.getuid?.() !== 0)("delegated root helper failure leaves the pinned engine intact and actual status works", () => {
+  const temporary = mkdtempSync(join(tmpdir(), "ops-backup-root-status-"));
+  try {
+    const backup = join(temporary, "tasks/backup"), engine = join(backup, "engine");
+    mkdirSync(backup, {recursive: true}); cpSync(join(import.meta.dir, "engine"), engine, {recursive: true});
+    copyFileSync(join(import.meta.dir, "main.ts"), join(backup, "main.ts"));
+    const source: any = {hostname: "unmatched-synthetic-host.invalid", node: "synthetic", node_ip: "192.0.2.10", context: "synthetic", cluster_uid: "synthetic-cluster", owner: "nobody"};
+    const scope = {exclude_ollama: true, host_paths: [], environment_files: []};
+    const helperConfig = join(temporary, "helper.json");
+    writeFileSync(helperConfig, JSON.stringify({version: 2, source, scope, stack: {namespace: "ops-test", instance: "controller"},
+      output_root: join(engine, "backups"), credentials: {token_file: "/srv/synthetic-token", vault: "synthetic", sudo_item: "synthetic", key_item: "synthetic"}}), {mode: 0o600});
+    chownSync(helperConfig, 65534, 65534);
+    const helper = Bun.spawnSync(["python3", "-B", join(engine, "scripts/inspect-k3s-cache.py"), "--config", helperConfig],
+      {env: {PATH: process.env.PATH!}, timeout: 30000});
+    expect(helper.exitCode).toBe(1); expect(helper.stderr.toString()).toContain("Capture host mismatch");
+    verifyEngine(engine);
+    const profile = join(temporary, "profile"), storage = join(temporary, "storage");
+    mkdirSync(profile, {mode: 0o700}); mkdirSync(storage, {mode: 0o700});
+    const path = join(profile, "backup.json");
+    writeFileSync(path, JSON.stringify({version: 2, source: {...source, owner: "root"}, scope,
+      stack: {namespace: "ops-test", instance: "controller"}, output_root: storage,
+      storage: {restic_binary: "/usr/local/bin/restic", restic_sha256: "a".repeat(64), password_file: join(temporary, "key"), max_capture_bytes: 1048576, reserve_free_bytes: 1048576}}), {mode: 0o600});
+    const setup = `import sys
+from pathlib import Path
+sys.path.insert(0,sys.argv[1])
+from ops_backup import selection, atomic_json
+route,cfg,archive=selection(sys.argv[2])
+run_id='c'*32
+run=archive.directory(archive.root/('run-'+run_id),create=True,fresh=True)
+atomic_json(archive.root/'last-backup.json',{'configurationSha256':cfg.fingerprint,'runId':run_id})
+atomic_json(run/'journal.json',{'status':'failed','runId':run_id,'profile':route,'phase':'preflight','startedAt':'synthetic','updatedAt':'synthetic','encryptedFileRestoreVerified':False,'applicationRestoreVerified':False,'preMigrationAccepted':False})
+`;
+    const prepared = Bun.spawnSync(["python3", "-B", "-c", setup, join(engine, "scripts"), path], {env: {PATH: process.env.PATH!}, timeout: 30000});
+    expect(prepared.exitCode).toBe(0);
+    const status = Bun.spawnSync([process.execPath, join(backup, "main.ts")], {
+      env: {PATH: process.env.PATH!, OPS_HOME: profile, OPS_BACKUP_REQUEST: '{"status":true,"json":true}'}, timeout: 30000,
+    });
+    expect(status.exitCode).toBe(0); const report = JSON.parse(status.stdout.toString());
+    expect(report.status).toBe("failed"); expect(report.phase).toBe("preflight");
+    expect(report.encryptedFileRestoreVerified).toBe(false); verifyEngine(engine);
+  } finally {rmSync(temporary, {recursive: true, force: true});}
 });

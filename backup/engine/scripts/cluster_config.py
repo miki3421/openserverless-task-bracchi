@@ -19,12 +19,26 @@ def load(path):
     require(path.is_absolute(), 'Absolute capture configuration required')
     for p in (path, *path.parents):
         require(not p.is_symlink(), 'Capture configuration symlink rejected')
-    with path.open('rb') as f:
-        s = os.fstat(f.fileno())
-        require(stat.S_ISREG(s.st_mode) and stat.S_IMODE(s.st_mode) == 0o600 and
-                s.st_uid in (0, os.getuid()) and s.st_size <= 65536, 'Private owned capture configuration required')
-        data = json.load(f, object_pairs_hook=unique_object)
-    return CaptureConfig(data, path)
+    # Privileged helpers read the selected administrator's protected snapshot.
+    # Verify the opened file before parsing, then bind any delegated owner to
+    # the fully validated source identity. Never broaden file permissions.
+    fd = os.open(path, os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK)
+    with os.fdopen(fd, 'rb') as f:
+        info = os.fstat(f.fileno())
+        require(stat.S_ISREG(info.st_mode) and stat.S_IMODE(info.st_mode) == 0o600 and
+                info.st_nlink == 1 and info.st_size <= 65536, 'Private owned capture configuration required')
+        raw = f.read(65537)
+        require(len(raw) <= 65536, 'Capture configuration exceeds metadata budget')
+        data = json.loads(raw, object_pairs_hook=unique_object)
+    cfg = CaptureConfig(data, path)
+    owners = {0, os.getuid()}
+    if os.geteuid() == 0 and info.st_uid not in owners:
+        try:
+            owners.add(pwd.getpwnam(cfg.source['owner']).pw_uid)
+        except KeyError:
+            raise ConfigError('Private owned capture configuration required') from None
+    require(info.st_uid in owners, 'Private owned capture configuration required')
+    return cfg
 
 
 class CaptureConfig:

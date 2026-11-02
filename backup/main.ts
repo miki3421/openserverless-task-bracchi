@@ -4,8 +4,8 @@ import { lstatSync, readFileSync, readdirSync } from "node:fs";
 import { homedir } from "node:os";
 import { dirname, isAbsolute, join, resolve, sep } from "node:path";
 
-export const ENGINE_REVISION = "e44df545309df6ee4ecf94fb77a6e28319d89576";
-const MANIFEST_SHA256 = "30f389c57d2d5e3349730a389afac57b190c69819dfb9447748ccc62c5bc1b75";
+export const ENGINE_REVISION = "3c4562c75d0d329227ea6a61ecd19cad5e6b29ab";
+const MANIFEST_SHA256 = "50385b825ff09961409caad3eeac84a1d542d2f5ff62bc976fcbb7410bc79429";
 const hash = (bytes: Uint8Array) => createHash("sha256").update(bytes).digest("hex");
 function regular(path: string): Buffer {
   for (let cursor = path;; cursor = dirname(cursor)) {
@@ -66,7 +66,7 @@ export async function main(): Promise<void> {
   }
   const args = request(JSON.parse(process.env.OPS_BACKUP_REQUEST || "{}"), process.env.OPS_HOME || join(homedir(), ".ops"));
   verifyEngine();
-  const child = Bun.spawn(["python3", join(import.meta.dir, "engine/scripts/ops_backup.py"), ...args], {
+  const child = Bun.spawn(["python3", "-B", join(import.meta.dir, "engine/scripts/ops_backup.py"), ...args], {
     stdin: "inherit", stdout: "inherit", stderr: "inherit", env: { ...process.env, PYTHONDONTWRITEBYTECODE: "1" },
   });
   process.exitCode = await child.exited;
