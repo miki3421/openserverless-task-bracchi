@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
   "repository": "https://github.com/miki3421/ops-k3s-backup",
-  "revision": "90a60777aabf9f8c817e7870f590fefa550de03b",
+  "revision": "ec37c3b28d7484851412e244dd1978ac039bbbbe",
   "files": [
     {
       "path": "adapters/ops-native/LICENSE",
@@ -170,8 +170,8 @@
     },
     {
       "path": "scripts/collect-k3s-online.py",
-      "bytes": 9609,
-      "sha256": "c1fac12829d4fb2fba31157513987c7812ed2391b64ca509232d125f3029dd95"
+      "bytes": 8557,
+      "sha256": "f11a3600e7ce2360528e30b80afec708cf0de34c3547cbd9bf2862d3fd88dc55"
     },
     {
       "path": "scripts/collect-offline-python-environment.py",
@@ -265,8 +265,8 @@
     },
     {
       "path": "scripts/inspect-k3s-cache.py",
-      "bytes": 843,
-      "sha256": "384c0235691c7df035aa47d9f4f7aff74d5a9b45b5d138fe5940ac9b98f50170"
+      "bytes": 902,
+      "sha256": "50b638d9109539beb05b97f581022382864ab5daeeaf7478e268610dafc02322"
     },
     {
       "path": "scripts/install-restic.py",
@@ -277,6 +277,11 @@
       "path": "scripts/inventory.py",
       "bytes": 4316,
       "sha256": "6fc171518276d1f159390a008f22be21c58ee98de2abfb8fd3e5942251cf8e81"
+    },
+    {
+      "path": "scripts/k3s_layout.py",
+      "bytes": 3269,
+      "sha256": "b81ff4016c37c404dd2f6260c0c554f32ec1abc612ae4c42974848ced94175dc"
     },
     {
       "path": "scripts/kind_adapter/__init__.py",

@@ -9,7 +9,6 @@ import os
 from pathlib import Path
 import platform
 import pwd
-import re
 import shutil
 import subprocess
 import uuid
@@ -20,6 +19,7 @@ from native_manifest import inventory
 from image_scope import image_targets, scope_images
 from image_cache import inspect_cache
 from storage_capacity import require_separate_image_filesystem
+from k3s_layout import inspect_layout
 from runtime_config import bounded_path
 import argparse
 
@@ -53,20 +53,7 @@ def main():
     selected, targets, cache_proof = inspect_cache(['/usr/local/bin/k3s', 'ctr', '--namespace', 'k8s.io'], architecture)
     pid = text_command(["systemctl", "show", "k3s", "--property=MainPID", "--value"])
     command = (Path("/proc") / pid / "cmdline").read_bytes().decode().split("\0")
-    environment = dict(entry.split("=", 1) for entry in
-                       (Path("/proc") / pid / "environ").read_bytes().decode().split("\0")
-                       if "=" in entry)
-    # The first implementation intentionally fails closed on non-default
-    # datastore/data-directory configurations instead of guessing paths.
-    config_files = [Path(environment.get("K3S_CONFIG_FILE", "/etc/rancher/k3s/config.yaml"))]
-    config_files += list(Path("/etc/rancher/k3s/config.yaml.d").glob("*.yaml"))
-    if any(x.startswith(("--data-dir", "--datastore-endpoint", "--config")) or x == "-d" for x in command):
-        raise RuntimeError("Explicit datastore/config/data-dir flags need inspection before collection")
-    if any(environment.get(k) for k in ["K3S_DATA_DIR", "K3S_DATASTORE_ENDPOINT", "K3S_CONFIG_FILE"]):
-        raise RuntimeError("Explicit k3s datastore/config environment needs inspection")
-    for path in config_files:
-        if path.is_file() and re.search(r"(?m)^\s*(data-dir|datastore-endpoint)\s*:", path.read_text()):
-            raise RuntimeError("Configured datastore/data-dir needs inspection")
+    layout = inspect_layout()
 
     data = Path("/var/lib/rancher/k3s")
     native = output / "native"
@@ -77,7 +64,7 @@ def main():
               "host": platform.node(), "run": run_id,
               "startedAt": datetime.datetime.now(datetime.timezone.utc).isoformat(),
               "hostVersion": text_command(["/usr/local/bin/k3s", "--version"]),
-              "servicesStopped": False, "ollamaExcluded": True, "status": "in-progress"}
+              "servicesStopped": False, "ollamaExcluded": True, "status": "in-progress", "layout": layout}
     try:
         sqlite = data / "server/db/state.db"
         etcd = data / "server/db/etcd/member"
