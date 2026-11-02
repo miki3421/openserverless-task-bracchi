@@ -19,6 +19,7 @@
 import pwd
 import shutil
 import tarfile
+import uuid
 
 p=Promotion('tasks-090')
 account=pwd.getpwnam(PLAN['user']);home=Path(account.pw_dir)
@@ -32,8 +33,15 @@ with tarfile.open(archive) as tar:
         path=Path(member.name)
         if not member.isfile() or path.name!=member.name:raise ValueError('Unsafe CLI prerequisite member')
         destination=binary/path
-        with destination.open('wb') as output:shutil.copyfileobj(tar.extractfile(member),output)
-        destination.chmod(0o755 if member.size else 0o644);os.chown(destination,account.pw_uid,account.pw_gid)
+        temporary=binary/('.ops-upgrade-'+uuid.uuid4().hex)
+        with temporary.open('xb') as output:shutil.copyfileobj(tar.extractfile(member),output)
+        temporary.chmod(0o755 if member.size else 0o644);os.chown(temporary,account.pw_uid,account.pw_gid)
+        temporary.replace(destination)
+# Keep the exact Bun runtime verified in the upgrade input capsule. Replacing
+# an executable inode is safe while the parent upgrade still runs the old inode.
+temporary=binary/('.ops-upgrade-'+uuid.uuid4().hex)
+shutil.copyfile(Path('__OPS_RUN_ROOT__/inputs/tools/bun'),temporary)
+temporary.chmod(0o755);os.chown(temporary,account.pw_uid,account.pw_gid);temporary.replace(binary/'bun')
 for path in [binary.parent,binary,home/'.ops/tmp']:
     path.mkdir(mode=0o700,parents=True,exist_ok=True);os.chown(path,account.pw_uid,account.pw_gid)
 task=home/'.ops/feature/migration-recovery-0.9.0/oplugins'
