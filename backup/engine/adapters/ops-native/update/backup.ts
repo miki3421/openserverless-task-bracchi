@@ -18,6 +18,7 @@
 
 import { constants, closeSync, fstatSync, lstatSync, openSync, readFileSync } from "node:fs";
 import { descriptorChunks } from "../files";
+import { kubegresHeadlessProof, type KubegresServiceProof } from "../postgres-binding";
 import { dirname, isAbsolute, join, relative, resolve, sep } from "node:path";
 import { createHash } from "node:crypto";
 import { privateJSON } from "./portable";
@@ -71,7 +72,7 @@ export interface BackupPlan {
   bindings: BackupBinding[];
   volumeCoverage: { name: string; uid: string; artifactId: string | null }[];
   collectionBlockers: string[]; migrationBlockers: string[];
-  ferretdbBackend?: { verified: true; serviceUid: string; postgresArtifactId: "postgres-data" };
+  ferretdbBackend?: { verified: true; serviceUid: string; postgresArtifactId: "postgres-data"; proof?: KubegresServiceProof };
   executionSupported: false; backupComplete: false; restoreVerified: false; uninstallAllowed: false;
 }
 export function validateInventory(inventory: MigrationInventory): void {
@@ -252,18 +253,28 @@ export function planBackup(inventory: MigrationInventory, read: KubeRead): Backu
       try { if (typeof value === "string") url = new URL(value); } catch { /* Unsupported binding remains a blocker. */ }
       if (url && ["postgres:", "postgresql:"].includes(url.protocol) && (!url.port || url.port === "5432")) {
         const services = listItems(at("services"));
+        const proofs = new Map<string, KubegresServiceProof>();
+        let slices: any[] | undefined;
         const candidates = services.filter(service => {
           const name = service.metadata?.name, host = url!.hostname.replace(/\.$/, "");
-          if (service.metadata?.namespace !== s.namespace || !owns(service, s.uid) ||
+          if (service.metadata?.namespace !== s.namespace ||
               ![name, name + "." + s.namespace, name + "." + s.namespace + ".svc", name + "." + s.namespace + ".svc.cluster.local"].includes(host) ||
               service.spec?.type === "ExternalName" || service.spec?.externalIPs?.length ||
               !service.spec?.ports?.some((p: any) => p.port === 5432 && (!p.protocol || p.protocol === "TCP"))) return false;
           const selector = Object.entries(service.spec.selector || {});
           if (!selector.length) return false;
           const selected = pods.filter(p => selector.every(([key, value]) => p.metadata.labels?.[key] === value));
-          return selected.length === 1 && selected[0].metadata.uid === postgres.podUid;
+          if (selected.length !== 1 || selected[0].metadata.uid !== postgres.podUid) return false;
+          if (owns(service, s.uid)) return true;
+          const roots = resources.filter(r => r.kind === "Kubegres" && r.metadata.name === b + "-postgres" && owns(r, s.uid));
+          if (roots.length !== 1 || !owns(selected[0], roots[0].metadata.uid)) return false;
+          slices ??= listItems(at("endpointslices.discovery.k8s.io"));
+          const proof = kubegresHeadlessProof(s, service, roots[0], selected[0], slices);
+          if (!proof) return false;
+          proofs.set(service.metadata.uid, proof); return true;
         });
-        if (candidates.length === 1) ferretdbBackend = { verified: true, serviceUid: candidates[0].metadata.uid, postgresArtifactId: "postgres-data" };
+        if (candidates.length === 1) ferretdbBackend = { verified: true, serviceUid: candidates[0].metadata.uid,
+          postgresArtifactId: "postgres-data", ...(proofs.has(candidates[0].metadata.uid) ? { proof: proofs.get(candidates[0].metadata.uid) } : {}) };
       }
     }
     if (!ferretdbBackend) blockers.add("ferretdb_backend_binding_requires_review:mongodb-data");

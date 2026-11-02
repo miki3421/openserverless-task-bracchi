@@ -162,6 +162,8 @@ export async function collectAll(configPath: string, workspace: string) {
   const saved = readPrivateJSON(join(workspace, "cluster-plan.json"));
   const check = async () => {
     await verifyLiveInventory(inventory, read);
+    if (plan.ferretdbBackend && canonical(planBackup(inventory, read).ferretdbBackend || null) !== canonical(plan.ferretdbBackend))
+      throw new Error("ferretdb_backend_binding_changed");
     if (canonical(clusterCoverage(config, inventory, plan, rawRead)) !== canonical(saved))
       throw new Error("cluster_scope_changed_during_capture");
   };

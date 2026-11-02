@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
   "repository": "https://github.com/miki3421/ops-k3s-backup",
-  "revision": "3c4562c75d0d329227ea6a61ecd19cad5e6b29ab",
+  "revision": "ee77869b03ac764511dd93f8bbae6d0ce4de7ef8",
   "files": [
     {
       "path": "adapters/ops-native/LICENSE",
@@ -15,8 +15,8 @@
     },
     {
       "path": "adapters/ops-native/cluster.ts",
-      "bytes": 14229,
-      "sha256": "7715c48ae7b033676f5f0d981f375bf88d9ac4a8d6d146ece572b68a38d35cfb"
+      "bytes": 14420,
+      "sha256": "8973880fd8ceb02ab5886b06eaaa244436098f47e23753b988eece5a5e314f74"
     },
     {
       "path": "adapters/ops-native/empty-milvus.ts",
@@ -27,6 +27,11 @@
       "path": "adapters/ops-native/files.ts",
       "bytes": 626,
       "sha256": "8a31f54cebc5ce79ae88eac6e0220a47fa8fbc72d114f7b4a0af486f30832d0b"
+    },
+    {
+      "path": "adapters/ops-native/postgres-binding.ts",
+      "bytes": 3357,
+      "sha256": "d473b1c4db8af3677deb6ea069f72810cca8128188ac1827c0f9abef6121eccb"
     },
     {
       "path": "adapters/ops-native/setup/kubernetes/images.ts",
@@ -45,8 +50,8 @@
     },
     {
       "path": "adapters/ops-native/update/backup.ts",
-      "bytes": 30663,
-      "sha256": "09347dd2b2e6fb1d301ea07a4083b3a705d9d296bd9f99113c7ba0d36a400dc2"
+      "bytes": 31512,
+      "sha256": "1ff6c469942e9a8ec43febdf669b399bf645d725212736a68f0246d5a47d61c9"
     },
     {
       "path": "adapters/ops-native/update/bundle.ts",
