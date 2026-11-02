@@ -18,7 +18,7 @@
 import copy,hashlib,io,json,os,sys,tarfile,tempfile,unittest
 from pathlib import Path
 sys.path.insert(0,str(Path(__file__).resolve().parent))
-from lib import validate_profile,selected_snapshot,extract_native,private_json
+from lib import validate_profile,selected_snapshot,extract_native,private_json,interface_name,interface_address
 guard={};exec(compile((Path(__file__).resolve().parents[1]/'upgrade/adapters/restore_scope.py').read_text(),'restore_scope.py','exec'),guard)
 promotion_binding=guard['promotion_binding']
 
@@ -29,6 +29,13 @@ def profile():
       'user':{'uid':1000,'name':'fixture','home':'/home/fixture'},'archive':{'repository':'/private/repository','snapshot':'e'*64,'passwordFile':'/private/password','restic':'/private/restic','resticSha256':'f'*64},'assets':{'directory':'/private/assets','manifestSha256':'0'*64},'maxRestoreBytes':1024**3}
 
 class RestoreContract(unittest.TestCase):
+    def test_isolated_flannel_requires_explicit_local_interface(self):
+        self.assertEqual(interface_name({'flannel-iface':'ens3'}),'ens3')
+        for name in [None,'','lo','--all','../ens3','a'*16]:
+            with self.assertRaises(ValueError):interface_name({'flannel-iface':name})
+        row={'ifname':'ens3','addr_info':[{'local':'192.0.2.20'}]};interface_address('ens3',[row],'192.0.2.20')
+        for rows in [[],[row,row],[{**row,'ifname':'ens4'}],[{**row,'addr_info':[]}]]:
+            with self.assertRaises(ValueError):interface_address('ens3',rows,'192.0.2.20')
     def test_explicit_profile(self):self.assertIsNotNone(validate_profile(profile()))
     def test_source_destination_must_differ(self):
         for key in ('clusterUid','hostname'):

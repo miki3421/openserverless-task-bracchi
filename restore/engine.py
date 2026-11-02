@@ -18,7 +18,7 @@
 """Data-only kind0.1 -> fresh K3s0.9 rehearsal, using the qualified upgrade workers."""
 import json,os,pwd,re,shutil,socket,subprocess,sys,time,traceback,uuid
 from pathlib import Path
-from lib import require,private_json,regular,digest,validate_profile,selected_snapshot
+from lib import require,private_json,regular,digest,validate_profile,selected_snapshot,interface_name,interface_address
 from archive import unpack
 
 BASE=Path('/var/lib/ops-restore');TASK=Path(__file__).resolve().parents[1]
@@ -54,6 +54,10 @@ def main(request_path):
     regular('/usr/local/bin/k3s',0,private=False);regular('/etc/rancher/k3s/k3s.yaml',0)
     target_config=private_json('/etc/ops-restore-k3s.private.json',0)
     require(target_config.get('node-name')==t['hostname']and target_config.get('node-ip')==t['address']and target_config.get('cluster-cidr')=='10.54.0.0/16'and target_config.get('service-cidr')=='10.55.0.0/16'and target_config.get('cluster-dns')=='10.55.0.10','qualified_fresh_k3s_configuration_required')
+    interface=interface_name(target_config)
+    addresses=json.loads(subprocess.check_output(['ip','-j','address','show','dev',interface]))
+    interface_address(interface,addresses,t['address'])
+    require(subprocess.check_output(['systemctl','is-active','k3s.service'],text=True).strip()=='active','active_local_k3s_service_required')
     require(t['k3sVersion']in subprocess.check_output(['/usr/local/bin/k3s','--version'],text=True),'target_k3s_version_mismatch')
     k=['/usr/local/bin/k3s','kubectl','--kubeconfig=/etc/rancher/k3s/k3s.yaml','--request-timeout=30s']
     def read(args):return json.loads(subprocess.check_output(k+args+['-ojson'],stderr=subprocess.DEVNULL,timeout=45))

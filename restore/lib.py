@@ -79,6 +79,14 @@ def selected_snapshot(rows,snapshot,max_bytes):
     require(row.get('summary',{}).get('total_bytes_processed',max_bytes)<=max_bytes,'restore_budget_exceeded')
     return path
 
+def interface_name(config):
+    name=config.get('flannel-iface')
+    require(isinstance(name,str)and re.fullmatch(r'[a-zA-Z0-9_][a-zA-Z0-9_.:-]{0,14}',name)and name!='lo','explicit_isolated_flannel_interface_required')
+    return name
+
+def interface_address(name,rows,address):
+    require(len(rows)==1 and rows[0].get('ifname')==name and any(a.get('local')==address for a in rows[0].get('addr_info',[])),'flannel_interface_address_mismatch')
+
 def extract_native(archive,destination,proof,max_bytes):
     destination=Path(destination);require(not destination.exists(),'fresh_payload_destination_required')
     rows={x['file']:x for x in proof['files']};require(len(rows)==len(proof['files'])and rows,'unique_payload_files_required')
