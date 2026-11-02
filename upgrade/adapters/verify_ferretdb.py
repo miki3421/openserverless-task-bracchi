@@ -40,7 +40,7 @@ container = next(c for c in pod['spec']['containers'] if c['name'] == target['co
 expected_url = 'postgresql://' + lab.plan['source']['brand'] + '-postgres.' + lab.namespace + '.svc.cluster.local:5432'
 if [e for e in container.get('env', []) if e['name'] == 'FERRETDB_POSTGRESQL_URL'] != [{'name': 'FERRETDB_POSTGRESQL_URL', 'value': expected_url}]:
     raise ValueError('Gateway backend credentials or endpoint differ')
-volume = lab.DATA_ROOT / target['mounts'][0]['claim']
+volume = DATA_ROOT / target['mounts'][0]['claim']
 if volume.is_symlink() or not volume.is_dir():
     raise ValueError('Existing restored state required')
 state_archive = lab.artifact(lab.files('mongodb-data')[0])

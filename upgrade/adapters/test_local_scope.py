@@ -69,12 +69,36 @@ class LocalScopeTests(unittest.TestCase):
         tree=ast.parse((ADAPTERS/'driver.py').read_text());node=next(n for n in tree.body if isinstance(n,ast.FunctionDef) and n.name=='step')
         bindings={'ROOT':self.root,'QUALIFICATION_COMPONENT':'none','phase':'native-restore','native_phases':{'native-restore'},'PLAN':{'original':True},
                   'PROFILE':{},'BOOTSTRAP':{},'RUNTIME':{},'copy':copy,'sys':sys,'json':json,'hashlib':hashlib,
-                  'source':lambda _:"print('{}'); source='overwritten'; PLAN['mutated']=True",
+                  'source':lambda _:"print('{}'); source='overwritten'; PLAN['mutated']=True",'RESUME_VERIFIED':False,'progress':lambda *_:None,
                   'read_json':lambda p:json.loads(p.read_text()),'store':lambda p,v:p.write_text(json.dumps(v))}
         exec(compile(ast.Module(body=[node],type_ignores=[]),'step','exec'),bindings)
         bindings['step']('first','fixture.py');bindings['step']('second','fixture.py')
         self.assertTrue(callable(bindings['source']));self.assertNotIn('mutated',bindings['PLAN'])
         self.assertEqual(json.loads((self.root/'adapter-journal.json').read_text())['completed'],['first','second'])
+    def test_verifier_resolves_the_existing_retained_volume_from_real_context(self):
+        with patch('socket.gethostname',return_value='fixture-host'),patch('subprocess.check_output',side_effect=self.output):
+            lab=self.library()('verify-path')
+        volume=lab.new_volume('mongo-state')
+        tree=ast.parse((ADAPTERS/'verify_ferretdb.py').read_text())
+        node=next(n for n in tree.body if isinstance(n,ast.Assign) and any(isinstance(t,ast.Name) and t.id=='volume' for t in n.targets))
+        scope={'lab':lab,'DATA_ROOT':self.data,'target':{'mounts':[{'claim':'mongo-state'}]}}
+        exec(compile(ast.Module(body=[node],type_ignores=[]),'real-verifier-path','exec'),scope)
+        self.assertEqual(scope['volume'],volume)
+    def test_reviewed_retry_retains_failed_logs_and_never_replays_completed_restore(self):
+        tree=ast.parse((ADAPTERS/'driver.py').read_text());node=next(n for n in tree.body if isinstance(n,ast.FunctionDef) and n.name=='step')
+        bindings={'ROOT':self.root,'QUALIFICATION_COMPONENT':'none','phase':'native-restore','native_phases':{'native-restore'},'PLAN':{},'PROFILE':{},'BOOTSTRAP':{},'RUNTIME':{},'copy':copy,'sys':sys,'json':json,
+                  'source':lambda _:"print('original failure'); raise AttributeError('synthetic')",'RESUME_VERIFIED':False,'progress':lambda *_:None,
+                  'read_json':lambda p:json.loads(p.read_text()),'store':lambda p,v:p.write_text(json.dumps(v))}
+        exec(compile(ast.Module(body=[node],type_ignores=[]),'step','exec'),bindings)
+        (self.root/'adapter-journal.json').write_text(json.dumps({'completed':['postgres']}))
+        with self.assertRaises(AttributeError):bindings['step']('ferretdb-verify','fixture.py')
+        original=(self.root/'worker-evidence/ferretdb-verify.stdout.private.log').read_bytes()
+        bindings['RESUME_VERIFIED']=True;bindings['source']=lambda _:"print('corrected verification')"
+        bindings['step']('postgres','never-replay.py');bindings['step']('ferretdb-verify','fixture.py')
+        result=json.loads((self.root/'adapter-journal.json').read_text())
+        self.assertEqual(result['completed'],['postgres','ferretdb-verify']);self.assertEqual(result['attempts']['ferretdb-verify'],2)
+        self.assertEqual((self.root/'worker-evidence/ferretdb-verify.stdout.private.log').read_bytes(),original)
+        self.assertTrue((self.root/'worker-evidence/ferretdb-verify-retry-2.stdout.private.log').exists())
     def test_target_plan_preserves_original_auth_and_arbitrary_tenant_count(self):
         claims=['couchdb-pvc-couchdb-0','redis-pvc-redis-0','registry-pvc','seaweedfs-pvc',
                 'nuvolaris-mongodb-pvc-nuvolaris-mongodb-0','postgres-db-nuvolaris-postgres-1-0',

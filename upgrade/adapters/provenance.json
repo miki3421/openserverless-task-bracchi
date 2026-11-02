@@ -36,7 +36,7 @@
     },
     "verify_ferretdb.py": {
       "priorWorkerSha256": "a01a21a0b53cec2858c720cce0cfd15b549bd914792da279840ee3d8b323453b",
-      "portedSha256": "35d8996a5bd7958cef48b014398a5cbf2912855ad4ed62f2d1cddcce48763061"
+      "portedSha256": "67732e74b019741bf2acb4dcc958f0c3310c60f4c026e00042a1739d65fb76c5"
     },
     "restore_registry.py": {
       "priorWorkerSha256": "1aef121b2f5ce28ab6ada8ccb16c827c1a607a4bd1b6ebaeb08f4d1cad8b5b66",

@@ -23,7 +23,7 @@ import { enabledFlag, privateJSON, validateProfile } from "./lib";
 
 export async function main() {
   process.umask(0o077);
-  if(process.argv.includes("--help")){console.log("Usage: ops upgrade [--check] [--json]\n       ops upgrade status [--json]");return;}
+  if(process.argv.includes("--help")){console.log("Usage: ops upgrade [--check] [--json]\n       ops upgrade status [--json]\n       ops upgrade resume [--check] [--json]");return;}
   const options=JSON.parse(process.env.OPS_UPGRADE_REQUEST||"{}");
   const uid=process.getuid!();const home=process.env.OPS_HOME||join(homedir(),".ops");
   const path=join(home,"upgrade.json");const profile=privateJSON(path,uid);validateProfile(profile);
@@ -31,7 +31,7 @@ export async function main() {
   if(process.platform!=="linux"||process.arch!=="x64")throw new Error("supported_local_linux_amd64_host_required");
   const temporary=join(home,"tmp");mkdirSync(temporary,{recursive:true,mode:0o700});
   const request=join(temporary,"upgrade-request-"+randomUUID()+".json");
-  writeFileSync(request,JSON.stringify({schemaVersion:1,profile:path,uid,check:enabledFlag(options.check),status:enabledFlag(options.status),json:enabledFlag(options.json)}),{mode:0o600,flag:"wx"});
+  writeFileSync(request,JSON.stringify({schemaVersion:1,profile:path,uid,check:enabledFlag(options.check),status:enabledFlag(options.status),resume:enabledFlag(options.resume),json:enabledFlag(options.json)}),{mode:0o600,flag:"wx"});
   try {
     const args=[process.execPath,join(import.meta.dir,"engine.ts"),request];
     const command=uid===0?args:["sudo","-n",...args];

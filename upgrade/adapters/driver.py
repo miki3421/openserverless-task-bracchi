@@ -30,11 +30,14 @@ import stat
 import subprocess
 import sys
 import time
+import uuid
 
 os.umask(0o077)
 ADAPTERS=Path(__file__).resolve().parent
 configuration_path=Path(sys.argv[1])
 phase=sys.argv[2]
+RESUME_VERIFIED=len(sys.argv)>3 and sys.argv[3]=='--resume-verified'
+RESUME_LOG_ID=uuid.uuid4().hex if RESUME_VERIFIED else None
 if os.getuid()!=0:raise SystemExit('Root execution required')
 st=configuration_path.lstat()
 if not stat.S_ISREG(st.st_mode) or st.st_uid!=0 or st.st_mode&0o077:raise SystemExit('Protected configuration required')
@@ -85,7 +88,7 @@ def store(path,value):
     path.parent.mkdir(mode=0o700,parents=True,exist_ok=True)
     temporary=path.with_suffix('.tmp');temporary.write_text(json.dumps(value,indent=2)+'\n');temporary.chmod(0o600);temporary.replace(path)
 def cmd(label,args,input=None,timeout=180):
-    logs=ROOT/'driver-logs';logs.mkdir(mode=0o700,exist_ok=True)
+    logs=ROOT/('driver-logs-resume-'+RESUME_LOG_ID if RESUME_VERIFIED else 'driver-logs');logs.mkdir(mode=0o700,exist_ok=True)
     result=subprocess.run(args,input=input,capture_output=True,timeout=timeout)
     (logs/(label+'.stdout.private.log')).write_bytes(result.stdout);(logs/(label+'.stderr.private.log')).write_bytes(result.stderr)
     if result.returncode:raise RuntimeError(label)
@@ -111,15 +114,27 @@ def native_library(scope):
             raise ValueError('Native namespace binding changed')
     cls.__init__=initialize
 
+def progress(name,status):
+    print('OPS_UPGRADE_PROGRESS='+json.dumps({'step':name,'status':status}),flush=True)
+
 def step(name,filename,library=False):
     global QUALIFICATION_COMPONENT
-    QUALIFICATION_COMPONENT=name
     journal_path=ROOT/'adapter-journal.json';journal=read_json(journal_path) if journal_path.exists() else {'completed':[]}
-    if name in journal['completed']:return
-    journal['activeStep']=name;journal['status']='running';store(journal_path,journal)
+    if name in journal['completed']:
+        progress(name,'reused');return
+    attempts=journal.setdefault('attempts',{})
+    attempt=attempts.get(name,0)+1
     logs=ROOT/'worker-evidence';logs.mkdir(mode=0o700,exist_ok=True)
+    if (logs/(name+'.stdout.private.log')).exists():
+        if not RESUME_VERIFIED:raise ValueError('Failed step requires verified explicit resume')
+        attempt=max(2,attempt)
+    suffix='' if attempt==1 else '-retry-'+str(attempt)
+    QUALIFICATION_COMPONENT=name+suffix
+    attempts[name]=attempt
+    journal['activeStep']=name;journal['status']='running';store(journal_path,journal)
+    progress(name,'start')
     text=source(filename);compile(text,filename,'exec')
-    with (logs/(name+'.stdout.private.log')).open('x') as out,(logs/(name+'.stderr.private.log')).open('x') as err:
+    with (logs/(name+suffix+'.stdout.private.log')).open('x') as out,(logs/(name+suffix+'.stderr.private.log')).open('x') as err:
         old_stdout,old_stderr=sys.stdout,sys.stderr
         try:
             sys.stdout,sys.stderr=out,err
@@ -130,11 +145,14 @@ def step(name,filename,library=False):
             elif phase not in native_phases:
                 exec(compile(source('promotion_library.py'),'promotion_library.py','exec'),scope)
             exec(compile(text,filename,'exec'),scope)
-        except Exception:
-            journal['status']='stopped';journal['failedStep']=name;store(journal_path,journal)
+        except Exception as error:
+            journal['status']='stopped';journal['failedStep']=name;journal['errorType']=type(error).__name__
+            journal.setdefault('failures',[]).append({'step':name,'attempt':attempt,'errorType':type(error).__name__})
+            store(journal_path,journal)
             raise
         finally:sys.stdout,sys.stderr=old_stdout,old_stderr
-    journal['completed'].append(name);journal['activeStep']=None;journal['status']='passed';store(journal_path,journal)
+    journal['completed'].append(name);journal['activeStep']=None;journal['failedStep']=None;journal['errorType']=None;journal['status']='passed';store(journal_path,journal)
+    progress(name,'passed')
 
 def prepare_native_tools():
     candidate=ROOT/'candidate';(candidate/'tools').mkdir(mode=0o700,parents=True,exist_ok=True)
@@ -180,8 +198,12 @@ if phase=='native-restore':
     prepare_native_tools()
     step('postgres','restore_postgres.py')
     namespace=kread(['get','namespace/'+NATIVE_NAMESPACE])
-    cmd('label-native-scope',['/usr/local/bin/k3s','kubectl','label','namespace/'+NATIVE_NAMESPACE,'openserverless.org/upgrade-run='+CONFIG['runId']])
-    marker['nativeNamespaceUid']=namespace['metadata']['uid'];store(marker_path,marker)
+    if RESUME_VERIFIED:
+        if namespace['metadata']['uid']!=marker.get('nativeNamespaceUid') or namespace['metadata'].get('labels',{}).get('openserverless.org/upgrade-run')!=CONFIG['runId']:
+            raise ValueError('Reviewed native namespace changed')
+    else:
+        cmd('label-native-scope',['/usr/local/bin/k3s','kubectl','label','namespace/'+NATIVE_NAMESPACE,'openserverless.org/upgrade-run='+CONFIG['runId']])
+        marker['nativeNamespaceUid']=namespace['metadata']['uid'];store(marker_path,marker)
     for name,file in [('couchdb','restore_couchdb.py'),('redis','restore_redis.py'),('etcd','restore_etcd.py'),('etcd-verify','restore_etcd_verify.py'),('seaweedfs','restore_seaweed.py'),
                       ('native-iam','reconcile_native_iam.py'),('ferretdb','restore_ferretdb.py'),('ferretdb-verify','verify_ferretdb.py'),('registry','restore_registry.py'),('legacy-volumes','restore_legacy_volumes.py')]:
         step(name,file,True)

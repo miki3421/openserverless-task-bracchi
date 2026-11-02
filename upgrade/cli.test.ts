@@ -33,15 +33,18 @@ test.skipIf(!process.env.OPS_TEST_BINARY)("real CLI routes bare upgrade, check a
     writeFileSync(join(root,"upgrade/main.ts"),'console.log("DISPATCH="+process.env.OPS_UPGRADE_REQUEST);\n');
     const run=(args:string[])=>Bun.spawnSync([process.env.OPS_TEST_BINARY!,...args],{cwd:root,timeout:30000,
       env:{...process.env,OPS_ROOT:root,OPS_PWD:root,OPS_ROOT_PLUGIN:root,OPS_HOME:root}});
-    for(const [args,check,status,json] of [
-      [["upgrade"],false,false,false],
-      [["upgrade","--check","--json"],true,false,true],
-      [["upgrade","status","--json"],false,true,true],
-    ] as [string[],boolean,boolean,boolean][]) {
+    for(const [args,check,status,json,resume] of [
+      [["upgrade"],false,false,false,false],
+      [["upgrade","--check","--json"],true,false,true,false],
+      [["upgrade","status","--json"],false,true,true,false],
+      [["upgrade","resume","--check","--json"],true,false,true,true],
+      [["upgrade","resume"],false,false,false,true],
+    ] as [string[],boolean,boolean,boolean,boolean][]) {
       const result=run(args);expect(result.exitCode).toBe(0);
       const line=result.stdout.toString().split("\n").find(x=>x.startsWith("DISPATCH="));
       expect(line).toBeDefined();const request=JSON.parse(line!.slice(9));
       expect(enabledFlag(request.check)).toBe(check);expect(enabledFlag(request.status)).toBe(status);expect(enabledFlag(request.json)).toBe(json);
+      expect(enabledFlag(request.resume)).toBe(resume);
     }
     const help=run(["upgrade","--help"]);expect(help.exitCode).toBe(0);expect(help.stdout.toString()).toContain("Usage:");expect(help.stdout.toString()).not.toContain("DISPATCH=");
   } finally {rmSync(root,{recursive:true,force:true});}

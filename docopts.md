@@ -26,6 +26,7 @@ Type `ops <task>` to see usage and subtasks.
 Usage:
   ops upgrade [--check] [--json]
   ops upgrade status [--json]
+  ops upgrade resume [--check] [--json]
 
 Options:
   --check   Validate the protected local upgrade profile and offline inputs without changing the cluster.

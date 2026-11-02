@@ -15,12 +15,14 @@
 // specific language governing permissions and limitations
 // under the License.
 
-import { chmodSync, copyFileSync, existsSync, lstatSync, mkdirSync, mkdtempSync, openSync, closeSync, readFileSync, readdirSync, rmSync, statfsSync, writeFileSync } from "node:fs";
+import { chmodSync, copyFileSync, existsSync, lstatSync, mkdirSync, mkdtempSync, openSync, closeSync, readFileSync, readdirSync, rmSync, statfsSync, writeFileSync, writeSync, rmdirSync } from "node:fs";
 import { join, resolve, dirname } from "node:path";
 import { hostname } from "node:os";
 import { randomUUID } from "node:crypto";
 import { assessSourceBackup, captureFreshBackup } from "./backup";
 import { cachedImages, verifyExportableCache } from "./cache";
+import { phaseMessage, logDriverOutput } from "./progress";
+import { inspectNativeResume } from "./resume";
 import { noSymlinks, privateJSON, saveJSON, validateProfile, verifyAssets, sha256, runPhases, type UpgradeProfile, type Journal } from "./lib";
 
 const BASE="/var/lib/ops-upgrade";
@@ -107,13 +109,15 @@ function safeCopy(source:string,destination:string) {
   noSymlinks(source);const st=lstatSync(source);if(!st.isFile()||st.nlink!==1)throw new Error("regular_single_link_input_required");
   mkdirSync(dirname(destination),{recursive:true,mode:0o700});copyFileSync(source,destination);chmodSync(destination,0o600);
 }
-async function privateCommand(root:string,label:string,args:string[],input?:string,timeout=1800000) {
+async function privateCommand(root:string,label:string,args:string[],input?:string,timeout=1800000,progress=false) {
   const directory=join(root,"logs");mkdirSync(directory,{mode:0o700,recursive:true});
   const out=openSync(join(directory,label+".stdout.private.log"),"wx",0o600),err=openSync(join(directory,label+".stderr.private.log"),"wx",0o600);
   try {
-    const child=Bun.spawn(args,{stdin:input===undefined?"ignore":"pipe",stdout:out,stderr:err,timeout});
+    const child=Bun.spawn(args,{stdin:input===undefined?"ignore":"pipe",stdout:progress?"pipe":out,stderr:err,timeout});
     if(input!==undefined){child.stdin!.write(input);child.stdin!.end();}
-    if(await child.exited!==0)throw new Error("upgrade_phase_failed");
+    const output=progress?logDriverOutput(child.stdout as ReadableStream<Uint8Array>,part=>{let offset=0;while(offset<part.length)offset+=writeSync(out,part,offset);},message=>console.log(message)):Promise.resolve();
+    const [code]=await Promise.all([child.exited,output]);
+    if(code!==0)throw new Error("upgrade_phase_failed");
   } finally {closeSync(out);closeSync(err);}
 }
 async function saveRuntime(root:string,profile:UpgradeProfile,source:any) {
@@ -173,6 +177,31 @@ export async function main() {
     const adapter=existsSync(adapterFile)?privateJSON(adapterFile,0):null;
     console.log(JSON.stringify({status:state.status,phase:state.phase,step:adapter?.activeStep||adapter?.failedStep||null,completed:state.completed,runId:state.runId,error:state.error||null}));return;
   }
+  if(request.resume){
+    checkSystemFile(SOURCE_KUBECONFIG);checkSystemFile("/usr/local/bin/k3s");
+    const taskRoot=resolve(import.meta.dir,"..");
+    if((await command(["git","-c","safe.directory="+taskRoot,"-C",taskRoot,"rev-parse","HEAD"])).trim()!==profile.engineCommit||
+        (await command(["git","--no-optional-locks","-c","safe.directory="+taskRoot,"-C",taskRoot,"status","--porcelain","--untracked-files=no"])).trim())throw new Error("upgrade_code_revision_mismatch");
+    const context=await inspectNativeResume(BASE,profile,caller,kube);
+    const cache=await inspectSourceCache();
+    if(request.check){console.log(JSON.stringify({status:"resume_preflight_passed",runId:context.state.runId,
+      resumePhase:context.state.phase,resumeStep:context.adapter.failedStep,alreadyVerifiedComponents:context.adapter.completed,
+      backupComponents:context.payload.components,backupFiles:context.payload.files,sourceImageCache:cache.proof,
+      sourceInMaintenance:true,originalVolumesRetained:true,mutation:false}));return;}
+    const lock=join(BASE,".resume-lock");mkdirSync(lock,{mode:0o700});
+    try {
+      if(await sha256(join(context.root,"journal.json"))!==context.review.journalSha256||
+          await sha256(join(context.root,"adapter-journal.json"))!==context.review.adapterSha256)
+        throw new Error("reviewed_checkpoint_changed");
+      const evidence=join(context.root,"resume-"+randomUUID());mkdirSync(evidence,{mode:0o700});
+      for(const file of ["journal.json","adapter-journal.json","resume-review.json"])safeCopy(join(context.root,file),join(evidence,file));
+      context.state.status="running";delete context.state.error;saveJSON(join(context.root,"journal.json"),context.state);
+      console.log("OPS upgrade resume: reuse the verified encrypted backup and completed restores; repeat the interrupted read-only check.");
+      await executeUpgrade(context.root,profile,context.source,context.state,true);
+    } finally {rmdirSync(lock);}
+    return;
+  }
+  if(!request.check&&existsSync(join(BASE,"current.json")))throw new Error("existing_upgrade_requires_checkpoint_review");
   const manifest=await verifyAssets(profile,caller);const source=await facts(profile);
   // Reject missing compressed image content before creating a run or entering maintenance.
   const cache=await inspectSourceCache();
@@ -213,10 +242,16 @@ export async function main() {
     bun:process.execPath,
     nativeNamespace:marker.nativeNamespace,sourcePodCidr:source.sourcePodCidr,targetPodCidr:"10.54.0.0/16",targetServiceCidr:"10.55.0.0/16",targetClusterDns:"10.55.0.10"};
   saveJSON(join(root,"configuration.json"),configuration);
-  const driver=async(phase:string)=>privateCommand(root,"phase-"+phase,["python3","-I",join(import.meta.dir,"adapters/driver.py"),join(root,"configuration.json"),phase],undefined,2400000);
+  await executeUpgrade(root,profile,source,state);
+}
+async function executeUpgrade(root:string,profile:UpgradeProfile,source:any,state:Journal,resuming=false) {
+  const taskRoot=resolve(import.meta.dir,".."),attempt=randomUUID();
+  const save=()=>saveJSON(join(root,"journal.json"),state);
+  const driver=async(phase:string)=>privateCommand(root,"phase-"+phase+(resuming?"-resume-"+attempt:""),["python3","-I",join(import.meta.dir,"adapters/driver.py"),join(root,"configuration.json"),phase,...(resuming?["--resume-verified"]:[])],undefined,2400000,true);
   try {
     await runPhases(state,async phase=>{
-      console.log("OPS upgrade: "+phase);
+      console.log(phaseMessage(phase));
+      await (async()=>{
       if(phase==="preflight")return;
       if(phase==="freeze-applications"){await saveRuntime(root,profile,source);await freeze(root,source);return;}
       if(phase==="backup"){
@@ -225,15 +260,24 @@ export async function main() {
         writeFileSync(join(sourceBin,"kubectl"),'#!/bin/sh\nexec /usr/local/bin/k3s kubectl "$@"\n',{mode:0o700,flag:"wx"});
         process.env.PATH=sourceBin+":"+process.env.PATH;
         await captureFreshBackup(root,profile,(await command(["/usr/local/bin/k3s","kubectl","config","current-context"])).trim(),taskRoot);
-        state.backupVerified=true;return;
+        state.backupVerified=true;
+        const receipt=privateJSON(join(root,"backup-verification.json"),0);
+        console.log(`  Encrypted backup and decrypted copy verified: ${receipt.components} components, ${receipt.files} files.`);return;
       }
       await driver(phase);
       if(phase==="final-iam")state.finalIamVerified=true;
+      })();
+      console.log("OPS upgrade: "+phase+" PASS");
     },save);
-    console.log(JSON.stringify({status:"upgrade_complete",runId,targetVersion:profile.target.version,
+    console.log(JSON.stringify({status:"upgrade_complete",runId:state.runId,targetVersion:profile.target.version,
       credentialsAndDefinitionsPreserved:true,finalIamVerified:true,applicationAcceptanceRequired:true,backupDirectory:root}));
   } catch {
-    console.error("OPS upgrade stopped at "+state.phase+". Private journal retained; run ops upgrade status. No subsequent phase was executed.");process.exitCode=1;
+    const adapter=existsSync(join(root,"adapter-journal.json"))?privateJSON(join(root,"adapter-journal.json"),0):null;
+    const causes:Record<string,string>={AttributeError:"verification helper error",ValueError:"a validation check failed",TimeoutExpired:"operation timed out",RuntimeError:"a required operation failed"};
+    console.error("OPS upgrade stopped at "+state.phase+(adapter?.failedStep?", step "+adapter.failedStep:"")+(causes[adapter?.errorType]?" — "+causes[adapter.errorType]:"")+".");
+    if(state.phase==="native-restore")console.error("  Source ingress, schedules and actions remain paused. Original volumes and the verified backup are retained; the target control plane has not been created.");
+    console.error("  Private journal retained; run ops upgrade status. No subsequent phase was executed.");process.exitCode=1;
   }
 }
+
 if(import.meta.main)main().catch(error=>{const code=/^[a-z0-9_]{1,80}$/.test(error?.message||"")?error.message:"protected_input_or_local_prerequisite_failed";console.error("OPS upgrade stopped: "+code+". Inspect the protected profile and checkpoint; no credentials are shown.");process.exitCode=1;});

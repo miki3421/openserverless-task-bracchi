@@ -56,7 +56,16 @@ the fresh backup. Application acceptance remains a separate step after migration
 Missed scheduled executions are not automatically replayed.
 
 The first failure stops subsequent phases and retains private diagnostics. A
-second mutating invocation is refused until the checkpoint has been reviewed;
-automatic resume is intentionally unavailable in this first adapter. The user
-executes the complete upgrade during the fresh-VM rehearsal; read-only preflight
-alone is not evidence of an end-to-end upgrade pass.
+second fresh invocation is refused while a checkpoint exists. The explicit
+`ops upgrade resume --check` and `ops upgrade resume` paths currently support only
+the reviewed FerretDB read-only verification interruption in native restore.
+They require an administrator-owned review bound to the exact stopped journals,
+new task commit, host, backup snapshot and native Pod identities. Backup payload
+integrity, unchanged target pins, staged inputs and source maintenance are checked
+again. Completed restores are reused; the interrupted verification gets separate
+attempt logs. Other interruptions still require a separate recovery review.
+
+Phase messages explain the action and purpose. Native component messages report
+START, PASS or ALREADY VERIFIED; arbitrary worker output stays in private logs.
+The user executes the complete upgrade during the fresh-VM rehearsal; read-only
+preflight alone is not evidence of an end-to-end upgrade pass.

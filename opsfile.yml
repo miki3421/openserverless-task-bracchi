@@ -33,7 +33,7 @@ tasks:
     silent: true
     env:
       OPS_UPGRADE_REQUEST: >-
-        {"check":{{toJson (default false .__check)}},"status":{{toJson (default false .status)}},"json":{{toJson (default false .__json)}}}
+        {"check":{{toJson (default false .__check)}},"status":{{toJson (default false .status)}},"resume":{{toJson (default false .resume)}},"json":{{toJson (default false .__json)}}}
     cmds:
       - bun upgrade/main.ts
 

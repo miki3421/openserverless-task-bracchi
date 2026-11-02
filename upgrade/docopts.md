@@ -4,6 +4,7 @@
 Usage:
   upgrade [--check] [--json]
   upgrade status [--json]
+  upgrade resume [--check] [--json]
 
 Options:
   --check   Validate the local host, source and pinned offline inputs without changing the cluster.
@@ -28,6 +29,9 @@ Anonymous IAM is reconciled after the last filer/tenant restore and before
 ingress and applications. Arbitrary missing etcd metadata remains an error;
 only independently confirmed expired native-Milvus session leases are accepted.
 Failures retain a private phase journal and stop subsequent operations.
+An explicitly reviewed FerretDB verification interruption can be checked with
+`ops upgrade resume --check` and continued with `ops upgrade resume`; completed
+restores are reused and old diagnostics retained. Other checkpoints remain blocked.
 
 Application definitions and credentials are preserved. Application-specific
 compatibility changes and acceptance tests belong to the application, not this
