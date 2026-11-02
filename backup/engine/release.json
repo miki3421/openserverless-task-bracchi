@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
   "repository": "https://github.com/miki3421/ops-k3s-backup",
-  "revision": "ee77869b03ac764511dd93f8bbae6d0ce4de7ef8",
+  "revision": "a035d2e5f0c4a74c841aae543afaad8eb5907b82",
   "files": [
     {
       "path": "adapters/ops-native/LICENSE",
@@ -365,8 +365,8 @@
     },
     {
       "path": "scripts/ops_backup.py",
-      "bytes": 16702,
-      "sha256": "a695f4e78411bf652211488f20b39916c74539bb418683d03167ec244c3b6dcf"
+      "bytes": 16826,
+      "sha256": "03cd9953054e76a260c86cd2204e729830455d255ef0b977a5e61f7b1148977f"
     },
     {
       "path": "scripts/pack-real-backup.py",

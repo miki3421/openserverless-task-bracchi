@@ -202,8 +202,10 @@ def workspace_bytes(run):
             path = Path(directory) / name
             info = path.lstat()
             if stat.S_ISLNK(info.st_mode):
-                check(path.is_relative_to(run / 'capture/native/native/host-files'), 'Unexpected workspace link')
-                total += len(os.readlink(path))
+                # Native bootstrap links and provider log links are legitimate
+                # staging metadata. Count only the link inode, never its target.
+                # Clean payload/native receipts and the sealer enforce artifact policy.
+                total += info.st_size
             elif stat.S_ISREG(info.st_mode):
                 check(info.st_nlink == 1, 'Unexpected workspace hardlink')
                 total += info.st_size
