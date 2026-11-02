@@ -56,9 +56,13 @@ if not p.state.get('opsPrepareExecuted'):
     for group in ['common','roles','crds']:
         p.run('check-prepared-'+group,p.k+['apply','-f',str(task/'setup/kubernetes'/group)],timeout=300)
     p.state['opsPrepareExecuted']=True;p.save()
-runtime=(p.root/'inputs/config/runtimes.json').read_text()
+exec(compile(source('runtime_catalog.py'),'runtime_catalog.py','exec'))
+runtime_source=json.loads((p.root/'inputs/config/runtimes.json').read_text())
+runtime_target=json.loads((task/'runtimes.json').read_text())
+runtime_merged,required_runtime_kinds=merge_system_runtimes(runtime_source,runtime_target)
+runtime=json.dumps(runtime_merged,indent=2)+'\n'
 p.apply('compatible-runtime-catalog',[{'apiVersion':'v1','kind':'ConfigMap','metadata':{'name':'openwhisk-runtimes','namespace':'openserverless'},'data':{'runtimes.json':runtime}}])
-shutil.copyfile(p.root/'inputs/config/runtimes.json',home/'.ops/tmp/runtimes.json')
+(home/'.ops/tmp/runtimes.json').write_text(runtime)
 os.chown(home/'.ops/tmp/runtimes.json',account.pw_uid,account.pw_gid)
 for name in ['whisks.openserverless.org','whisksusers.openserverless.org']:
     p.run('crd-established-'+name,p.k+['wait','--for=condition=Established','crd/'+name,'--timeout=60s'])
