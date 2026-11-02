@@ -13,6 +13,14 @@ Unsupported layouts, foreign cluster workloads, incomplete native mappings and
 source identity drift stop the operation. Other versions and production use
 require separate qualification and profiles.
 
+Preflight also walks every cached image's Linux AMD64 OCI descriptors. It checks
+metadata digests and sizes and requires the compressed layers needed for export
+to be present. Ready Pods can continue using unpacked snapshots despite missing
+compressed content; readiness alone is insufficient. Missing cache content stops
+the command before a run is created or maintenance begins. The check is read-only
+and does not pull images or substitute tags. Repair prerequisites using the exact
+original image digest, then review the retained failed checkpoint before retry.
+
 The source setup may contain unused cert-manager Deployments. They are accepted
 only with TLS disabled and no Certificates, Issuers or ClusterIssuers. The new
 non-TLS control plane does not recreate this unused addon. Certificates and

@@ -15,6 +15,8 @@ tenant names or image arguments are required on the command line. The initial
 route supports a single-node Linux AMD64 K3s Nuvolaris 0.1.0 installation with
 the explicitly qualified backend layout, migrating to the pinned 0.9.0 candidate.
 It rejects unsupported layouts and foreign workloads before entering maintenance.
+Preflight verifies the compressed Linux AMD64 image cache needed for export;
+missing content stops before a run is created, even if its Pods are Ready.
 
 The command runs on the server that owns K3s and requires its administrator's
 sudo access. It captures a fresh protected backup, verifies an encrypted round

@@ -20,6 +20,7 @@ import { join, resolve, dirname } from "node:path";
 import { hostname } from "node:os";
 import { randomUUID } from "node:crypto";
 import { assessSourceBackup, captureFreshBackup } from "./backup";
+import { cachedImages, verifyExportableCache } from "./cache";
 import { noSymlinks, privateJSON, saveJSON, validateProfile, verifyAssets, sha256, runPhases, type UpgradeProfile, type Journal } from "./lib";
 
 const BASE="/var/lib/ops-upgrade";
@@ -118,13 +119,20 @@ async function privateCommand(root:string,label:string,args:string[],input?:stri
 async function saveRuntime(root:string,profile:UpgradeProfile,source:any) {
   const runtime=(await kube(["-n","nuvolaris","get","configmap/openwhisk-runtimes"])).data["runtimes.json"];
   JSON.parse(runtime);writeFileSync(join(root,"source-runtimes.json"),runtime,{mode:0o600,flag:"wx"});
-  const listing=(await command(["/usr/local/bin/k3s","ctr","-n","k8s.io","images","ls"])).trim().split("\n").slice(1).map(x=>x.trim().split(/\s+/));
-  const entries=listing.filter(x=>x.length>=3).map(x=>({reference:x[0],manifestDigest:x[2]}));
-  if(!entries.length||entries.some(x=>!/^sha256:[a-f0-9]{64}$/.test(x.manifestDigest)))throw new Error("invalid_source_image_cache");
+  const {entries,proof}=await inspectSourceCache();
+  saveJSON(join(root,"source-cache-readiness.json"),proof);
   const nodes=(await kube(["-n","nuvolaris","get","pods"])).items;
   saveJSON(join(root,"source-runtime.json"),{runtimeImages:entries,nativeImages:nodes.flatMap((p:any)=>(p.spec.containers||[]).map((c:any)=>({pod:p.metadata.name,container:c.name,image:c.image,runningImageId:(p.status.containerStatuses||[]).find((s:any)=>s.name===c.name)?.imageID}))).filter((x:any)=>x.runningImageId)});
   const refs=entries.map(x=>x.reference);
   await privateCommand(root,"export-source-image-cache",["/usr/local/bin/k3s","ctr","-n","k8s.io","images","export","--platform","linux/amd64",join(root,"source-cache.tar"),...refs],undefined,1800000);
+}
+async function inspectSourceCache() {
+  const ctr=["/usr/local/bin/k3s","ctr","-n","k8s.io"];
+  const entries=cachedImages(await command([...ctr,"images","ls"]));
+  const available=new Set((await command([...ctr,"content","ls","-q"])).trim().split("\n"));
+  const proof=await verifyExportableCache(entries,available,async digest=>
+    new TextEncoder().encode(await command([...ctr,"content","get",digest])));
+  return {entries,proof};
 }
 async function freeze(root:string,source:any) {
   const ingress=source.workloads.find((w:any)=>w.kind==="Deployment"&&w.metadata.namespace==="kube-system"&&w.metadata.name==="traefik");
@@ -166,6 +174,8 @@ export async function main() {
     console.log(JSON.stringify({status:state.status,phase:state.phase,step:adapter?.activeStep||adapter?.failedStep||null,completed:state.completed,runId:state.runId,error:state.error||null}));return;
   }
   const manifest=await verifyAssets(profile,caller);const source=await facts(profile);
+  // Reject missing compressed image content before creating a run or entering maintenance.
+  const cache=await inspectSourceCache();
   const checkBin=mkdtempSync("/tmp/ops-upgrade-check-");
   const previousPath=process.env.PATH,previousKubeconfig=process.env.KUBECONFIG;
   let assessment:any;
@@ -182,7 +192,8 @@ export async function main() {
   if(request.check){console.log(JSON.stringify({status:"preflight_passed",route:profile.route,sourceClusterUid:source.clusterUid,
     tenants:source.tenantCount,namespaces:assessment.inventory.namespaces.length,
     entities:assessment.inventory.namespaces.reduce((n:number,x:any)=>n+x.entities.length,0),pvcMappings:assessment.plan.volumeCoverage.length,
-    assetFilesVerified:Object.keys(manifest).length,mutation:false,targetVersion:profile.target.version}));return;}
+    assetFilesVerified:Object.keys(manifest).length,sourceImageCache:cache.proof,
+    mutation:false,targetVersion:profile.target.version}));return;}
   mkdirSync(BASE,{recursive:true,mode:0o700});noSymlinks(BASE);
   if(existsSync(join(BASE,"current.json")))throw new Error("existing_upgrade_requires_checkpoint_review");
   mkdirSync(join(BASE,".lock"),{mode:0o700});
