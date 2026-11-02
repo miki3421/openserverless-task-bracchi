@@ -48,7 +48,7 @@
     },
     "restore_milvus.py": {
       "priorWorkerSha256": "307f425a36e5d685488f40e49eda0af39801acde88349e5f5c038a0bfe007c59",
-      "portedSha256": "b42db623a8da80581780233d7545cee1933ee78ef7cd2f82a2a16c868b3b8958"
+      "portedSha256": "be320b38f1fd8065923b76d2fba371b703baeb2e50b01cc8f931738acbda6631"
     },
     "verify_milvus.py": {
       "priorWorkerSha256": "5ee0246037c3d7332019a7b0b0c1afbda05b020bb313982b34a73fbd2fa3be88",

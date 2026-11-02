@@ -247,7 +247,7 @@ export async function main() {
   saveJSON(join(root,"configuration.json"),configuration);
   await executeUpgrade(root,profile,source,state);
 }
-async function executeUpgrade(root:string,profile:UpgradeProfile,source:any,state:Journal,resuming=false) {
+export async function executeUpgrade(root:string,profile:UpgradeProfile,source:any,state:Journal,resuming=false) {
   const taskRoot=resolve(import.meta.dir,".."),attempt=randomUUID();
   const save=()=>saveJSON(join(root,"journal.json"),state);
   const driver=async(phase:string)=>privateCommand(root,"phase-"+phase+(resuming?"-resume-"+attempt:""),["python3","-I",join(import.meta.dir,"adapters/driver.py"),join(root,"configuration.json"),phase,...(resuming?["--resume-verified"]:[])],undefined,2400000,true);

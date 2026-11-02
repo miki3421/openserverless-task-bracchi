@@ -28,7 +28,7 @@ import urllib.request
 import xml.etree.ElementTree as ET
 
 exec(compile(MILVUS_METADATA_MODULE, 'milvus_metadata.py', 'exec'))
-lab = Lab(MILVUS_QUALIFICATION_COMPONENT)
+lab = Lab(QUALIFICATION_COMPONENT)
 target = lab.target('milvus-data')
 original = lab.workload(target)
 if target['image'] != 'milvusdb/milvus:v2.5.2' or len(target['mounts']) != 1:
@@ -37,7 +37,7 @@ source = next(c for c in original['spec']['template']['spec']['containers'] if c
 if source.get('args') != ['milvus', 'run', 'standalone'] or source.get('env'):
     raise ValueError('Native standalone Milvus command or environment differs')
 cm = next(c for c in lab.configuration['resources'] if c['kind'] == 'ConfigMap' and
-          c['metadata']['name'] == 'nuvolaris-milvus' and c['metadata']['namespace'] == lab.namespace)
+          c['metadata']['name'] == 'nuvolaris-milvus' and c['metadata']['namespace'] == lab.plan['source']['namespace'])
 if cm['data'] != MILVUS_SOURCE_CONFIG_RAW or set(MILVUS_SOURCE_CONFIGS) != {'default.yaml', 'user.yaml'}:
     raise ValueError('Source Milvus configuration binding differs')
 default = copy.deepcopy(MILVUS_SOURCE_CONFIGS['default.yaml'])
