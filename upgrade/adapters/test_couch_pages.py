@@ -21,7 +21,7 @@ from pathlib import Path
 
 source=Path(__file__).with_name('prepare_target_databases.py').read_text()
 tree=ast.parse(source)
-def pager(documents,max_rows=2,duplicate=False,changed=False):
+def pager(documents,max_rows=2,duplicate=False,changed=False,late=False):
     selected=[n for n in tree.body if isinstance(n,(ast.FunctionDef,ast.ClassDef))and n.name in ['CouchResponseBudgetExceeded','logical_database']]
     scope={'hashlib':hashlib,'json':json,'urllib':__import__('urllib')};exec(compile(ast.Module(body=selected,type_ignores=[]),'actual-pager','exec'),scope)
     calls=[];metadata=0
@@ -33,7 +33,7 @@ def pager(documents,max_rows=2,duplicate=False,changed=False):
             return 200,{'doc_count':len(documents),'update_seq':'changed'if changed and metadata>1 else'stable'}
         limit=int(query['limit'][0]);last=json.loads(query['startkey'][0])if 'startkey'in query else None
         calls.append((limit,last))
-        if limit>max_rows:raise scope['CouchResponseBudgetExceeded']('synthetic response budget')
+        if limit>(200 if late and last is None else max_rows):raise scope['CouchResponseBudgetExceeded']('synthetic response budget')
         rows=[{'id':d['_id'],'doc':d}for d in documents if last is None or d['_id']>last][:limit]
         if duplicate and last and rows:rows[0]['id']=last
         return 200,{'total_rows':len(documents),'rows':rows}
@@ -49,6 +49,11 @@ class CouchPages(unittest.TestCase):
         for d in docs:expected.update(json.dumps({k:v for k,v in d.items()if k!='_revisions'},sort_keys=True,separators=(',',':')).encode()+b'\n')
         self.assertEqual(result['sha256'],expected.hexdigest());self.assertGreater(len(calls),len(docs)//2)
         self.assertTrue(all(c[1]is None for c in calls if c[0]>2))
+    def test_later_oversized_page_retries_the_last_consumed_cursor(self):
+        docs=[{'_id':f'action-{i:03}'}for i in range(205)]
+        read,calls=pager(docs,late=True);consumed=[];result=read('source',lambda rows:consumed.extend(rows))
+        self.assertEqual(consumed,docs);self.assertEqual(result['documents'],205)
+        self.assertTrue(any(cursor=='action-199'and limit>2 for limit,cursor in calls))
     def test_single_oversized_document_still_fails_closed(self):
         read,calls=pager([{'_id':'large'}],max_rows=0)
         with self.assertRaises(ValueError):read('source')
