@@ -2,7 +2,7 @@
   "kind": "ported-qualified-legacy-recovery-workers",
   "sourceTaskCommit": "1e681b28fd54e4132be1a233f8e246fa98c2c8a2",
   "sourceOperatorCommit": "a8b3585422f26ea85a69348e40d7ff0ad4d41054",
-  "targetOperatorCommit": "657ab941511e3e2b8706f4ab4011c385ba70273c",
+  "targetOperatorCommit": "4a325f729690d32486dbdf17d50e217b93c14ad7",
   "changes": [
     "Explicit local-server mode replaces isolated-VM network assumptions; host/cluster/run namespace are independently bound.",
     "A distinct native namespace on the original cluster avoids a second K3s bootstrap.",
@@ -88,7 +88,7 @@
     },
     "prepare_090_tasks.py": {
       "priorWorkerSha256": "f12dd74d0b6829a73a93df6b9fab5714bc5c439623fdf31e9880ee7a5a515e3a",
-      "portedSha256": "82dfb2cde7596b2cff05680d86662a423414edf78adc88f089957f0423a11366"
+      "portedSha256": "f994061e94e10452283dfbba68905f64ca552fc465190d046af438173c88e55e"
     },
     "reconcile_090_iam.py": {
       "priorWorkerSha256": "a6e9b0359705df21d2afe482a0eff610ccb278fcf6b54fb8ad6c579bb7186072",
@@ -100,7 +100,7 @@
     },
     "wait_090_platform.py": {
       "priorWorkerSha256": "0f0a9989b78103b04ac48b7178c38b5186a28562e1319cb4d352fbe8225dad17",
-      "portedSha256": "90679526eb8429854f877024e4c94f5290d0ff62d3599987aa830b1706704a2e"
+      "portedSha256": "1a1ec438dfd44086b00212d3bfa54746bf2c018cdf6cae465ded8b9b44b41eb9"
     },
     "reconcile_090_pod_dns.py": {
       "priorWorkerSha256": "50bed024da45ef84736ffb76aefa7bee3775048548599014ce1beab63c5eea9e",

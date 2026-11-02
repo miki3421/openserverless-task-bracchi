@@ -108,6 +108,18 @@ class LocalScopeTests(unittest.TestCase):
         scope={'lab':lab};exec(compile(ast.Module(body=[node],type_ignores=[]),'real-milvus-config-selection','exec'),scope)
         self.assertIs(scope['cm'],original)
 
+    def test_required_system_runtime_is_added_without_overriding_source_kinds(self):
+        scope={};exec((ADAPTERS/'runtime_catalog.py').read_text(),scope)
+        original={'runtimes':{'python':[{'kind':'python:3.12','default':True,'image':{'tag':'legacy'}}]}}
+        system={'kind':'python:sys','default':False,'image':{'tag':'target-system'}}
+        target={'runtimes':{'python':[{'kind':'python:3.12','default':True,'image':{'tag':'different-target-default'}},system]}}
+        merged,added=scope['merge_system_runtimes'](original,target)
+        self.assertEqual(merged['runtimes']['python'],[original['runtimes']['python'][0],system]);self.assertEqual(added,['python:sys'])
+        self.assertEqual(len(original['runtimes']['python']),1)
+        again,added=scope['merge_system_runtimes'](merged,target);self.assertEqual(again,merged);self.assertEqual(added,[])
+        conflict={'runtimes':{'python':[dict(system,image={'tag':'unreviewed-source-system'})]}}
+        with self.assertRaisesRegex(ValueError,'conflicts'):scope['merge_system_runtimes'](conflict,target)
+
     def test_target_plan_preserves_original_auth_and_arbitrary_tenant_count(self):
         claims=['couchdb-pvc-couchdb-0','redis-pvc-redis-0','registry-pvc','seaweedfs-pvc',
                 'nuvolaris-mongodb-pvc-nuvolaris-mongodb-0','postgres-db-nuvolaris-postgres-1-0',

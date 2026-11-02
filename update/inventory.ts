@@ -44,7 +44,7 @@ const IMAGE_KEYS: Record<string, Record<string, string>> = {
   "StatefulSet/controller": { controller: "controller", "check-kafka": "busybox" },
   "StatefulSet/invoker": { invoker: "invoker", "check-kafka": "busybox" },
   "StatefulSet/couchdb": { couchdb: "couchdb" },
-  "StatefulSet/redis": { redis: "redis" },
+  "StatefulSet/redis": { redis: "redis", "redis-acl-init": "redis" },
   "StatefulSet/openserverless-etcd": { "openserverless-etcd": "etcd" },
   "StatefulSet/kafka": { kafka: "kafka", "volume-exporter": "volume_exporter", "wait-for-zookeeper": "busybox_kafka" },
   "StatefulSet/zookeeper": { zookeeper: "zookeeper" },

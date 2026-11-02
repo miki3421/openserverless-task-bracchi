@@ -17,7 +17,7 @@
 
 """Wait for ordinary startup; fail immediately on a recorded handler/container error."""
 p=Promotion('wait-platform-090')
-required=['openwhisk','couchdb','redis','postgres','mongodb','seaweedfs','milvus','etcd','static']
+required=['openwhisk','couchdb','redis','postgres','mongodb','seaweedfs','milvus','etcd','static','whisk-system']
 deadline=time.monotonic()+600
 while True:
     whisk=p.get('observe-platform','whisk/controller','openserverless')
@@ -33,6 +33,8 @@ while True:
             if waiting in ['CrashLoopBackOff','ErrImagePull','ImagePullBackOff','CreateContainerConfigError','InvalidImageName']:
                 raise ValueError('Platform container startup error: '+pod['metadata']['name']+' '+waiting)
     state=whisk.get('status',{}).get('whisk_create',{})
+    for component in required:
+        if state.get(component)=='error':raise ValueError('Platform component failed: '+component)
     if all(state.get(k)=='on' for k in required) and state.get('controller')=='Ready':
         break
     if time.monotonic()>=deadline:

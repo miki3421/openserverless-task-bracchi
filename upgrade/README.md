@@ -21,6 +21,12 @@ the command before a run is created or maintenance begins. The check is read-onl
 and does not pull images or substitute tags. Repair prerequisites using the exact
 original image digest, then review the retained failed checkpoint before retry.
 
+The target catalogue preserves every source runtime definition and default, and
+adds the pinned target system runtime kinds such as `python:sys`. Completed
+source Job Pods are retained as history while the switch waits for active
+workloads to stop. CLI tools are installed atomically so the running migration
+runtime can keep executing its original inode.
+
 The source setup may contain unused cert-manager Deployments. They are accepted
 only with TLS disabled and no Certificates, Issuers or ClusterIssuers. The new
 non-TLS control plane does not recreate this unused addon. Certificates and
