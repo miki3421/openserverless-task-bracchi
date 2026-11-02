@@ -19,6 +19,7 @@ from backup_manifest import private_directory
 from native_manifest import inventory
 from image_scope import image_targets, scope_images
 from image_cache import inspect_cache
+from storage_capacity import require_separate_image_filesystem
 from runtime_config import bounded_path
 import argparse
 
@@ -31,6 +32,8 @@ def main():
     parser.add_argument('--workspace', type=Path)
     args, cfg = parse_config(parser, allow_capture=True)
     cfg.require_source(root=True, cluster=True)
+    if hasattr(cfg, 'archive'):
+        require_separate_image_filesystem(cfg.archive.root, '/var/lib/rancher/k3s/agent/containerd')
     require(platform.machine() in {"aarch64", "x86_64"}, "Unsupported native image export architecture")
     os.umask(0o077)
     account = pwd.getpwnam(cfg.source["owner"])
