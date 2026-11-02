@@ -20,6 +20,22 @@ under the License.
 
 Type `ops <task>` to see usage and subtasks.
 
+## Installation backup
+
+```text
+Usage:
+  ops backup [--check] [--json]
+  ops backup status [--json]
+
+Options:
+  --check   Validate the selected installation and local archive prerequisites without collecting data.
+  --json    Print a structured, credential-free result.
+```
+
+`ops backup` uses the private `OPS_HOME/backup.json` profile. See
+`backup/README.md` for supported installation layouts, key custody, private
+journals and the distinction between file recovery and application acceptance.
+
 ## Local server upgrade
 
 ```text
@@ -44,6 +60,7 @@ rehearsal route, maintenance window, retained recovery material and limitations.
   config      Manage the Apache OpenServerless configuration
   setup       Setup the Apache OpenServerless platform on multiple environments
   update      Inspect releases, inventory applications and plan updates without applying changes
+  backup      Back up a selected installation and verify encrypted file recovery
   upgrade     Migrate a supported local installation using a protected versioned profile
   debug       Debug utilities for the Apache OpenServerless platform
   cloud       OpenServerless setup utilities for supported Deployment models on Cloud Providers
