@@ -68,9 +68,15 @@ def enable_dns(path,target,kube,run):
     run('isolated-dns-ready',kube+['-n','kube-system','rollout','status','deployment/coredns','--timeout=180s'])
     service=json.loads(run('isolated-dns-service',kube+['-n','kube-system','get','service/kube-dns','-ojson']))
     require(service['spec']['clusterIP']=='10.55.0.10'and{(p['port'],p['protocol'])for p in service['spec']['ports']} >= {(53,'UDP'),(53,'TCP')},'target_dns_service_binding_mismatch')
-    pods=json.loads(run('isolated-dns-pods',kube+['-n','kube-system','get','pods','-l','k8s-app=kube-dns','-ojson']))['items']
-    slices=json.loads(run('isolated-dns-endpoint-slices',kube+['-n','kube-system','get','endpointslices','-l','kubernetes.io/service-name=kube-dns','-ojson']))['items']
-    address=bound_dns_endpoint(pods,slices)
+    deadline=time.monotonic()+30;attempt=0
+    while True:
+        attempt+=1
+        pods=json.loads(run('isolated-dns-pods-'+str(attempt),kube+['-n','kube-system','get','pods','-l','k8s-app=kube-dns','-ojson']))['items']
+        slices=json.loads(run('isolated-dns-endpoint-slices-'+str(attempt),kube+['-n','kube-system','get','endpointslices','-l','kubernetes.io/service-name=kube-dns','-ojson']))['items']
+        try:address=bound_dns_endpoint(pods,slices);break
+        except ValueError as error:
+            if str(error)!='ready_dns_endpoint_required'or time.monotonic()>=deadline:raise
+            time.sleep(1)
     deadline=time.monotonic()+45
     while True:
         identifier=int.from_bytes(os.urandom(2),'big');question=dns_question(identifier)
