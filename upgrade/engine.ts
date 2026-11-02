@@ -163,6 +163,9 @@ async function freeze(root:string,source:any) {
 
 export async function main() {
   process.umask(0o077);
+  // Backup inventory helpers also inspect Git. A privileged read must never
+  // refresh the caller-owned index using root ownership and the private umask.
+  process.env.GIT_OPTIONAL_LOCKS="0";
   const requestPath=process.argv[2];if(!requestPath)throw new Error("protected_request_required");
   const caller=Number(process.env.SUDO_UID||process.getuid!());const request=privateJSON(requestPath,caller);
   if(request.schemaVersion!==1||request.uid!==caller)throw new Error("request_identity_mismatch");
