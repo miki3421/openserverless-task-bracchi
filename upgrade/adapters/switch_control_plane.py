@@ -52,7 +52,17 @@ if not state.get('sourceBackendControllersStopped'):
     objects=json.loads(run('source-final-controllers',k+['-n','nuvolaris','get','deployments,statefulsets','-ojson']))['items']
     for i,obj in enumerate(objects):
         if obj['spec'].get('replicas',1):run('stop-source-controller-'+str(i),k+['-n','nuvolaris','scale',obj['kind'].lower()+'/'+obj['metadata']['name'],'--replicas=0'])
-    run('source-pods-cold',k+['-n','nuvolaris','wait','--for=delete','pods','--all','--timeout=180s'],timeout=210)
+    # Completed Job Pods remain as historical records after their controllers
+    # stop. Wait for live workloads, without requiring those records to vanish.
+    deadline=time.monotonic()+180;observation=0
+    while True:
+        pods=json.loads(run('source-pods-cold-'+str(observation),k+['-n','nuvolaris','get','pods','-ojson']))['items'];observation+=1
+        active=[p for p in pods if p.get('status',{}).get('phase') not in ['Succeeded','Failed']]
+        if not active:
+            state['terminalSourcePodsRetained']=[{'name':p['metadata']['name'],'uid':p['metadata']['uid'],'phase':p['status']['phase']} for p in pods]
+            break
+        if time.monotonic()>=deadline:raise RuntimeError('Source workloads did not stop before control-plane switch')
+        time.sleep(2)
     state['sourceBackendControllersStopped']=True;save()
 if not state.get('redisTargetCredentialPrepared'):
     volume=DATA_ROOT/'redis-pvc-redis-0';file=volume/'users.acl';rules=file.read_text().splitlines()

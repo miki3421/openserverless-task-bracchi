@@ -99,6 +99,15 @@ class LocalScopeTests(unittest.TestCase):
         self.assertEqual(result['completed'],['postgres','ferretdb-verify']);self.assertEqual(result['attempts']['ferretdb-verify'],2)
         self.assertEqual((self.root/'worker-evidence/ferretdb-verify.stdout.private.log').read_bytes(),original)
         self.assertTrue((self.root/'worker-evidence/ferretdb-verify-retry-2.stdout.private.log').exists())
+    def test_milvus_saved_config_uses_source_namespace_during_native_restore(self):
+        tree=ast.parse((ADAPTERS/'restore_milvus.py').read_text())
+        node=next(n for n in tree.body if isinstance(n,ast.Assign) and any(isinstance(t,ast.Name) and t.id=='cm' for t in n.targets))
+        from types import SimpleNamespace
+        original={'kind':'ConfigMap','metadata':{'name':'nuvolaris-milvus','namespace':'nuvolaris'},'data':{'marker':'saved-config'}}
+        lab=SimpleNamespace(namespace='ops-upgrade-native-fixture',plan={'source':{'namespace':'nuvolaris'}},configuration={'resources':[original]})
+        scope={'lab':lab};exec(compile(ast.Module(body=[node],type_ignores=[]),'real-milvus-config-selection','exec'),scope)
+        self.assertIs(scope['cm'],original)
+
     def test_target_plan_preserves_original_auth_and_arbitrary_tenant_count(self):
         claims=['couchdb-pvc-couchdb-0','redis-pvc-redis-0','registry-pvc','seaweedfs-pvc',
                 'nuvolaris-mongodb-pvc-nuvolaris-mongodb-0','postgres-db-nuvolaris-postgres-1-0',
