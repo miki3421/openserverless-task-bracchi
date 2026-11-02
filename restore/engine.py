@@ -20,6 +20,7 @@ import json,os,pwd,re,shutil,socket,subprocess,sys,time,traceback,uuid
 from pathlib import Path
 from lib import require,private_json,regular,digest,validate_profile,selected_snapshot,interface_name,interface_address
 from archive import unpack
+from service_dns import enable_dns
 
 BASE=Path('/var/lib/ops-restore');TASK=Path(__file__).resolve().parents[1]
 PHASES=['native-restore','prepare-mappings','native-checkpoint','prepare-fresh-target','bootstrap-target','prepare-target-tasks','start-target-backends','final-iam','start-platform','wait-platform','legacy-dns','verify-target-data','restore-routes','deploy-apis','verify-original-definitions','resume-schedules','complete']
@@ -105,6 +106,7 @@ def main(request_path):
         service=Path('/etc/systemd/system/k3s.service');service_text=service.read_text();require(' --config=/etc/ops-restore-k3s.private.json'in service_text,'bound_restore_k3s_service_required');service.write_text(service_text.replace(' --config=/etc/ops-restore-k3s.private.json',' --config='+str(target_root/'k3s-090.private.yaml')));run('reload-restore-k3s-service',['systemctl','daemon-reload'])
         marker={'schemaVersion':1,'role':'ops-local-restore','labId':run_id,'hostUuid':t['hostUuid'],'hostname':t['hostname'],'applicationExecutionAllowed':False,'sourceClusterUid':p['source']['clusterUid'],'targetClusterUid':t['clusterUid'],'nativeNamespace':'ops-restore-native-'+run_id[:12]};save(root/'host-binding.json',marker)
         configuration={'operation':'restore','root':str(root),'dataRoot':'/var/lib/openserverless/volumes/'+run_id,'taskRoot':str(TASK),'profile':p,'source':{'hostname':t['hostname'],'address':t['address']},'runId':run_id,'bun':request['bun'],'nativeNamespace':marker['nativeNamespace'],'targetClusterUid':t['clusterUid'],'sourcePodCidr':'10.54.0.0/16','targetPodCidr':'10.54.0.0/16','targetServiceCidr':'10.55.0.0/16','targetClusterDns':'10.55.0.10'};save(root/'configuration.json',configuration)
+        progress('prepare-service-dns');dns=enable_dns(target_root/'k3s-090.private.yaml',t,k,run);save(root/'dns-verification.json',dns);state['completed'].append('prepare-service-dns')
         for phase in PHASES:
             progress(phase);run('phase-'+phase,['python3','-I',str(TASK/'upgrade/adapters/driver.py'),str(root/'configuration.json'),phase],timeout=3600)
             state['completed'].append(phase)

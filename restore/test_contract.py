@@ -19,6 +19,7 @@ import copy,hashlib,io,json,os,sys,tarfile,tempfile,unittest
 from pathlib import Path
 sys.path.insert(0,str(Path(__file__).resolve().parent))
 from lib import validate_profile,selected_snapshot,extract_native,private_json,interface_name,interface_address
+from service_dns import dns_question,valid_dns_response
 guard={};exec(compile((Path(__file__).resolve().parents[1]/'upgrade/adapters/restore_scope.py').read_text(),'restore_scope.py','exec'),guard)
 promotion_binding=guard['promotion_binding']
 
@@ -29,6 +30,12 @@ def profile():
       'user':{'uid':1000,'name':'fixture','home':'/home/fixture'},'archive':{'repository':'/private/repository','snapshot':'e'*64,'passwordFile':'/private/password','restic':'/private/restic','resticSha256':'f'*64},'assets':{'directory':'/private/assets','manifestSha256':'0'*64},'maxRestoreBytes':1024**3}
 
 class RestoreContract(unittest.TestCase):
+    def test_dns_requires_correlated_successful_service_answer(self):
+        import struct
+        question=dns_question(42);response=struct.pack('!HHHHHH',42,0x8180,1,1,0,0)+question[12:]+b'\xc0\x0c\0\1\0\1\0\0\0\1\0\4\x0a\x37\0\1'
+        self.assertTrue(valid_dns_response(question,response))
+        for invalid in [b'',question,struct.pack('!H',43)+response[2:],response[:3]+b'\x83'+response[4:]]:
+            self.assertFalse(valid_dns_response(question,invalid))
     def test_isolated_flannel_requires_explicit_local_interface(self):
         self.assertEqual(interface_name({'flannel-iface':'ens3'}),'ens3')
         for name in [None,'','lo','--all','../ens3','a'*16]:

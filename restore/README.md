@@ -24,6 +24,9 @@ not claim that the encrypted snapshot's entire contents have been read. The
 actual restore performs a full Restic read-data check, decrypts into fresh
 private staging, runs the same offline collection and payload verifiers as
 backup, and verifies every portable artifact before the first backend restore.
+Pinned target system images are imported before the first pod. CoreDNS is then
+started and a real query for the Kubernetes service must pass before any native
+backend recovery; ingress and other addons remain disabled at that stage.
 
 Only the portable application/backend payload and verified OCI application
 images are used. The kind node image, source bootstrap and kind Kubernetes etcd
