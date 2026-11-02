@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
   "repository": "https://github.com/miki3421/ops-k3s-backup",
-  "revision": "ec37c3b28d7484851412e244dd1978ac039bbbbe",
+  "revision": "215685a9651c654be00ad8cbadcd7eb46427652a",
   "files": [
     {
       "path": "adapters/ops-native/LICENSE",
@@ -305,8 +305,8 @@
     },
     {
       "path": "scripts/kind_adapter/online_collection.py",
-      "bytes": 10758,
-      "sha256": "c7ce63c7560aa3f56bff356da1aca05b55a866b17c2f75ad4915435004fafb7f"
+      "bytes": 10718,
+      "sha256": "de8df960e3a844cbed5fd779317bd2a484883ac25f735540776b4a5db2f05a9a"
     },
     {
       "path": "scripts/kind_adapter/online_components.py",
@@ -315,8 +315,8 @@
     },
     {
       "path": "scripts/kind_adapter/online_inventory.py",
-      "bytes": 10551,
-      "sha256": "65cbe16a6991a16c920e80f263bbecd7357aab094e7708580c18743d866990c0"
+      "bytes": 10984,
+      "sha256": "1613e63665349c81905e5aedf0af334523fc116add3b1f800c2e05944129d823"
     },
     {
       "path": "scripts/kind_adapter/online_io.py",
@@ -370,8 +370,8 @@
     },
     {
       "path": "scripts/ops_backup.py",
-      "bytes": 16826,
-      "sha256": "03cd9953054e76a260c86cd2204e729830455d255ef0b977a5e61f7b1148977f"
+      "bytes": 16923,
+      "sha256": "dd0584542e0162bb880bd2d3c30bea8af5693ce3ed66ec6c8f9b3ee3e201e69c"
     },
     {
       "path": "scripts/pack-real-backup.py",

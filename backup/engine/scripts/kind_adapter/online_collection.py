@@ -10,7 +10,7 @@ from backup_manifest import artifact, validate_collection as validate_applicatio
 from . import check, digest, docker, fingerprint, read_json, write_json, private_file
 from .collection import SourceLock, now, verify_tar
 from .online_io import OnlineIO
-from .online_inventory import observe, make_plan, validate_plan
+from .online_inventory import observe, make_plan, validate_plan, control_plane_tools
 from .online_components import Components
 from .extra_pvcs import collect_extras, extra_files, validate_extras
 
@@ -83,8 +83,7 @@ def _collect(cfg, plan, approval, workspace, io_factory, component_factory):
     source = cfg.source['container_id']; cp = observed['control_plane']['pod']
     container = cfg.online['etcd_container']; status_tool = cfg.online['etcd_status_tool']
     prefix = io.kube('exec', '-n', 'kube-system', cp, '-c', container, '--', timeout=300)
-    io.execute([*prefix, 'etcdctl', 'version'])
-    io.execute([*prefix, status_tool, 'version'])
+    control_plane_tools(cfg, io, cp)
     endpoint = [*prefix, 'etcdctl', '--endpoints=https://127.0.0.1:2379',
                 '--cacert=/etc/kubernetes/pki/etcd/ca.crt', '--cert=/etc/kubernetes/pki/etcd/healthcheck-client.crt',
                 '--key=/etc/kubernetes/pki/etcd/healthcheck-client.key']

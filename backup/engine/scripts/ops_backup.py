@@ -19,7 +19,7 @@ from cluster_config import CaptureConfig, load as load_native
 from kind_adapter import check, digest, fingerprint, private_file, read_json, write_json
 from kind_adapter.archive import Restic, collection_bytes, seal
 from kind_adapter.online_io import OnlineConfig, OnlineIO
-from kind_adapter.online_inventory import observe, make_plan
+from kind_adapter.online_inventory import observe, make_plan, control_plane_tools
 from kind_adapter.online_collection import collect as kind_collect, validate as kind_validate
 from image_cache import inspect_cache
 import native_bundle
@@ -171,6 +171,7 @@ class KindBackend:
         from kind_adapter import docker
         io = OnlineIO(self.cfg)
         observed = observe(self.cfg, io)
+        control_plane_tools(self.cfg, io, observed['control_plane']['pod'])
         self.plan = make_plan(self.cfg, observed)
         write_json(self.run / 'plan.json', self.plan, self.archive)
         prefix = docker(self.cfg.kind, 'exec', self.cfg.source['container_id'], 'ctr', '--namespace', 'k8s.io')

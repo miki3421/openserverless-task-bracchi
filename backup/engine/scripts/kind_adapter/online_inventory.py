@@ -69,6 +69,15 @@ def control_plane(cfg, io):
     return {'pod': name, 'pin': pin}
 
 
+def control_plane_tools(cfg, io, pod):
+    """Verify the explicitly configured snapshot reader without taking a snapshot."""
+    prefix = io.kube('exec', '-n', 'kube-system', pod, '-c', cfg.online['etcd_container'], '--', timeout=30)
+    io.execute([*prefix, 'etcdctl', 'version'])
+    tool = cfg.online['etcd_status_tool']
+    io.execute([*prefix, tool, 'version'])
+    io.execute([*prefix, tool, 'snapshot', 'status', '--help'])
+
+
 def observe(cfg, io):
     source = kind_inventory(cfg.kind, io)
     # Fail before collection on missing tools. No installation or helper pod.
