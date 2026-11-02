@@ -75,8 +75,19 @@ def validate_request(source_path, request_path, operation, workspace, output):
           set(user) == {'client-certificate-data', 'client-key-data'} and all(user.values()),
           'Pinned certificate-only kind client required')
     bun, _ = owned_file(transport['bun'], uid, executable=True)
+    owned_file(bun.parent / 'kubectl', uid, executable=True)
     check(hashlib.file_digest(bun.open('rb'), 'sha256').hexdigest() == transport.get('bunSha256'), 'Native Bun changed')
     return cfg, owner, request, bun, kube
+
+
+def owner_environment(owner, bun, kube):
+    env = {k: v for k, v in os.environ.items() if not k.startswith('SUDO_')}
+    # setuid does not reset sudo's account variables or secure PATH. Bun can use
+    # these variables for userInfo, and kubectl lives beside the bundled Bun.
+    env.update(HOME=owner.pw_dir, USER=owner.pw_name, LOGNAME=owner.pw_name,
+               SHELL=owner.pw_shell, KUBECONFIG=str(kube), BUN_CONFIG_NO_AUTO_INSTALL='1',
+               PATH=str(bun.parent) + ':/usr/local/bin:/usr/bin:/bin')
+    return env
 
 
 def enter_namespace(cfg):
@@ -113,8 +124,7 @@ def main():
     enter_namespace(cfg)
     os.initgroups(owner.pw_name, owner.pw_gid); os.setgid(owner.pw_gid); os.setuid(owner.pw_uid)
     check(os.geteuid() == owner.pw_uid, 'Source owner transition failed')
-    env = dict(os.environ)
-    env.update(HOME=owner.pw_dir, KUBECONFIG=str(kube), BUN_CONFIG_NO_AUTO_INSTALL='1')
+    env = owner_environment(owner, bun, kube)
     argv = [str(bun), '--no-install', str(ROOT / 'adapters/ops-native/kind.ts'), args.operation, args.capture_config, args.workspace]
     if args.output: argv.append(args.output)
     os.execve(bun, argv, env)

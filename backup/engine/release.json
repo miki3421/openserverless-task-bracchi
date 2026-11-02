@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
   "repository": "https://github.com/miki3421/ops-k3s-backup",
-  "revision": "124aa98cc1fadbee53543ee4c0f006c49d7939df",
+  "revision": "2a23171c937c9285a737e1527a15c1882939215d",
   "files": [
     {
       "path": "adapters/ops-native/LICENSE",
@@ -345,8 +345,8 @@
     },
     {
       "path": "scripts/kind_native_network.py",
-      "bytes": 7078,
-      "sha256": "1f89a7183baa6c68a425176f5784a5a243b5f8383c90baacfabe7a036820f1c0"
+      "bytes": 7603,
+      "sha256": "e71684f8957f4539806f4299565d6718ac93c55c71866825ec399f65e4b5c4fd"
     },
     {
       "path": "scripts/kind_online_backup.py",
