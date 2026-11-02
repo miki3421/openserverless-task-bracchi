@@ -59,3 +59,12 @@ test("actual wrapper rejects a missing profile without creating a backup or cont
     expect(existsSync(join(root, "last-backup.json"))).toBe(false);
   } finally { rmSync(root, {recursive: true, force: true}); }
 });
+
+test("every release member is versioned for a fresh checkout", () => {
+  const root = join(import.meta.dir, "..");
+  const listing = Bun.spawnSync(["git", "-C", root, "ls-files", "-z", "backup/engine"]);
+  expect(listing.exitCode).toBe(0);
+  const names = new Set(listing.stdout.toString().split("\0"));
+  const manifest = JSON.parse(readFileSync(join(import.meta.dir, "engine/release.json"), "utf8"));
+  for (const row of manifest.files) expect(names.has("backup/engine/" + row.path)).toBe(true);
+});

@@ -31,3 +31,6 @@ node_modules/
 ide/deploy/hash.lock
 opsroot.orig
 WARN
+
+# Generated, pinned backup runtime package initializer.
+!/backup/engine/scripts/kind_adapter/__init__.py
