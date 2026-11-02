@@ -134,5 +134,16 @@
       "priorWorkerSha256": "86ab2c8f9339649b232ceb9ee9034e89708c29ccf40b48fae4e3ffea09511c5f",
       "portedSha256": "8a702155fc05a0db8263ef61ba510ee50cef532a8e60c77d294b837a1f2f65a9"
     }
+  },
+  "restoreRouteExtension": {
+    "baseUpgradeCommit": "6743f490718ba2d011600eb7d6477bd1affa303e",
+    "route": "kind-010-to-k3s-090",
+    "qualification": "local candidate; populated cross-layout recovery pending",
+    "files": {
+      "upgrade/adapters/driver.py": "c51f84a843070d0cc6e2e205e371a5c81f712ea88af087393d9c2b5e3e7a3890",
+      "upgrade/adapters/promotion_library.py": "726e86f3a15eb501e5f803b7fb650526b08d9311b783fa661175aa73a29f503b",
+      "upgrade/adapters/prepare_fresh_restore.py": "ea11fa161933b5ba9ca3a9f8d65b32da10267192c4e8a8a1923dbe0cd6a01c86",
+      "upgrade/adapters/restore_scope.py": "b5fa0bd365d8404838499ff4bb8a7655d9b5ccc70fbac54ed4119762a0501ca7"
+    }
   }
 }

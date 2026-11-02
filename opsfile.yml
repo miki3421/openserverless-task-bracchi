@@ -47,3 +47,12 @@ tasks:
         {"check":{{toJson (default false .__check)}},"status":{{toJson (default false .status)}},"json":{{toJson (default false .__json)}}}
     cmds:
       - bun backup/main.ts
+
+  restore:
+    desc: restore a verified native backup into an explicitly bound empty rehearsal cluster
+    silent: true
+    env:
+      OPS_RESTORE_REQUEST: >-
+        {"check":{{toJson (default false .__check)}},"status":{{toJson (default false .status)}},"json":{{toJson (default false .__json)}}}
+    cmds:
+      - bun restore/main.ts

@@ -49,7 +49,12 @@ class Promotion:
         self.k = ['/usr/local/bin/k3s', 'kubectl', '--kubeconfig=/etc/rancher/k3s/k3s.yaml', '--request-timeout=45s']
         cluster = self.get('fresh-cluster', 'namespace/kube-system')
         uid = cluster['metadata']['uid']
-        if uid == BOOTSTRAP['clusterUid']:
+        if globals().get('RESTORE_MODE',False):
+            staged=self.get('restore-native-pods','pods',NATIVE_NAMESPACE)['items']
+            namespace=self.get('restore-native-namespace','namespace/'+NATIVE_NAMESPACE)
+            guard={};exec(compile(source('restore_scope.py'),'restore_scope.py','exec'),guard)
+            guard['promotion_binding'](self.marker,BOOTSTRAP['clusterUid'],uid,namespace['metadata']['uid'],not staged)
+        elif uid == BOOTSTRAP['clusterUid']:
             raise ValueError('Old native control plane must not receive 0.9.0 objects')
         binding_path = self.root / 'new-cluster-binding.json'
         if bind and not binding_path.exists():

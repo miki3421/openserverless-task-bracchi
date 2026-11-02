@@ -43,20 +43,22 @@ st=configuration_path.lstat()
 if not stat.S_ISREG(st.st_mode) or st.st_uid!=0 or st.st_mode&0o077:raise SystemExit('Protected configuration required')
 CONFIG=json.loads(configuration_path.read_text())
 ROOT=Path(CONFIG['root']);DATA_ROOT=Path(CONFIG['dataRoot']);PROFILE=CONFIG['profile']
-if ROOT!=Path('/var/lib/ops-upgrade/runs')/CONFIG['runId'] or len(CONFIG['runId'])!=32:raise SystemExit('Invalid run root')
+RESTORE_MODE=CONFIG.get('operation')=='restore'
+RUN_BASE='/var/lib/ops-restore/runs' if RESTORE_MODE else '/var/lib/ops-upgrade/runs'
+if ROOT!=Path(RUN_BASE)/CONFIG['runId'] or len(CONFIG['runId'])!=32:raise SystemExit('Invalid run root')
 if DATA_ROOT!=Path('/var/lib/openserverless/volumes')/CONFIG['runId']:raise SystemExit('Invalid retained-volume root')
 marker_path=ROOT/'host-binding.json'
 marker=json.loads(marker_path.read_text())
 if marker_path.stat().st_uid!=0 or marker_path.stat().st_mode&0o077:raise SystemExit('Unsafe host binding')
-if marker['role']!='ops-local-upgrade' or marker['labId']!=CONFIG['runId'] or marker['hostUuid']!=Path('/sys/class/dmi/id/product_uuid').read_text().strip().lower() or marker['hostname']!=socket.gethostname():
+if marker['role']!=('ops-local-restore' if RESTORE_MODE else 'ops-local-upgrade') or marker['labId']!=CONFIG['runId'] or marker['hostUuid']!=Path('/sys/class/dmi/id/product_uuid').read_text().strip().lower() or marker['hostname']!=socket.gethostname():
     raise SystemExit('Local host binding differs')
 NATIVE_NAMESPACE=CONFIG['nativeNamespace']
-if NATIVE_NAMESPACE!='ops-upgrade-native-'+CONFIG['runId'][:12] or NATIVE_NAMESPACE==PROFILE['source']['namespace']:raise SystemExit('Separate native namespace required')
-BOOTSTRAP={'clusterUid':PROFILE['source']['clusterUid']}
-native_phases={'native-restore','prepare-mappings','native-checkpoint','switch-control-plane'}
+if NATIVE_NAMESPACE!=('ops-restore-native-' if RESTORE_MODE else 'ops-upgrade-native-')+CONFIG['runId'][:12] or NATIVE_NAMESPACE==PROFILE['source']['namespace']:raise SystemExit('Separate native namespace required')
+BOOTSTRAP={'clusterUid':CONFIG['targetClusterUid'] if RESTORE_MODE else PROFILE['source']['clusterUid']}
+native_phases={'native-restore','prepare-mappings','native-checkpoint','switch-control-plane','prepare-fresh-target'}
 PLAN={'labId':CONFIG['runId'],'hostname':CONFIG['source']['hostname'],'guestIp':CONFIG['source']['address'],'user':PROFILE['user']['name'],
       'podCidr':CONFIG['sourcePodCidr'] if phase in native_phases else CONFIG['targetPodCidr'],
-      'serviceCidr':CONFIG['targetServiceCidr'],'clusterDns':CONFIG['targetClusterDns'],'localServerUpgrade':True}
+      'serviceCidr':CONFIG['targetServiceCidr'],'clusterDns':CONFIG['targetClusterDns'],'localServerUpgrade':not RESTORE_MODE}
 RUNTIME=json.loads((ROOT/'source-runtime.json').read_text())
 task=Path(CONFIG['taskRoot'])
 OFFLINE_MODULE=(task/'update/offline.ts').read_text()
@@ -218,7 +220,12 @@ elif phase=='prepare-mappings':
 elif phase=='native-checkpoint':
     prepare_promotion();step('promotion-prepare','prepare_promotion_checkpoint.py',True)
 elif phase=='switch-control-plane':
+    if RESTORE_MODE:raise ValueError('Restore must never replace a control plane')
     PROMOTION_PLAN=read_json(ROOT/'planning/promotion-plan.private.json');step('switch-control-plane','switch_control_plane.py')
+elif phase=='prepare-fresh-target':
+    if not RESTORE_MODE:raise ValueError('Fresh-target preparation is restore only')
+    PROMOTION_PLAN=read_json(ROOT/'planning/promotion-plan.private.json')
+    step('prepare-fresh-target','prepare_fresh_restore.py')
 else:
     exec(compile(source('promotion_library.py'),'promotion_library.py','exec'),globals())
     if phase=='bootstrap-target':

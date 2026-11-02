@@ -26,9 +26,14 @@ Type `ops <task>` to see usage and subtasks.
 Usage:
   ops backup [--check] [--json]
   ops backup status [--json]
+  ops restore [--check] [--json]
+  ops restore status [--json]
+  ops upgrade [--check] [--json]
+  ops upgrade status [--json]
+  ops upgrade resume [--check] [--json]
 
 Options:
-  --check   Validate the selected installation and local archive prerequisites without collecting data.
+  --check   Validate the selected command's protected inputs and prerequisites without collecting data or changing the cluster.
   --json    Print a structured, credential-free result.
 ```
 
@@ -36,18 +41,14 @@ Options:
 `backup/README.md` for supported installation layouts, key custody, private
 journals and the distinction between file recovery and application acceptance.
 
+## Installation restore
+
+`ops restore` reads `OPS_HOME/restore.json`. The initial rehearsal route accepts
+the native kind0.1 payload produced by `ops backup` and an explicitly bound fresh
+single-node AMD64 K3s target for0.9.0. See `restore/README.md`. A file backup pass
+does not certify this application restore route.
+
 ## Local server upgrade
-
-```text
-Usage:
-  ops upgrade [--check] [--json]
-  ops upgrade status [--json]
-  ops upgrade resume [--check] [--json]
-
-Options:
-  --check   Validate the protected local upgrade profile and offline inputs without changing the cluster.
-  --json    Print a structured, credential-free result.
-```
 
 `ops upgrade` runs the versioned local-server migration selected by the protected
 `OPS_HOME/upgrade.json` profile. See `upgrade/README.md` for the supported
@@ -61,6 +62,7 @@ rehearsal route, maintenance window, retained recovery material and limitations.
   setup       Setup the Apache OpenServerless platform on multiple environments
   update      Inspect releases, inventory applications and plan updates without applying changes
   backup      Back up a selected installation and verify encrypted file recovery
+  restore     Restore a selected native backup to an explicitly bound empty rehearsal target
   upgrade     Migrate a supported local installation using a protected versioned profile
   debug       Debug utilities for the Apache OpenServerless platform
   cloud       OpenServerless setup utilities for supported Deployment models on Cloud Providers
