@@ -76,3 +76,9 @@ blackbox image. Missing coverage stops the restore before native recovery. An
 optional checksum-pinned `images/catalog-runtimes.tar` supplies catalog images
 that were never started on the source and are absent from its image capture.
 No runtime kind or application image is silently replaced or removed.
+
+Native etcd readiness requires the final server executable at PID1 before the
+authenticated health check runs. A healthy temporary Bitnami setup listener is
+not accepted: concurrent `etcdctl` clients can race that image's background
+server stop helper. The restore does not automatically replay a partial Milvus
+import after a backend process exits.

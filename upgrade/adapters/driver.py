@@ -67,6 +67,7 @@ AUTH_ASSERTIONS_MODULE=(ADAPTERS/'mongo_assertions.py').read_text()
 MILVUS_METADATA_MODULE=(ADAPTERS/'milvus_metadata.py').read_text()
 MILVUS_IMPORT_MODULE=(ADAPTERS/'milvus_import.py').read_text()
 ETCD_CHECKPOINT_MODULE=(ADAPTERS/'etcd_checkpoint.py').read_text()
+ETCD_READINESS_MODULE=(ADAPTERS/'etcd_readiness.py').read_text()
 OPERATOR_RECONCILER=(ADAPTERS/'anonymous_reconciler.py').read_text()
 OPERATOR_COMMIT=PROFILE['target']['operator']['sourceCommit']
 ARCHIVE_SNAPSHOT=json.loads((ROOT/'backup-verification.json').read_text())['snapshot']

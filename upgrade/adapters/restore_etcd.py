@@ -67,7 +67,8 @@ for env in source['env']:
         objects.append({'apiVersion':'v1','kind':'Secret','metadata':{'name':ref['name'],'namespace':lab.namespace},'type':secret.get('type','Opaque'),'data':secret['data']})
 main={k:copy.deepcopy(source[k]) for k in ['name','image','env','volumeMounts','ports'] if k in source}
 main['imagePullPolicy']='Never';main['securityContext']={'runAsUser':1001,'runAsGroup':1001,'runAsNonRoot':True,'allowPrivilegeEscalation':False,'capabilities':{'drop':['ALL']},'seccompProfile':{'type':'RuntimeDefault'}}
-main['readinessProbe']={'exec':{'command':['/opt/bitnami/scripts/etcd/healthcheck.sh']},'initialDelaySeconds':5,'periodSeconds':3,'timeoutSeconds':5,'failureThreshold':40}
+exec(compile(ETCD_READINESS_MODULE,'etcd_readiness.py','exec'))
+main['readinessProbe']={'exec':{'command':etcd_foreground_probe()},'initialDelaySeconds':5,'periodSeconds':3,'timeoutSeconds':5,'failureThreshold':40}
 pod={'apiVersion':'v1','kind':'Pod','metadata':{'name':target['pod'],'namespace':lab.namespace,'labels':template['metadata']['labels']},'spec':{'automountServiceAccountToken':False,'restartPolicy':'Never','hostname':target['pod'],'subdomain':original['spec']['serviceName'],'securityContext':{'fsGroup':1001},'containers':[main],'volumes':volumes}}
 objects.extend([pod,lab.service(original['spec']['serviceName']),lab.service('nuvolaris-etcd')])
 lab.create(objects);status=lab.ready(target)
