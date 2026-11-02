@@ -61,7 +61,7 @@ def success(route, body, token):
 def canonical_rows(rows):
     return json.dumps(sorted(rows, key=lambda x: json.dumps(x, sort_keys=True)), sort_keys=True, separators=(',', ':'), allow_nan=False)
 
-root_rows = {}
+root_rows = {};row_evidence=[]
 for index, collection in enumerate(collections):
     database = collection.get('db_name') or 'default'; name = collection['collection_name']
     params = {'dbName': database, 'collectionName': name}
@@ -76,8 +76,8 @@ for index, collection in enumerate(collections):
         time.sleep(1)
     expected_count = sum(segment_row_count(s) for p in collection.get('partition_backups', []) for s in p.get('segment_backups', []))
     rows = success('entities/query', dict(params, filter='', outputFields=['*'], limit=expected_count + 1), 'root:' + root_password)
-    if len(rows) != expected_count:
-        raise ValueError('Restored Milvus query row count differs from native metadata')
+    statistics=success('collections/get_stats',params,'root:'+root_password)
+    row_evidence.append(verify_visible_rows(collection,rows,statistics))
     root_rows[(database, name)] = canonical_rows(rows)
 profiles = []
 for row in lab.configuration['resources']:
@@ -90,7 +90,7 @@ for index, profile in enumerate(profiles):
     own = [(db, name) for db, name in root_rows if db == profile['database']]
     token = profile['username'] + ':' + profile['password']
     for database, name in own:
-        rows = success('entities/query', {'dbName': database, 'collectionName': name, 'filter': '', 'outputFields': ['*'], 'limit': 100}, token)
+        rows = success('entities/query', {'dbName': database, 'collectionName': name, 'filter': '', 'outputFields': ['*'], 'limit': len(json.loads(root_rows[(database,name)]))+1}, token)
         if canonical_rows(rows) != root_rows[(database, name)]:
             raise ValueError('Milvus tenant data differs from restored root reference')
         owner_checks.append({'tenantIndex': index, 'documents': len(rows)})
@@ -114,5 +114,6 @@ for index, profile in enumerate(profiles):
                 kind = 'authorization-rejected'
             denials.append({'tenantIndex': index, 'peerIndex': peer_index, 'kind': kind, 'httpStatus': status, 'code': result.get('code')})
 lab.finish({'component': 'milvus-data', 'nativeCollectionsQueried': len(root_rows), 'tenantCredentialsVerified': len(profiles),
+            'nativeLogAndVisibleRowCounts':row_evidence,'sourceLogicalCountInferredFromInsertRows':False,
             'ownerCollectionChecks': owner_checks, 'tenantRowsVerified': sum(x['documents'] for x in owner_checks),
             'negativeChecks': denials, 'tenantDataAndReadIsolationVerified': True})

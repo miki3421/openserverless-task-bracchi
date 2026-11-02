@@ -53,3 +53,10 @@ separate IP can route requests directly to the destination with the original
 Host header. A completed restore reports application acceptance still required;
 Alpha/Beta fixtures are not hardcoded in the generic command. Online capture
 provides per-component consistency, not a distributed atomic snapshot.
+
+Milvus insert-log row totals include obsolete upsert versions. Verification
+compares the full visible query with logical collection statistics and permits
+a reduction from insert rows only when native delete logs were captured. Every
+native artifact remains checksummed and tenant credential/peer-read checks still
+run. This is not a source logical fingerprint: final application readback remains
+required, including when native file recovery succeeds.

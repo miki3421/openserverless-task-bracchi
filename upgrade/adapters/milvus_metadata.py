@@ -28,3 +28,24 @@ def segment_row_count(segment):
     if isinstance(value, bool) or not isinstance(value, (int, str)) or not re.fullmatch(r'[0-9]+', str(value)):
         raise ValueError('Invalid native segment row count')
     return int(value)
+
+
+def verify_visible_rows(collection,rows,statistics):
+    """Insert logs include obsolete upsert versions; delete logs change visibility.
+
+    Native artifact hashes prove the transferred log bytes. This check compares
+    visible query coverage with the server's logical statistics, not a missing
+    source logical fingerprint. Application acceptance remains a separate gate.
+    """
+    segments=[s for p in collection.get('partition_backups',[])for s in p.get('segment_backups',[])]
+    inserts=sum(segment_row_count(s)for s in segments)
+    deleted=any(s.get('deltalogs')for s in segments)
+    count=statistics.get('rowCount')
+    if isinstance(count,bool)or not isinstance(count,(int,str))or not re.fullmatch(r'[0-9]+',str(count)):
+        raise ValueError('Invalid restored Milvus logical row statistic')
+    if not isinstance(rows,list)or len(rows)!=int(count)or len(rows)>inserts:
+        raise ValueError('Restored Milvus visible query coverage differs from collection statistics')
+    if len(rows)!=inserts and not deleted:
+        raise ValueError('Milvus row reduction lacks native delete log evidence')
+    return {'nativeInsertRows':inserts,'restoredVisibleRows':len(rows),'nativeDeleteLogsPresent':deleted,
+            'sourceLogicalFingerprintRecorded':False}
