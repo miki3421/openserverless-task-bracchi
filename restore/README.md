@@ -68,3 +68,11 @@ objects. If an attachment-expanded page exceeds32MiB, pagination reduces the
 page size and retries the same cursor before consuming any document. Sequence,
 ordering, document-count and digest checks still apply. A single document that
 exceeds the per-response bound remains unsupported and stops the restore.
+
+Before native backend recovery, the restore verifies the merged source/target
+runtime catalog against the local image cache. It requires every default and
+system runtime used by the preloader, every saved nondefault action kind and
+blackbox image. Missing coverage stops the restore before native recovery. An
+optional checksum-pinned `images/catalog-runtimes.tar` supplies catalog images
+that were never started on the source and are absent from its image capture.
+No runtime kind or application image is silently replaced or removed.

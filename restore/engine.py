@@ -21,6 +21,7 @@ from pathlib import Path
 from lib import require,private_json,regular,digest,validate_profile,selected_snapshot,interface_name,interface_address
 from archive import unpack
 from service_dns import enable_dns
+from offline_runtimes import verify_runtime_cache
 
 BASE=Path('/var/lib/ops-restore');TASK=Path(__file__).resolve().parents[1]
 PHASES=['native-restore','prepare-mappings','native-checkpoint','prepare-fresh-target','bootstrap-target','prepare-target-tasks','start-target-backends','final-iam','start-platform','wait-platform','legacy-dns','verify-target-data','restore-routes','deploy-apis','verify-original-definitions','resume-schedules','complete']
@@ -100,6 +101,9 @@ def main(request_path):
         # No source node bootstrap, Kubernetes metadata or kind control-plane
         # database is used.
         run('import-source-runtime-images',['/usr/local/bin/k3s','ctr','-n','k8s.io','images','import','--platform','linux/amd64',str(root/'source-cache.tar')],timeout=1800)
+        if 'images/catalog-runtimes.tar'in manifest['files']:
+            run('import-offline-catalog-runtime-images',['/usr/local/bin/k3s','ctr','-n','k8s.io','images','import','--platform','linux/amd64',str(inputs/'images/catalog-runtimes.tar')],timeout=1800)
+        progress('verify-offline-runtimes');verify_runtime_cache(root,p,run);state['completed'].append('verify-offline-runtimes')
         target_root=root/'target-090';target_root.mkdir(mode=0o700)
         config=Path('/etc/ops-restore-k3s.private.json');require(config.is_file(),'explicit_target_k3s_configuration_required');shutil.copyfile(config,target_root/'k3s-090.private.yaml');(target_root/'k3s-090.private.yaml').chmod(0o600)
         # The bootstrap worker updates this exact file when enabling DNS/ingress.
