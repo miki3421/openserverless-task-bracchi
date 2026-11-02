@@ -92,8 +92,12 @@ def main(request_path):
             src=regular(assets/name,caller);require(src.stat().st_size==row['bytes']and digest(src)==row['sha256'],'offline_asset_changed')
             dest=inputs/name;dest.parent.mkdir(mode=0o700,parents=True,exist_ok=True);shutil.copyfile(src,dest);dest.chmod(0o700 if name.startswith('tools/')else 0o600)
         save(inputs/'manifest.json',manifest)
-        # Only verified source application images are imported. No source node
-        # bootstrap, Kubernetes metadata or kind control-plane database is used.
+        # The fresh K3s sandbox image must exist before the first native restore
+        # pod. Import the pinned target system images first, then restore the
+        # exact source image aliases used by backend identity verification.
+        run('import-target-system-images',['/usr/local/bin/k3s','ctr','-n','k8s.io','images','import','--platform','linux/amd64',str(inputs/'images/baseline.tar')],timeout=1800)
+        # No source node bootstrap, Kubernetes metadata or kind control-plane
+        # database is used.
         run('import-source-runtime-images',['/usr/local/bin/k3s','ctr','-n','k8s.io','images','import','--platform','linux/amd64',str(root/'source-cache.tar')],timeout=1800)
         target_root=root/'target-090';target_root.mkdir(mode=0o700)
         config=Path('/etc/ops-restore-k3s.private.json');require(config.is_file(),'explicit_target_k3s_configuration_required');shutil.copyfile(config,target_root/'k3s-090.private.yaml');(target_root/'k3s-090.private.yaml').chmod(0o600)
