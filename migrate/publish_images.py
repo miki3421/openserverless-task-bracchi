@@ -39,7 +39,7 @@ def validate(plan, catalog):
     require(catalog['customImageSlots'] == ['operator'] and len(plan['images']) == 1, 'only_required_operator_publication_allowed')
     row = plan['images'][0]
     require(set(row) == {'reference', 'digest', 'archive', 'archiveSha256', 'bytes'} and
-            re.fullmatch(r'ghcr.io/miki3421/openserverless-operator:[A-Za-z0-9_.-]+', row['reference']) and
+            re.fullmatch(r'ghcr.io/miki3421/openserverless-operator-migration:[A-Za-z0-9_.-]+', row['reference']) and
             re.fullmatch(r'sha256:[a-f0-9]{64}', row['digest']) and
             row['reference'] == catalog['target']['images']['operator'] and
             {'reference': row['reference'], 'digest': row['digest']} in catalog['images'] and

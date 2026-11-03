@@ -4,7 +4,7 @@
   "releaseTag": "rehearsal-operator-4a325f729690",
   "images": [
     {
-      "reference": "ghcr.io/miki3421/openserverless-operator:0.9.0-migration-4a325f729690",
+      "reference": "ghcr.io/miki3421/openserverless-operator-migration:0.9.0-migration-4a325f729690",
       "digest": "sha256:ad53723929d0f807709aa381c17afccc83a285b108f9369a937dfb2d20b6dd46",
       "archive": "openserverless-operator.oci.tar",
       "archiveSha256": "f3c254126c21527ade1ece779d3181af90cb4bf57af4083dc6780ba9f9f83453",
