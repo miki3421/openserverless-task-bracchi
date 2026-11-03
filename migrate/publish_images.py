@@ -69,6 +69,14 @@ def publish(row, archive, directory, execute=subprocess.run):
     with auth.open('x') as stream:
         os.fchmod(stream.fileno(), 0o600)
         json.dump({'auths': {'ghcr.io': {'auth': base64.b64encode((actor + ':' + token).encode()).decode()}}}, stream)
+    def checked(result, code):
+        if result.returncode:
+            detail = result.stderr.decode(errors='replace')
+            for value in (token, base64.b64encode((actor + ':' + token).encode()).decode()):
+                detail = detail.replace(value, '[redacted]')
+            detail = re.sub(r'(?i)(?:authorization:|bearer\s+|access_token=)[^\s&]+', '[redacted]', detail)
+            print(json.dumps({'operation': code, 'registryError': detail[-1200:]}))
+        require(result.returncode == 0, code)
     # No credentials in child argv or command output. The temporary auth file
     # is private, confined to this run and removed even if the copy fails.
     try:
@@ -78,7 +86,7 @@ def publish(row, archive, directory, execute=subprocess.run):
         immutable = row['reference'].rsplit(':', 1)[0] + '@' + row['digest']
         copy_args = ['skopeo', 'copy', '--preserve-digests', '--authfile', str(auth), 'oci-archive:' + str(archive)]
         result = execute(copy_args + ['docker://' + immutable], capture_output=True, timeout=1200)
-        require(result.returncode == 0, 'operator_immutable_publication_failed')
+        checked(result, 'operator_immutable_publication_failed')
         result = execute(['skopeo', 'inspect', '--raw', '--authfile', str(auth), 'docker://' + immutable],
                          capture_output=True, timeout=120)
         require(result.returncode == 0 and 'sha256:' + hashlib.sha256(result.stdout).hexdigest() == row['digest'],
@@ -92,7 +100,7 @@ def publish(row, archive, directory, execute=subprocess.run):
         require(any(code in error for code in ('manifest unknown', 'name unknown', 'not found')),
                 'operator_registry_read_access_failed')
         result = execute(copy_args + ['docker://' + row['reference']], capture_output=True, timeout=1200)
-        require(result.returncode == 0, 'operator_registry_publication_failed')
+        checked(result, 'operator_registry_publication_failed')
         result = execute(inspect, capture_output=True, timeout=120)
         require(result.returncode == 0 and 'sha256:' + hashlib.sha256(result.stdout).hexdigest() == row['digest'],
                 'published_operator_digest_differs')
