@@ -23,6 +23,7 @@ from archive import unpack
 from service_dns import enable_dns,verify_dns
 from offline_runtimes import verify_runtime_cache
 import same_host
+from storage import inspect_storage, require_headroom
 
 BASE=Path('/var/lib/ops-restore');TASK=Path(__file__).resolve().parents[1]
 PHASES=['native-restore','prepare-mappings','native-checkpoint','prepare-fresh-target','bootstrap-target','prepare-target-tasks','start-target-backends','final-iam','start-platform','wait-platform','legacy-dns','verify-target-data','restore-routes','deploy-apis','verify-original-definitions','resume-schedules','complete']
@@ -80,7 +81,7 @@ def main(request_path):
     require(subprocess.check_output(['systemctl','is-active','k3s.service'],text=True).strip()=='active','active_local_k3s_service_required')
     require(t['k3sVersion']in subprocess.check_output(['/usr/local/bin/k3s','--version'],text=True),'target_k3s_version_mismatch')
     k=['/usr/local/bin/k3s','kubectl','--kubeconfig=/etc/rancher/k3s/k3s.yaml','--request-timeout=30s']
-    def read(args):return json.loads(subprocess.check_output(k+args+['-ojson'],stderr=subprocess.DEVNULL,timeout=45))
+    def read(args):return json.loads(subprocess.check_output(k+args+([] if '--raw' in args else ['-ojson']),stderr=subprocess.DEVNULL,timeout=45))
     require(read(['get','namespace/kube-system'])['metadata']['uid']==t['clusterUid'],'target_cluster_uid_mismatch')
     nodes=read(['get','nodes'])['items'];require(len(nodes)==1 and nodes[0]['metadata']['name']==t['hostname']and nodes[0]['spec']['podCIDR']==(network['nodePodCidr']if same_host_route else'10.54.0.0/24')and any(c['type']=='Ready'and c['status']=='True'for c in nodes[0]['status']['conditions']),'qualified_fresh_single_node_required')
     require([a['address']for a in nodes[0]['status']['addresses']if a['type']=='InternalIP']==[t['address']],'target_node_address_mismatch')
@@ -94,8 +95,9 @@ def main(request_path):
     common=[a['restic'],'--repo',a['repository'],'--password-file',a['passwordFile'],'--no-cache']
     result=subprocess.run(common+['snapshots','--json'],capture_output=True,timeout=120);require(result.returncode==0,'archive_unavailable')
     selected_snapshot(json.loads(result.stdout),a['snapshot'],p['maxRestoreBytes'])
-    require(shutil.disk_usage('/var/lib').free>=p['maxRestoreBytes']+12*1024**3,'insufficient_restore_storage')
-    if request['check']:print(json.dumps({'status':'check_passed','route':p['route'],'targetVersion':'0.9.0','clusterMutation':False,'applicationRestoreVerified':False}));return
+    snapshot=next(row for row in json.loads(result.stdout) if row['id']==a['snapshot'])
+    storage=inspect_storage(p,assets_manifest,snapshot,read)
+    if request['check']:print(json.dumps({'status':'check_passed','route':p['route'],'targetVersion':'0.9.0','clusterMutation':False,'applicationRestoreVerified':False,'storage':storage}));return
     BASE.mkdir(mode=0o700,exist_ok=True);require(not BASE.is_symlink()and BASE.stat().st_uid==0 and not BASE.stat().st_mode&0o077,'protected_restore_root_required')
     (BASE/'.lock').mkdir(mode=0o700);run_id=uuid.uuid4().hex;root=BASE/'runs'/run_id;root.mkdir(mode=0o700,parents=True);logs=root/'logs';logs.mkdir(mode=0o700)
     state={'schemaVersion':1,'runId':run_id,'status':'running','phase':'verify-archive','completed':[],'finalIamVerified':False,'applicationRestoreVerified':False};save(BASE/'current.json',{'runId':run_id,'hostUuid':t['hostUuid']});save(root/'journal.json',state)
@@ -107,6 +109,7 @@ def main(request_path):
     def progress(phase):
         state['phase']=phase;save(root/'journal.json',state);print('OPS restore: '+phase,flush=True)
     try:
+        save(root/'storage-plan.json',storage)
         progress('verify-archive');unpack(p,root,request['bun'],run);state['completed'].append('verify-archive')
         progress('prepare-offline-inputs');assets=Path(p['assets']['directory']);manifest=private_json(assets/'manifest.json',caller);require(digest(assets/'manifest.json')==p['assets']['manifestSha256'],'offline_manifest_changed')
         inputs=root/'inputs';inputs.mkdir(mode=0o700)
@@ -123,6 +126,7 @@ def main(request_path):
         run('import-source-runtime-images',['/usr/local/bin/k3s','ctr','-n','k8s.io','images','import','--platform','linux/amd64',str(root/'source-cache.tar')],timeout=1800)
         if 'images/catalog-runtimes.tar'in manifest['files']:
             run('import-offline-catalog-runtime-images',['/usr/local/bin/k3s','ctr','-n','k8s.io','images','import','--platform','linux/amd64',str(inputs/'images/catalog-runtimes.tar')],timeout=1800)
+        require_headroom(storage)
         progress('verify-offline-runtimes');verify_runtime_cache(root,p,run);state['completed'].append('verify-offline-runtimes')
         target_root=root/'target-090';target_root.mkdir(mode=0o700)
         config=Path('/etc/ops-restore-k3s.private.json')
@@ -142,6 +146,7 @@ def main(request_path):
         dns=verify_dns(t,k,run,network['podCidr'],network['clusterDns'])if same_host_route else enable_dns(target_root/'k3s-090.private.yaml',t,k,run)
         save(root/'dns-verification.json',dns);state['completed'].append('prepare-service-dns')
         for phase in PHASES:
+            require_headroom(storage)
             if same_host_route:same_host.source_offline()
             progress(phase);run('phase-'+phase,['python3','-I',str(TASK/'upgrade/adapters/driver.py'),str(root/'configuration.json'),phase],timeout=3600)
             state['completed'].append(phase)

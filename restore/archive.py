@@ -67,8 +67,10 @@ def unpack(profile,root,bun,run):
     require({v['name']for v in plan['volumeCoverage']}=={'couchdb-pvc-couchdb-0','redis-pvc-redis-0','registry-pvc','seaweedfs-pvc','nuvolaris-mongodb-pvc-nuvolaris-mongodb-0','postgres-db-nuvolaris-postgres-1-0','nuvolaris-etc-data-nuvolaris-etcd-0','nuvolaris-milvus','nuvolaris-operator-deploy-pvc','nuvolaris-static-pvc-nuvolaris-static-0'},'qualified_legacy_pvc_layout_required')
     # Reuse only the content-verified OCI application image archive. The kind
     # node image, bootstrap files and Kubernetes etcd snapshot are never applied.
-    import shutil
-    shutil.copyfile(collection/'container-images.tar',root/'source-cache.tar')
+    import runpy
+    move = runpy.run_path(str(task/'upgrade/adapters/private_transfer.py'))['move_run_artifact']
+    image_move = move(collection/'container-images.tar', root/'source-cache.tar', root)
+    (root/'source-image-transfer.json').write_text(json.dumps(image_move))
     entries=[{'reference':name,'manifestDigest':value}for name,value in outer['inventory']['image_scope']['targets'].items()]
     pods=observed['pods'];native=[];seen=set()
     for binding in plan['bindings']:

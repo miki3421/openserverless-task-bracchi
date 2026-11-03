@@ -199,7 +199,11 @@ def prepare_promotion():
     for name,path in files.items():
         target=inputs/name;target.parent.mkdir(mode=0o700,parents=True,exist_ok=True)
         if target.exists():raise ValueError('Existing input capsule destination')
-        shutil.copyfile(path,target);target.chmod(0o600)
+        if RESTORE_MODE and name.startswith('images/'):
+            transfer={};exec(compile(source('private_transfer.py'),'private_transfer.py','exec'),transfer)
+            transfer['move_run_artifact'](path,target,ROOT)
+        else:
+            shutil.copyfile(path,target);target.chmod(0o600)
         with target.open('rb') as f:digest=hashlib.file_digest(f,'sha256').hexdigest()
         manifest[name]={'sha256':digest,'bytes':target.stat().st_size}
     store(inputs/'manifest.json',manifest)

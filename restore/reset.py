@@ -28,8 +28,11 @@ import time
 
 from lib import require, private_json, regular, digest, selected_snapshot
 import same_host
+from target_reset import validate_target_objects, remove_volume
 
 EARLY_COMPLETED = {'verify-archive', 'verify-offline-runtimes', 'prepare-service-dns'}
+PRE_PLATFORM_COMPLETED = EARLY_COMPLETED | {'native-restore', 'prepare-mappings', 'native-checkpoint',
+    'prepare-fresh-target', 'bootstrap-target', 'prepare-target-tasks'}
 PAYLOADS = ('decrypted', 'unpack', 'inputs', 'source-cache.tar', 'candidate', 'catalog-tasks.git', 'target-090')
 
 
@@ -39,9 +42,9 @@ def validate_attempt(profile, current, state, config, binding):
     require(profile['route'] == same_host.ROUTE and profile['mode'] == 'rehearsal', 'early_same_host_reset_only')
     require(current.get('hostUuid') == profile['target']['hostUuid'] and state.get('runId') == run_id,
             'reset_run_identity_mismatch')
-    require(state.get('status') in {'stopped', 'resetting', 'reset_failed'} and state.get('phase') == 'native-restore' and
-            set(state.get('completed', [])) <= EARLY_COMPLETED and not state.get('finalIamVerified') and
-            not state.get('applicationRestoreVerified'), 'only_stopped_early_native_restore_can_reset')
+    require(state.get('status') in {'stopped', 'resetting', 'reset_failed'} and ((state.get('phase') == 'native-restore' and set(state.get('completed', [])) <= EARLY_COMPLETED) or
+             (state.get('phase') == 'start-target-backends' and set(state.get('completed', [])) == PRE_PLATFORM_COMPLETED)) and not state.get('finalIamVerified') and
+            not state.get('applicationRestoreVerified'), 'only_stopped_pre_platform_restore_can_reset')
     saved = copy.deepcopy(config['profile']); selected = copy.deepcopy(profile)
     saved.pop('engineCommit'); selected.pop('engineCommit')
     require(saved == selected and config.get('operation') == 'restore' and config.get('runId') == run_id and
@@ -65,10 +68,13 @@ def validate_attempt(profile, current, state, config, binding):
     return run_id, native, root, data
 
 
-def namespace_pins(marker, binding, rows, previous=None):
+def namespace_pins(marker, binding, rows, previous=None, promoted=False):
     pins = previous or {'openserverless': marker['preparedNamespaceUid'],
                         binding['nativeNamespace']: binding['nativeNamespaceUid']}
-    require(set(pins) == {'openserverless', binding['nativeNamespace']} and all(pins.values()),
+    if promoted and previous is None:
+        legacy = next((r for r in rows if r['metadata']['name'] == 'nuvolaris'), None)
+        require(legacy is not None, 'bound_legacy_alias_namespace_required'); pins['nuvolaris'] = legacy['metadata']['uid']
+    require(set(pins) == {'openserverless', binding['nativeNamespace']} | ({'nuvolaris'} if promoted else set()) and all(pins.values()),
             'reset_namespace_uids_required')
     for row in rows:
         name = row['metadata']['name']
@@ -80,19 +86,21 @@ def namespace_pins(marker, binding, rows, previous=None):
     return pins
 
 
-def filtered_reader(read, native):
+def filtered_reader(read, native, promoted=False, volumes=None):
+    hidden = {native} | ({'openserverless', 'nuvolaris'} if promoted else set())
     def filtered(args):
         result = read(args)
         if 'items' not in result: return result
         result = copy.deepcopy(result)
-        result['items'] = [row for row in result['items'] if row['metadata'].get('namespace') != native and
-                           not (args == ['get', 'namespaces'] and row['metadata']['name'] == native)]
+        result['items'] = [row for row in result['items'] if row['metadata'].get('namespace') not in hidden and
+                           not (args == ['get', 'namespaces'] and row['metadata']['name'] in hidden) and
+                           not (args == ['get', 'pv'] and row['metadata']['name'] in (volumes or {}))]
         return result
     return filtered
 
 
 def remove_namespace(k, read, name, uid, execute=subprocess.run):
-    require(name == 'openserverless' or re.fullmatch(r'ops-restore-native-[a-f0-9]{12}', name),
+    require(name in {'openserverless', 'nuvolaris'} or re.fullmatch(r'ops-restore-native-[a-f0-9]{12}', name),
             'reset_namespace_out_of_scope')
     row = next((r for r in read(['get', 'namespaces'])['items'] if r['metadata']['name'] == name), None)
     if not row: return
@@ -151,10 +159,28 @@ def main(profile, profile_path, caller, check, task):
         require(plan['runId'] == run_id and plan['snapshot'] == profile['archive']['snapshot'] and
                 plan['targetClusterUid'] == profile['target']['clusterUid'], 'reset_plan_identity_changed')
     rows = read(['get', 'namespaces'])['items']
-    pins = namespace_pins(marker, binding, rows, plan['namespaces'] if plan else None)
+    promoted = state['phase'] == 'start-target-backends'
+    volume_pins = {}
+    if promoted:
+        require(binding.get('restorePromotionReady') is True, 'prepared_target_checkpoint_required')
+        target_plan = private_json(root/'planning/promotion-plan.private.json', 0)
+        checkpoint = private_json(root/'target-090/native-checkpoint/native-resources.private.json', 0)
+        owned = {native, 'openserverless', 'nuvolaris'}
+        all_pods = read(['get', 'pods', '-A'])['items']
+        require(not any(r['metadata']['namespace'] in {native, 'nuvolaris'} for r in all_pods), 'staging_pods_must_be_stopped')
+        observed = {
+            'claims': read(['get', 'pvc', '-A'])['items'], 'volumes': read(['get', 'pv'])['items'],
+            'pods': [r for r in all_pods if r['metadata']['namespace'] == 'openserverless'],
+            'controllers': [r for r in read(['get', 'deployments,statefulsets,daemonsets,jobs,cronjobs', '-A'])['items'] if r['metadata']['namespace'] in owned],
+            'definitions': read(['get', 'whisks,whisksusers,workflows', '-A'])['items'],
+            'ingresses': [r for r in read(['get', 'ingresses', '-A'])['items'] if r['metadata']['namespace'] in owned],
+            'legacyServices': [r for r in read(['get', 'services', '-A'])['items'] if r['metadata']['namespace'] == 'nuvolaris'],
+        }
+        volume_pins = validate_target_objects(run_id, data, target_plan, checkpoint, observed, plan.get('volumes') if plan else None)
+    pins = namespace_pins(marker, binding, rows, plan['namespaces'] if plan else None, promoted)
     effective = copy.deepcopy(marker)
-    if not any(r['metadata']['name'] == 'openserverless' for r in rows): effective['preparedNamespaceUid'] = None
-    same_host.preflight(profile, effective, filtered_reader(read, native), allow_unprepared=True)
+    if promoted or not any(r['metadata']['name'] == 'openserverless' for r in rows): effective['preparedNamespaceUid'] = None
+    same_host.preflight(profile, effective, filtered_reader(read, native, promoted, volume_pins), allow_unprepared=True)
     for pod in read(['get', 'pods', '-A'])['items']:
         if pod['metadata'].get('namespace') != native: continue
         for volume in pod['spec'].get('volumes', []):
@@ -171,7 +197,7 @@ def main(profile, profile_path, caller, check, task):
     selected_snapshot(json.loads(snapshot_rows.stdout), archive['snapshot'], profile['maxRestoreBytes'])
     if check:
         print(json.dumps({'status': 'reset_check_passed', 'runId': run_id,
-                          'namespaces': list(pins), 'sourceBackupRetained': True, 'clusterMutation': False})); return
+                          'namespaces': list(pins), 'retainedVolumes': len(volume_pins), 'sourceBackupRetained': True, 'clusterMutation': False})); return
     (base / '.lock').mkdir(mode=0o700)
     try:
         # Verify the independent recovery source before discarding any generated data.
@@ -179,11 +205,13 @@ def main(profile, profile_path, caller, check, task):
         result = subprocess.run(command + ['check', '--read-data'], capture_output=True, timeout=3600)
         require(result.returncode == 0, 'source_archive_full_verification_failed')
         plan = {'schemaVersion': 1, 'runId': run_id, 'snapshot': archive['snapshot'],
-                'targetClusterUid': profile['target']['clusterUid'], 'namespaces': pins, 'resetCodeCommit': head}
+                'targetClusterUid': profile['target']['clusterUid'], 'namespaces': pins, 'volumes': volume_pins, 'resetCodeCommit': head}
         save(plan_path, plan); state['status'] = 'resetting'; save(root / 'journal.json', state)
-        for name in (native, 'openserverless'):
+        for name in (native, 'openserverless', *(['nuvolaris'] if promoted else [])):
             print('OPS restore reset: remove-' + name, flush=True)
             remove_namespace(k, read, name, pins[name])
+        for name, uid in volume_pins.items():
+            remove_volume(k, read, name, uid, subprocess.run)
         print('OPS restore reset: discard-generated-data', flush=True)
         discard_generated_data(root, data)
         marker['preparedNamespaceUid'] = None; save(marker_path, marker)

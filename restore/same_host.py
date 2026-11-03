@@ -150,6 +150,10 @@ def validate_layout(profile, marker, read, allow_unprepared=False):
         require(owner is not None and owner['metadata']['namespace'] == pod['metadata']['namespace'] and
                 pod['spec'].get('nodeName') == target['hostname'] and not pod['metadata'].get('deletionTimestamp'),
                 'foreign_or_unbound_target_pod_rejected')
+        if pod['status'].get('phase') == 'Failed' and pod['status'].get('reason') == 'Evicted' and owner['kind'] == 'ReplicaSet':
+            # Historical eviction records are not serving pods. The matching
+            # standard deployment and its current ready pod are still required.
+            continue
         if owner['kind'] == 'Job':
             require(pod['status']['phase'] == 'Succeeded', 'bootstrap_job_pod_not_completed')
         else:

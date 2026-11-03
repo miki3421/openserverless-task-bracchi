@@ -143,7 +143,29 @@ Only synthetic tests and the separately recorded target preflight can establish
 preparation at this stage. Actual data recovery and Alpha/Beta acceptance require
 the operator-led `ops restore` run and subsequent application tests.
 
-## Restarting a stopped early rehearsal
+## Peak space and private staging
+
+Preflight checks the actual selected snapshot size, software manifest size and
+filesystem capacity/free space. The working estimate is the protected software
+size plus the larger of twice the snapshot size and the profile's working-set
+budget. That allowance covers native recovery and additional containerd content
+and snapshots. A separate reserve is at least20% of filesystem capacity or4GiB,
+and increases with the actual kubelet eviction and image-GC thresholds. Source,
+software, data and image-cache staging are never treated as free just because
+they are temporary. Split data/image filesystems require separate qualification.
+The JSON preflight result reports required and available bytes. The command also
+checks aggregate working-set growth and remaining reserve between recovery
+phases; insufficient space or active DiskPressure stops recovery.
+
+After byte validation the private source image archive moves out of decrypted
+staging. At the checkpoint, the three image archives move into promotion inputs.
+Moves keep the same inode on the same filesystem, without hard links, overwrite
+or duplicate allocation. They stay inside the root-owned run. The encrypted
+source, recovery key, original kind data and selected software capsule stay in
+place. The ordinary same-host restore still verifies/imports the exact images;
+no missing image or evicted cache entry is ignored.
+
+## Restarting a stopped pre-platform rehearsal
 
 A failed native restore can be discarded explicitly before retrying:
 
@@ -155,11 +177,15 @@ ops restore --check
 ops restore
 ```
 
-Reset is limited to a stopped same-host rehearsal in `native-restore`, before
-platform startup or application acceptance. It validates the run, host, cluster,
+Reset is limited to a stopped same-host rehearsal in `native-restore`, or the
+first never-started target backend at `start-target-backends`, before platform
+startup or application acceptance. It validates the run, host, cluster,
 namespace UIDs and independent source archive before deletion. It removes the
 bound `openserverless` bootstrap namespace, that run's `ops-restore-native-*`
-namespace and generated payload/data directories. The encrypted repository,
+namespace and generated payload/data directories. For a stopped first target
+backend it also validates and removes only the ten run-bound retained PVs and
+the temporary legacy DNS alias namespace. Every PV path and claim binding must
+match the private promotion plan; deletion uses UID preconditions. The encrypted repository,
 recovery key, software capsule, original kind data, K3s addons and private audit
 journal are retained. Completed or later-stage restores are rejected.
 

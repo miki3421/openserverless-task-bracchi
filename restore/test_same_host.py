@@ -90,6 +90,18 @@ def layout(p, workloads):
 
 
 class SameHostContract(unittest.TestCase):
+    def test_historical_evicted_addon_pod_is_not_counted_as_serving(self):
+        p=selected();workloads=controllers();m=marker(p,workloads);rows=layout(p,workloads)
+        pods=rows[('get','pods','-A')]
+        old=copy.deepcopy(pods[0]);old['metadata']['name']='evicted-history';old['metadata']['uid']='evicted-history'
+        old['status']={'phase':'Failed','reason':'Evicted'};pods.append(old)
+        def read(args):
+            value=rows[tuple(args)]
+            return {'items':value} if isinstance(value,list) else value
+        validate_layout(p,m,read)
+        old['status']['reason']='Error'
+        with self.assertRaises(ValueError):validate_layout(p,m,read)
+
     def test_new_route_binds_same_hardware_but_distinct_clusters(self):
         self.assertEqual(validate_profile(selected())['route'], ROUTE)
         for section, key, value in [('source', 'hostUuid', '0' * 8 + '-0000-0000-0000-' + '0' * 12),
