@@ -30,7 +30,7 @@ def valid_dns_response(request,response):
     identifier,flags,questions,answers,_,_=struct.unpack('!HHHHHH',response[:12])
     return identifier==struct.unpack('!H',request[:2])[0]and flags&0x8000!=0 and flags&15==0 and questions==1 and answers>0 and response[12:len(request)]==request[12:]
 
-def bound_dns_endpoint(pods,slices):
+def bound_dns_endpoint(pods,slices,pod_cidr='10.54.0.0/16'):
     ready={p['metadata']['uid']:p for p in pods if p['metadata']['namespace']=='kube-system'and p.get('status',{}).get('phase')=='Running'and any(c['type']=='Ready'and c['status']=='True'for c in p['status'].get('conditions',[]))}
     addresses=[]
     for row in slices:
@@ -40,7 +40,7 @@ def bound_dns_endpoint(pods,slices):
             ref=endpoint.get('targetRef',{});pod=ready.get(ref.get('uid'))
             require(pod is not None and ref.get('kind')=='Pod'and ref.get('name')==pod['metadata']['name'],'dns_endpoint_pod_binding_mismatch')
             require(endpoint['addresses']==[pod['status']['podIP']],'dns_endpoint_address_binding_mismatch')
-            address=endpoint['addresses'][0];require(ipaddress.ip_address(address)in ipaddress.ip_network('10.54.0.0/16'),'dns_endpoint_outside_target_pods');addresses.append(address)
+            address=endpoint['addresses'][0];require(ipaddress.ip_address(address)in ipaddress.ip_network(pod_cidr),'dns_endpoint_outside_target_pods');addresses.append(address)
     require(addresses,'ready_dns_endpoint_required')
     return sorted(set(addresses))[0]
 
@@ -66,14 +66,18 @@ def enable_dns(path,target,kube,run):
         patch={'data':{'NodeHosts':target['address']+' '+target['hostname']+'\n'}}
         run('dns-missing-nodehosts',kube+['-n','kube-system','patch','configmap/coredns','--type=merge','-p',json.dumps(patch)])
     run('isolated-dns-ready',kube+['-n','kube-system','rollout','status','deployment/coredns','--timeout=180s'])
+    return verify_dns(target,kube,run)
+
+def verify_dns(target,kube,run,pod_cidr='10.54.0.0/16',dns_ip='10.55.0.10'):
+    """Verify existing DNS without patching or restarting it."""
     service=json.loads(run('isolated-dns-service',kube+['-n','kube-system','get','service/kube-dns','-ojson']))
-    require(service['spec']['clusterIP']=='10.55.0.10'and{(p['port'],p['protocol'])for p in service['spec']['ports']} >= {(53,'UDP'),(53,'TCP')},'target_dns_service_binding_mismatch')
+    require(service['spec']['clusterIP']==dns_ip and{(p['port'],p['protocol'])for p in service['spec']['ports']} >= {(53,'UDP'),(53,'TCP')},'target_dns_service_binding_mismatch')
     deadline=time.monotonic()+30;attempt=0
     while True:
         attempt+=1
         pods=json.loads(run('isolated-dns-pods-'+str(attempt),kube+['-n','kube-system','get','pods','-l','k8s-app=kube-dns','-ojson']))['items']
         slices=json.loads(run('isolated-dns-endpoint-slices-'+str(attempt),kube+['-n','kube-system','get','endpointslices','-l','kubernetes.io/service-name=kube-dns','-ojson']))['items']
-        try:address=bound_dns_endpoint(pods,slices);break
+        try:address=bound_dns_endpoint(pods,slices,pod_cidr);break
         except ValueError as error:
             if str(error)!='ready_dns_endpoint_required'or time.monotonic()>=deadline:raise
             time.sleep(1)

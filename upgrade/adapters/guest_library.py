@@ -37,9 +37,13 @@ class Lab:
         marker=Path('__OPS_RUN_ROOT__/host-binding.json');m=json.loads(marker.read_text());st=marker.stat()
         if st.st_uid!=0 or st.st_mode&0o077 or m['labId']!=PLAN['labId'] or socket.gethostname()!=PLAN['hostname'] or m['applicationExecutionAllowed'] is not False:
             raise ValueError('Invalid isolated recovery guest')
+        connected=False
+        if PLAN.get('connectedSameHostRestore'):
+            scope={};exec(compile(source('restore_scope.py'),'restore_scope.py','exec'),scope)
+            connected=scope['connected_same_host_restore'](m,PLAN)
         for version in ['-4','-6']:
             routes=json.loads(subprocess.check_output(['ip','-j',version,'route','show','table','all']))
-            if not PLAN['localServerUpgrade'] and any(r.get('dst')=='default' for r in routes):raise ValueError('Guest default route forbidden')
+            if not PLAN['localServerUpgrade'] and not connected and any(r.get('dst')=='default' for r in routes):raise ValueError('Guest default route forbidden')
         self.k=['/usr/local/bin/k3s','kubectl','--kubeconfig=/etc/rancher/k3s/k3s.yaml','--request-timeout=20s']
         cluster=json.loads(subprocess.check_output(self.k+['get','namespace/kube-system','-ojson']))
         if cluster['metadata']['uid']!=BOOTSTRAP['clusterUid']:raise ValueError('Guest cluster identity changed')

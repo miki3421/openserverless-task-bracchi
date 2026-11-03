@@ -38,9 +38,13 @@ class Promotion:
             raise ValueError('Unsafe recovery marker')
         if self.marker['labId'] != PLAN['labId'] or socket.gethostname() != PLAN['hostname']:
             raise ValueError('Unexpected recovery guest')
+        connected=False
+        if PLAN.get('connectedSameHostRestore'):
+            scope={};exec(compile(source('restore_scope.py'),'restore_scope.py','exec'),scope)
+            connected=scope['connected_same_host_restore'](self.marker,PLAN)
         for version in ['-4', '-6']:
             routes = json.loads(subprocess.check_output(['ip', '-j', version, 'route', 'show', 'table', 'all']))
-            if not PLAN['localServerUpgrade'] and any(r.get('dst') == 'default' for r in routes):
+            if not PLAN['localServerUpgrade'] and not connected and any(r.get('dst') == 'default' for r in routes):
                 raise ValueError('Recovery default route forbidden')
         self.plan = json.loads((self.root / 'promotion-plan.private.json').read_text())
         self.logs = self.root / phase; self.logs.mkdir(mode=0o700, exist_ok=True)

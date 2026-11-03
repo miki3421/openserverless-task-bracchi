@@ -50,6 +50,8 @@ def unpack(profile,root,bun,run):
     cfg=OnlineConfig(document)
     require(cfg.online.get('collector')=='ops-native-v1'and cfg.online['namespaces']==['nuvolaris']and not cfg.online.get('extra_pvcs'),'qualified_native_kind_payload_required')
     require(cfg.source['cluster_uid']==source['clusterUid']and cfg.source['hostname']==source['hostname'],'archive_source_identity_mismatch')
+    if profile['route']=='same-host-kind-010-to-k3s-090':
+        require(cfg.source['container_id']==source['kindContainerId'],'archive_source_container_identity_mismatch')
     # Relocate the file-only verifier's boundary, not its source fingerprint or
     # identity. No Docker/Kubernetes calls are made by collection validation.
     cfg.root=cfg.kind.root=restored

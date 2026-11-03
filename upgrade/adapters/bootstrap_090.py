@@ -37,11 +37,15 @@ for key in ['baseline', 'legacy-runtimes', 'operator-candidate']:
     p.run('import-' + key, ['/usr/local/bin/k3s', 'ctr', '-n', 'k8s.io', 'images', 'import', '--platform', 'linux/amd64', str(file)], timeout=1200)
     p.state['imageImported-' + key] = True; p.save()
 if not p.state.get('addonsEnabled'):
-    config_path = p.root / 'k3s-090.private.yaml'
-    config = json.loads(config_path.read_text())
-    config['disable'] = ['metrics-server']
-    config_path.write_text(json.dumps(config, indent=2))
-    p.run('enable-addons', ['systemctl', 'restart', 'k3s.service'], timeout=300)
+    if globals().get('SAME_HOST_RESTORE',False):
+        if CONFIG.get('preserveTargetAddons')is not True:raise ValueError('Existing target addons must be preserved')
+        p.state['preexistingAddonsPreserved']=True
+    else:
+        config_path = p.root / 'k3s-090.private.yaml'
+        config = json.loads(config_path.read_text())
+        config['disable'] = ['metrics-server']
+        config_path.write_text(json.dumps(config, indent=2))
+        p.run('enable-addons', ['systemctl', 'restart', 'k3s.service'], timeout=300)
     p.state['addonsEnabled'] = True; p.save()
 p.run('node-ready', p.k + ['wait', '--for=condition=Ready', 'node/' + PLAN['hostname'], '--timeout=180s'])
 deadline = time.monotonic() + 120
@@ -77,7 +81,8 @@ if head != p.plan['taskCommit']:
 helpers={}
 exec(compile(source('kubeconfig_sync.py'),'kubeconfig_sync.py','exec'),helpers)
 refreshed=helpers['refresh_kubeconfigs']('/etc/rancher/k3s/k3s.yaml', ROOT/'source-rollback/kubeconfig.private.yaml',
-    home, account.pw_uid, account.pw_gid, PLAN['guestIp'], PLAN['hostname'], p.root/'kubeconfig-before-refresh')
+    home, account.pw_uid, account.pw_gid, PLAN['guestIp'], PLAN['hostname'], p.root/'kubeconfig-before-refresh',
+    cache=Path(CONFIG['targetOpsHome'])/'tmp'if globals().get('SAME_HOST_RESTORE',False)else None)
 p.state.update(refreshed)
 p.state['homeToolingPrepared'] = True; p.save()
 print(json.dumps({'freshClusterUid':p.cluster_uid, 'k3sVersion':'v1.36.4+k3s1', 'imageArchivesImported':3,

@@ -49,17 +49,28 @@ def digest(path):
 
 def validate_profile(p):
     require(set(p)=={'schemaVersion','kind','route','mode','engineCommit','source','target','user','archive','assets','maxRestoreBytes'},'closed_restore_profile_required')
-    require(p['schemaVersion']==1 and p['kind']=='ops-restore-profile' and p['route']=='kind-010-to-k3s-090' and p['mode']=='rehearsal','unsupported_restore_route')
+    require(p['schemaVersion']==1 and p['kind']=='ops-restore-profile' and p['route'] in {'kind-010-to-k3s-090','same-host-kind-010-to-k3s-090'} and p['mode']=='rehearsal','unsupported_restore_route')
+    same_host=p['route']=='same-host-kind-010-to-k3s-090'
     require(bool(COMMIT.fullmatch(p['engineCommit'])),'immutable_restore_code_required')
     s,t,u,a=p['source'],p['target'],p['user'],p['archive']
-    require(set(s)=={'clusterUid','namespaceUid','whiskUid','namespace','instance','hostname'},'closed_source_identity_required')
+    require(set(s)=={'clusterUid','namespaceUid','whiskUid','namespace','instance','hostname'}|({'hostUuid','kindContainerId'} if same_host else set()),'closed_source_identity_required')
     require(s['namespace']=='nuvolaris' and s['instance']=='controller','qualified_legacy_source_required')
     require(all(UUID.fullmatch(s[k])for k in ('clusterUid','namespaceUid','whiskUid')),'source_uids_required')
-    require(set(t)=={'hostUuid','hostname','address','clusterUid','version','k3sVersion','operator','taskCommit','images'},'closed_target_identity_required')
+    require(set(t)=={'hostUuid','hostname','address','clusterUid','version','k3sVersion','operator','taskCommit','images'}|({'network','opsHome'} if same_host else set()),'closed_target_identity_required')
     require(t['version']=='0.9.0' and t['k3sVersion']=='v1.36.4+k3s1','qualified_target_version_required')
-    require(UUID.fullmatch(t['hostUuid'])and UUID.fullmatch(t['clusterUid'])and t['clusterUid']!=s['clusterUid']and t['hostname']!=s['hostname'],'distinct_explicit_target_required')
+    require(UUID.fullmatch(t['hostUuid'])and UUID.fullmatch(t['clusterUid'])and t['clusterUid']!=s['clusterUid'],'distinct_explicit_target_required')
+    if same_host:
+        from same_host import validate_network
+        require(UUID.fullmatch(s['hostUuid'])and SHA.fullmatch(s['kindContainerId'])and
+                s['hostUuid']==t['hostUuid']and t['hostname']==s['hostname'],'explicit_same_host_identity_required')
+        validate_network(t['network'])
+    else:require(t['hostname']!=s['hostname'],'distinct_explicit_target_required')
     require(COMMIT.fullmatch(t['taskCommit'])and isinstance(t['images'],dict)and t['images'].get('operator')==t['operator'].get('candidateImage')and SHA.fullmatch(t['operator'].get('archiveSha256',''))and COMMIT.fullmatch(t['operator'].get('sourceCommit','')),'pinned_target_inputs_required')
     require(set(u)=={'uid','name','home'}and type(u['uid'])is int and u['uid']>0 and re.fullmatch(r'[a-z_][a-z0-9_-]{0,31}',u['name'])and u['home']=='/home/'+u['name'],'explicit_local_owner_required')
+    if same_host:
+        path=Path(t['opsHome'])
+        require(path.is_absolute()and '..'not in path.parts and path.is_relative_to(Path(u['home'])/'.ops/profiles')and
+                path!=Path(u['home'])/'.ops/profiles'and not any(c in str(path)for c in '\n\r\0'),'explicit_target_ops_profile_required')
     require(set(a)=={'repository','snapshot','passwordFile','restic','resticSha256'}and SHA.fullmatch(a['snapshot'])and SHA.fullmatch(a['resticSha256']),'immutable_archive_selection_required')
     require(set(p['assets'])=={'directory','manifestSha256'}and SHA.fullmatch(p['assets']['manifestSha256']),'pinned_offline_assets_required')
     import ipaddress
@@ -67,6 +78,10 @@ def validate_profile(p):
     for path in [a['repository'],a['passwordFile'],a['restic'],p['assets']['directory']]:
         require(isinstance(path,str)and Path(path).is_absolute()and '..'not in Path(path).parts and not any(c in path for c in '\n\r\0'),'absolute_input_required')
     require(not Path(a['passwordFile']).is_relative_to(a['repository']),'recovery_key_outside_archive_required')
+    if same_host:
+        require(not any(Path(a['repository']).is_relative_to(base)for base in
+                        ('/var/lib/rancher/k3s','/var/lib/openserverless','/var/lib/ops-restore')),
+                'source_repository_outside_restore_data_required')
     require(type(p['maxRestoreBytes'])is int and 1024**3<=p['maxRestoreBytes']<=256*1024**3,'explicit_restore_budget_required')
     return p
 

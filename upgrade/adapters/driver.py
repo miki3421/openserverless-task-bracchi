@@ -44,6 +44,7 @@ if not stat.S_ISREG(st.st_mode) or st.st_uid!=0 or st.st_mode&0o077:raise System
 CONFIG=json.loads(configuration_path.read_text())
 ROOT=Path(CONFIG['root']);DATA_ROOT=Path(CONFIG['dataRoot']);PROFILE=CONFIG['profile']
 RESTORE_MODE=CONFIG.get('operation')=='restore'
+SAME_HOST_RESTORE=RESTORE_MODE and PROFILE.get('route')=='same-host-kind-010-to-k3s-090'
 RUN_BASE='/var/lib/ops-restore/runs' if RESTORE_MODE else '/var/lib/ops-upgrade/runs'
 if ROOT!=Path(RUN_BASE)/CONFIG['runId'] or len(CONFIG['runId'])!=32:raise SystemExit('Invalid run root')
 if DATA_ROOT!=Path('/var/lib/openserverless/volumes')/CONFIG['runId']:raise SystemExit('Invalid retained-volume root')
@@ -52,6 +53,8 @@ marker=json.loads(marker_path.read_text())
 if marker_path.stat().st_uid!=0 or marker_path.stat().st_mode&0o077:raise SystemExit('Unsafe host binding')
 if marker['role']!=('ops-local-restore' if RESTORE_MODE else 'ops-local-upgrade') or marker['labId']!=CONFIG['runId'] or marker['hostUuid']!=Path('/sys/class/dmi/id/product_uuid').read_text().strip().lower() or marker['hostname']!=socket.gethostname():
     raise SystemExit('Local host binding differs')
+if SAME_HOST_RESTORE and (marker.get('restoreRoute')!=PROFILE['route'] or marker.get('sameHostIdentityVerified')is not True or PROFILE['source']['hostUuid']!=marker['hostUuid']):
+    raise SystemExit('Same-host restore binding differs')
 NATIVE_NAMESPACE=CONFIG['nativeNamespace']
 if NATIVE_NAMESPACE!=('ops-restore-native-' if RESTORE_MODE else 'ops-upgrade-native-')+CONFIG['runId'][:12] or NATIVE_NAMESPACE==PROFILE['source']['namespace']:raise SystemExit('Separate native namespace required')
 BOOTSTRAP={'clusterUid':CONFIG['targetClusterUid'] if RESTORE_MODE else PROFILE['source']['clusterUid']}
@@ -59,6 +62,10 @@ native_phases={'native-restore','prepare-mappings','native-checkpoint','switch-c
 PLAN={'labId':CONFIG['runId'],'hostname':CONFIG['source']['hostname'],'guestIp':CONFIG['source']['address'],'user':PROFILE['user']['name'],
       'podCidr':CONFIG['sourcePodCidr'] if phase in native_phases else CONFIG['targetPodCidr'],
       'serviceCidr':CONFIG['targetServiceCidr'],'clusterDns':CONFIG['targetClusterDns'],'localServerUpgrade':not RESTORE_MODE}
+if SAME_HOST_RESTORE:
+    if CONFIG.get('preserveTargetAddons')is not True or CONFIG.get('targetOpsHome')!=PROFILE['target']['opsHome']:
+        raise SystemExit('Explicit same-host target profile required')
+    PLAN['connectedSameHostRestore']=True
 RUNTIME=json.loads((ROOT/'source-runtime.json').read_text())
 task=Path(CONFIG['taskRoot'])
 OFFLINE_MODULE=(task/'update/offline.ts').read_text()

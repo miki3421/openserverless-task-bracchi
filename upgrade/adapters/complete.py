@@ -25,10 +25,12 @@ account=pwd.getpwnam(PLAN['user']);home=Path(account.pw_dir);task=ADAPTERS.paren
 environment={'OPS_ROOT':str(task),'OPS_BRANCH':'feature/same-host-upgrade-0.9.0',
     'OPS_REPO':'https://github.com/miki3421/openserverless-task-custom',
     'PATH':str(home/'.local/bin')+':'+str(home/'.ops/linux-amd64/bin')+':/usr/local/bin:/usr/bin:/bin'}
+if globals().get('SAME_HOST_RESTORE',False):
+    environment.update(OPS_HOME=CONFIG['targetOpsHome'],OPS_TMP=str(Path(CONFIG['targetOpsHome'])/'tmp'))
 user_command=['sudo','-u',PLAN['user'],'env']+[key+'='+value for key,value in environment.items()]
 p.run('actual-user-ops-setup-status',user_command+[str(home/'.local/bin/ops'),'setup','status'],cwd=str(home),timeout=180)
 observed=json.loads(p.run('actual-user-kubeconfig-cluster',user_command+[
-    str(home/'.ops/linux-amd64/bin/kubectl'),'--kubeconfig='+str(home/'.ops/tmp/kubeconfig'),
+    str(home/'.ops/linux-amd64/bin/kubectl'),'--kubeconfig='+str(Path(CONFIG['targetOpsHome'])/'tmp/kubeconfig'if globals().get('SAME_HOST_RESTORE',False)else home/'.ops/tmp/kubeconfig'),
     '--request-timeout=30s','get','namespace/kube-system','-ojson'],timeout=45).stdout)
 if observed['metadata']['uid']!=p.cluster_uid:raise ValueError('User kubeconfig targets a different cluster')
 p.state['actualUserOpsSetupStatusPassed']=True;p.save()

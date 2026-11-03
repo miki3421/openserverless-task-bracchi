@@ -20,8 +20,9 @@ import json,os,pwd,re,shutil,socket,subprocess,sys,time,traceback,uuid
 from pathlib import Path
 from lib import require,private_json,regular,digest,validate_profile,selected_snapshot,interface_name,interface_address
 from archive import unpack
-from service_dns import enable_dns
+from service_dns import enable_dns,verify_dns
 from offline_runtimes import verify_runtime_cache
+import same_host
 
 BASE=Path('/var/lib/ops-restore');TASK=Path(__file__).resolve().parents[1]
 PHASES=['native-restore','prepare-mappings','native-checkpoint','prepare-fresh-target','bootstrap-target','prepare-target-tasks','start-target-backends','final-iam','start-platform','wait-platform','legacy-dns','verify-target-data','restore-routes','deploy-apis','verify-original-definitions','resume-schedules','complete']
@@ -45,17 +46,31 @@ def main(request_path):
         state=private_json(BASE/'runs'/current['runId']/'journal.json',0);print(json.dumps({k:state.get(k)for k in ('status','phase','runId','completed','finalIamVerified','applicationRestoreVerified','errorCode')}));return
     require(sys.platform=='linux'and os.uname().machine=='x86_64','qualified_linux_amd64_required')
     marker=private_json('/etc/ops-restore-target.private.json',0)
-    require(marker.get('role')=='empty-isolated-restore-target'and marker.get('hostUuid')==t['hostUuid']and marker.get('hostname')==t['hostname'],'dedicated_marked_restore_target_required')
+    same_host_route=p['route']==same_host.ROUTE
+    if same_host_route:
+        require(Path(request['profile']).parent==Path(t['opsHome']),'selected_target_ops_profile_mismatch')
+        same_host.validate_marker(p,marker)
+    else:require(marker.get('role')=='empty-isolated-restore-target'and marker.get('hostUuid')==t['hostUuid']and marker.get('hostname')==t['hostname'],'dedicated_marked_restore_target_required')
     assets_manifest=private_json(Path(p['assets']['directory'])/'manifest.json',caller)
     require(digest(Path(p['assets']['directory'])/'manifest.json')==p['assets']['manifestSha256'],'offline_manifest_changed')
     regular(request['bun'],caller,private=False);require(digest(request['bun'])==assets_manifest['files']['tools/bun']['sha256'],'restore_bun_checksum_mismatch')
-    for version in ('-4','-6'):
-        routes=json.loads(subprocess.check_output(['ip','-j',version,'route','show','table','all']));require(not any(r.get('dst')=='default'for r in routes),'isolated_restore_target_has_default_route')
+    if same_host_route:
+        regular('/usr/local/bin/k3s',0,private=False)
+        require(digest('/usr/local/bin/k3s')==assets_manifest['files']['tools/k3s']['sha256'],'target_k3s_binary_checksum_mismatch')
+    if not same_host_route:
+        for version in ('-4','-6'):
+            routes=json.loads(subprocess.check_output(['ip','-j',version,'route','show','table','all']));require(not any(r.get('dst')=='default'for r in routes),'isolated_restore_target_has_default_route')
     git=['git','-c','safe.directory='+str(TASK),'-C',str(TASK)]
     require(subprocess.check_output(git+['rev-parse','HEAD'],text=True).strip()==p['engineCommit']and not subprocess.check_output(git+['status','--porcelain','--untracked-files=no']).strip(),'restore_code_revision_mismatch')
     regular('/usr/local/bin/k3s',0,private=False);regular('/etc/rancher/k3s/k3s.yaml',0)
-    target_config=private_json('/etc/ops-restore-k3s.private.json',0)
-    require(target_config.get('node-name')==t['hostname']and target_config.get('node-ip')==t['address']and target_config.get('cluster-cidr')=='10.54.0.0/16'and target_config.get('service-cidr')=='10.55.0.0/16'and target_config.get('cluster-dns')=='10.55.0.10','qualified_fresh_k3s_configuration_required')
+    if same_host_route:
+        network=t['network']
+        target_config={'node-name':t['hostname'],'node-ip':t['address'],'cluster-cidr':network['podCidr'],
+                       'service-cidr':network['serviceCidr'],'cluster-dns':network['clusterDns'],
+                       'flannel-iface':network['interface']}
+    else:
+        target_config=private_json('/etc/ops-restore-k3s.private.json',0)
+        require(target_config.get('node-name')==t['hostname']and target_config.get('node-ip')==t['address']and target_config.get('cluster-cidr')=='10.54.0.0/16'and target_config.get('service-cidr')=='10.55.0.0/16'and target_config.get('cluster-dns')=='10.55.0.10','qualified_fresh_k3s_configuration_required')
     interface=interface_name(target_config)
     addresses=json.loads(subprocess.check_output(['ip','-j','address','show','dev',interface]))
     interface_address(interface,addresses,t['address'])
@@ -64,11 +79,13 @@ def main(request_path):
     k=['/usr/local/bin/k3s','kubectl','--kubeconfig=/etc/rancher/k3s/k3s.yaml','--request-timeout=30s']
     def read(args):return json.loads(subprocess.check_output(k+args+['-ojson'],stderr=subprocess.DEVNULL,timeout=45))
     require(read(['get','namespace/kube-system'])['metadata']['uid']==t['clusterUid'],'target_cluster_uid_mismatch')
-    nodes=read(['get','nodes'])['items'];require(len(nodes)==1 and nodes[0]['metadata']['name']==t['hostname']and nodes[0]['spec']['podCIDR']=='10.54.0.0/24'and any(c['type']=='Ready'and c['status']=='True'for c in nodes[0]['status']['conditions']),'qualified_fresh_single_node_required')
+    nodes=read(['get','nodes'])['items'];require(len(nodes)==1 and nodes[0]['metadata']['name']==t['hostname']and nodes[0]['spec']['podCIDR']==(network['nodePodCidr']if same_host_route else'10.54.0.0/24')and any(c['type']=='Ready'and c['status']=='True'for c in nodes[0]['status']['conditions']),'qualified_fresh_single_node_required')
     require([a['address']for a in nodes[0]['status']['addresses']if a['type']=='InternalIP']==[t['address']],'target_node_address_mismatch')
-    namespaces=read(['get','namespaces'])['items'];require({n['metadata']['name']for n in namespaces}<={'default','kube-system','kube-public','kube-node-lease'},'empty_restore_destination_required')
-    require(not read(['get','pv'])['items']and not read(['get','pvc','-A'])['items'],'existing_persistent_data_rejected')
-    require(not read(['get','pods','-A'])['items']and not read(['get','deployments,statefulsets,daemonsets,cronjobs','-A'])['items'],'empty_fresh_workload_layout_required')
+    if same_host_route:same_host.preflight(p,marker,read)
+    else:
+        namespaces=read(['get','namespaces'])['items'];require({n['metadata']['name']for n in namespaces}<={'default','kube-system','kube-public','kube-node-lease'},'empty_restore_destination_required')
+        require(not read(['get','pv'])['items']and not read(['get','pvc','-A'])['items'],'existing_persistent_data_rejected')
+        require(not read(['get','pods','-A'])['items']and not read(['get','deployments,statefulsets,daemonsets,cronjobs','-A'])['items'],'empty_fresh_workload_layout_required')
     require(not(BASE/'current.json').exists(),'existing_restore_requires_checkpoint_review')
     a=p['archive'];regular(a['passwordFile'],caller);regular(a['restic'],caller,private=False);require(digest(a['restic'])==a['resticSha256'],'restic_checksum_mismatch')
     common=[a['restic'],'--repo',a['repository'],'--password-file',a['passwordFile'],'--no-cache']
@@ -105,13 +122,24 @@ def main(request_path):
             run('import-offline-catalog-runtime-images',['/usr/local/bin/k3s','ctr','-n','k8s.io','images','import','--platform','linux/amd64',str(inputs/'images/catalog-runtimes.tar')],timeout=1800)
         progress('verify-offline-runtimes');verify_runtime_cache(root,p,run);state['completed'].append('verify-offline-runtimes')
         target_root=root/'target-090';target_root.mkdir(mode=0o700)
-        config=Path('/etc/ops-restore-k3s.private.json');require(config.is_file(),'explicit_target_k3s_configuration_required');shutil.copyfile(config,target_root/'k3s-090.private.yaml');(target_root/'k3s-090.private.yaml').chmod(0o600)
+        config=Path('/etc/ops-restore-k3s.private.json')
+        if same_host_route:save(target_root/'k3s-090.private.yaml',target_config)
+        else:
+            require(config.is_file(),'explicit_target_k3s_configuration_required');shutil.copyfile(config,target_root/'k3s-090.private.yaml');(target_root/'k3s-090.private.yaml').chmod(0o600)
         # The bootstrap worker updates this exact file when enabling DNS/ingress.
-        service=Path('/etc/systemd/system/k3s.service');service_text=service.read_text();require(' --config=/etc/ops-restore-k3s.private.json'in service_text,'bound_restore_k3s_service_required');service.write_text(service_text.replace(' --config=/etc/ops-restore-k3s.private.json',' --config='+str(target_root/'k3s-090.private.yaml')));run('reload-restore-k3s-service',['systemctl','daemon-reload'])
+        if not same_host_route:
+            service=Path('/etc/systemd/system/k3s.service');service_text=service.read_text();require(' --config=/etc/ops-restore-k3s.private.json'in service_text,'bound_restore_k3s_service_required');service.write_text(service_text.replace(' --config=/etc/ops-restore-k3s.private.json',' --config='+str(target_root/'k3s-090.private.yaml')));run('reload-restore-k3s-service',['systemctl','daemon-reload'])
         marker={'schemaVersion':1,'role':'ops-local-restore','labId':run_id,'hostUuid':t['hostUuid'],'hostname':t['hostname'],'applicationExecutionAllowed':False,'sourceClusterUid':p['source']['clusterUid'],'targetClusterUid':t['clusterUid'],'nativeNamespace':'ops-restore-native-'+run_id[:12]};save(root/'host-binding.json',marker)
-        configuration={'operation':'restore','root':str(root),'dataRoot':'/var/lib/openserverless/volumes/'+run_id,'taskRoot':str(TASK),'profile':p,'source':{'hostname':t['hostname'],'address':t['address']},'runId':run_id,'bun':request['bun'],'nativeNamespace':marker['nativeNamespace'],'targetClusterUid':t['clusterUid'],'sourcePodCidr':'10.54.0.0/16','targetPodCidr':'10.54.0.0/16','targetServiceCidr':'10.55.0.0/16','targetClusterDns':'10.55.0.10'};save(root/'configuration.json',configuration)
-        progress('prepare-service-dns');dns=enable_dns(target_root/'k3s-090.private.yaml',t,k,run);save(root/'dns-verification.json',dns);state['completed'].append('prepare-service-dns')
+        if same_host_route:
+            marker.update(restoreRoute=p['route'],sameHostIdentityVerified=True);save(root/'host-binding.json',marker)
+        configuration={'operation':'restore','root':str(root),'dataRoot':'/var/lib/openserverless/volumes/'+run_id,'taskRoot':str(TASK),'profile':p,'source':{'hostname':t['hostname'],'address':t['address']},'runId':run_id,'bun':request['bun'],'nativeNamespace':marker['nativeNamespace'],'targetClusterUid':t['clusterUid'],'sourcePodCidr':network['podCidr']if same_host_route else'10.54.0.0/16','targetPodCidr':network['podCidr']if same_host_route else'10.54.0.0/16','targetServiceCidr':network['serviceCidr']if same_host_route else'10.55.0.0/16','targetClusterDns':network['clusterDns']if same_host_route else'10.55.0.10'}
+        if same_host_route:configuration.update(preserveTargetAddons=True,targetOpsHome=t['opsHome'])
+        save(root/'configuration.json',configuration)
+        progress('prepare-service-dns')
+        dns=verify_dns(t,k,run,network['podCidr'],network['clusterDns'])if same_host_route else enable_dns(target_root/'k3s-090.private.yaml',t,k,run)
+        save(root/'dns-verification.json',dns);state['completed'].append('prepare-service-dns')
         for phase in PHASES:
+            if same_host_route:same_host.source_offline()
             progress(phase);run('phase-'+phase,['python3','-I',str(TASK/'upgrade/adapters/driver.py'),str(root/'configuration.json'),phase],timeout=3600)
             state['completed'].append(phase)
             if phase=='final-iam':state['finalIamVerified']=True

@@ -20,8 +20,12 @@ from pathlib import Path
 os.umask(0o077)
 root=Path('__OPS_RUN_ROOT__');marker=Path('__OPS_RUN_ROOT__/host-binding.json');m=json.loads(marker.read_text())
 if marker.stat().st_uid!=0 or marker.stat().st_mode&0o077 or m['labId']!=PLAN['labId'] or socket.gethostname()!=PLAN['hostname'] or m['applicationExecutionAllowed'] is not False:raise SystemExit('Invalid isolated guest')
+connected=False
+if PLAN.get('connectedSameHostRestore'):
+ scope={};exec(compile(source('restore_scope.py'),'restore_scope.py','exec'),scope)
+ connected=scope['connected_same_host_restore'](m,PLAN)
 for version in ['-4','-6']:
- if not PLAN['localServerUpgrade'] and any(r.get('dst')=='default' for r in json.loads(subprocess.check_output(['ip','-j',version,'route','show','table','all']))):raise SystemExit('Default route forbidden')
+ if not PLAN['localServerUpgrade'] and not connected and any(r.get('dst')=='default' for r in json.loads(subprocess.check_output(['ip','-j',version,'route','show','table','all']))):raise SystemExit('Default route forbidden')
 kube=['/usr/local/bin/k3s','kubectl','--kubeconfig=/etc/rancher/k3s/k3s.yaml','--request-timeout=20s']
 cluster=json.loads(subprocess.check_output(kube+['get','namespace/kube-system','-ojson']))
 if cluster['metadata']['uid']!=BOOTSTRAP['clusterUid']:raise SystemExit('Guest cluster identity mismatch')

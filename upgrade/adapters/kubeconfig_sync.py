@@ -46,7 +46,7 @@ def _read(path, owners):
     return value
 
 
-def planned_kubeconfigs(master_path, previous_path, home, uid, address, hostname):
+def planned_kubeconfigs(master_path, previous_path, home, uid, address, hostname, cache=None):
     master_path, previous_path, home = Path(master_path), Path(previous_path), Path(home)
     master = _read(master_path, {0, os.getuid()})
     previous = _read(previous_path, {0, os.getuid()})
@@ -54,7 +54,9 @@ def planned_kubeconfigs(master_path, previous_path, home, uid, address, hostname
     servers = {'https://' + host + ':6443' for host in ['127.0.0.1', 'localhost', address, hostname]}
     if master['clusters'][0]['cluster']['server'] not in servers:
         raise ValueError('Local master kubeconfig endpoint differs')
-    cache = home / '.ops/tmp'
+    cache = Path(cache) if cache is not None else home / '.ops/tmp'
+    if not cache.is_absolute() or '..'in cache.parts or not cache.is_relative_to(home):
+        raise ValueError('Explicit user-owned kubeconfig cache required')
     candidates = [home / '.kube/config', cache / 'kubeconfig']
     candidates += [cache / ('k3s-' + host + '.kubeconfig') for host in sorted({address, hostname})]
     planned = []
@@ -83,9 +85,9 @@ def planned_kubeconfigs(master_path, previous_path, home, uid, address, hostname
     return planned
 
 
-def refresh_kubeconfigs(master_path, previous_path, home, uid, gid, address, hostname, backup):
+def refresh_kubeconfigs(master_path, previous_path, home, uid, gid, address, hostname, backup, cache=None):
     # Validate every destination before writing any of them.
-    planned = planned_kubeconfigs(master_path, previous_path, home, uid, address, hostname)
+    planned = planned_kubeconfigs(master_path, previous_path, home, uid, address, hostname, cache)
     backup = Path(backup); _parents(backup)
     backup.mkdir(mode=0o700, parents=True, exist_ok=True)
     if backup.stat().st_uid != os.getuid() or backup.stat().st_mode & 0o077:

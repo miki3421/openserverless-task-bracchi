@@ -65,6 +65,21 @@ class KubeconfigSyncTests(unittest.TestCase):
         self.assertEqual(self.normal.read_bytes(), old)
         self.assertFalse((self.root / 'private-recovery').exists())
 
+    def test_selected_target_cache_preserves_legacy_kind_client(self):
+        legacy = self.cache.read_bytes()
+        cache = self.home / '.ops/profiles/target/tmp'; cache.mkdir(parents=True, mode=0o700)
+        self.write(cache / 'kubeconfig', kubeconfig('old-ca', 'old-client'))
+        result = refresh_kubeconfigs(self.master, self.previous, self.home, os.getuid(), os.getgid(),
+                                    '192.0.2.10', 'synthetic-host', self.root / 'selected-recovery', cache=cache)
+        self.assertEqual(result['userKubeconfigsVerified'], 2)
+        self.assertEqual(self.cache.read_bytes(), legacy)
+        self.assertEqual(yaml.safe_load((cache / 'kubeconfig').read_text())['clusters'][0]['cluster']['certificate-authority-data'], 'new-ca')
+
+    def test_selected_cache_must_stay_in_the_explicit_user_home(self):
+        with self.assertRaisesRegex(ValueError, 'Explicit user-owned'):
+            refresh_kubeconfigs(self.master, self.previous, self.home, os.getuid(), os.getgid(),
+                                '192.0.2.10', 'synthetic-host', self.root / 'recovery', cache=self.root / 'foreign')
+
     def test_foreign_endpoint_cannot_be_preserved_even_with_matching_ca(self):
         self.write(self.cache, kubeconfig('old-ca', 'old-client', 'https://foreign.invalid:6443'))
         with self.assertRaisesRegex(ValueError, 'Foreign kubeconfig'):

@@ -16,6 +16,17 @@
 # under the License.
 
 """Fresh-target binding used only by the data-only restore promotion route."""
+def connected_same_host_restore(marker,plan):
+    if not plan.get('connectedSameHostRestore'):return False
+    if (marker.get('role')!='ops-local-restore' or
+        marker.get('restoreRoute')!='same-host-kind-010-to-k3s-090' or
+        marker.get('sameHostIdentityVerified')is not True or
+        marker.get('hostname')!=plan.get('hostname') or
+        not marker.get('sourceClusterUid') or not marker.get('targetClusterUid') or
+        marker['sourceClusterUid']==marker['targetClusterUid']):
+        raise ValueError('bound_connected_same_host_restore_required')
+    return True
+
 def promotion_binding(marker,bootstrap_uid,live_uid,namespace_uid,namespace_empty):
     if marker.get('role')!='ops-local-restore' or marker.get('applicationExecutionAllowed')is not False or marker.get('restorePromotionReady')is not True:
         raise ValueError('marked_restore_target_required')
