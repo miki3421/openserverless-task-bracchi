@@ -60,7 +60,7 @@ def verify_archive(row, path):
     finally: source.close()
 
 
-def publish(row, archive, directory, execute=subprocess.run):
+def publish(row, image_directory, directory, execute=subprocess.run):
     require(os.environ.get('GITHUB_ACTIONS') == 'true' and os.environ.get('GITHUB_REPOSITORY') == REPOSITORY,
             'personal_repository_actions_required')
     token = os.environ.get('GITHUB_TOKEN', ''); actor = os.environ.get('GITHUB_ACTOR', '')
@@ -84,7 +84,7 @@ def publish(row, archive, directory, execute=subprocess.run):
         # first push. Create the exact content-addressed object first. This
         # cannot replace another manifest or move any existing tag.
         immutable = row['reference'].rsplit(':', 1)[0] + '@' + row['digest']
-        copy_args = ['skopeo', 'copy', '--preserve-digests', '--authfile', str(auth), 'oci-archive:' + str(archive)]
+        copy_args = ['skopeo', 'copy', '--preserve-digests', '--authfile', str(auth), 'oci:' + str(image_directory)]
         result = execute(copy_args + ['docker://' + immutable], capture_output=True, timeout=1200)
         checked(result, 'operator_immutable_publication_failed')
         result = execute(['skopeo', 'inspect', '--raw', '--authfile', str(auth), 'docker://' + immutable],
@@ -122,7 +122,10 @@ def main():
             archive = download(url, Path(directory) / row['archive'], row['archiveSha256'], row['bytes'])
         verify_archive(row, archive)
         if args.check: print(json.dumps({'status': 'artifact_verified', 'publicationPerformed': False})); return
-        result = publish(row, archive, directory)
+        source = OCIArchive(archive)
+        try: image = source.unpack(row['digest'], Path(directory) / 'operator-image')
+        finally: source.close()
+        result = publish(row, image, directory)
         print(json.dumps(result))
         summary = os.environ.get('GITHUB_STEP_SUMMARY')
         if summary:

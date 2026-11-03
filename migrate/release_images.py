@@ -122,6 +122,21 @@ class OCIArchive:
         return {**row, 'archive': destination.name, 'archiveSha256': hash_file(destination),
                 'bytes': destination.stat().st_size, 'blobsVerified': len(selected), 'configuration': config}
 
+    def unpack(self, digest, destination):
+        """Materialize verified OCI files as the caller, never restoring UID/GID."""
+        destination = Path(destination); require(not destination.exists(), 'fresh_oci_directory_required')
+        selected, _ = self.closure(digest)
+        index = self.json('index.json')
+        require(len(index['manifests']) == 1 and index['manifests'][0]['digest'] == digest, 'single_selected_oci_root_required')
+        destination.mkdir(mode=0o700)
+        import os
+        import shutil
+        for name in ['oci-layout', 'index.json', *sorted(selected)]:
+            target = destination / name; target.parent.mkdir(mode=0o700, parents=True, exist_ok=True)
+            with target.open('xb') as output, self.tar.extractfile(self.members[name]) as source:
+                os.fchmod(output.fileno(), 0o600); shutil.copyfileobj(source, output)
+        return destination
+
 
 def package(catalog, sources, destination):
     destination = Path(destination); require(not destination.exists(), 'fresh_publication_directory_required')

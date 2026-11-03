@@ -68,6 +68,20 @@ class ReleaseImages(unittest.TestCase):
                 with self.assertRaisesRegex(ValueError, 'fresh_image'): source.export(row, path / 'export.tar')
             finally: source.close()
 
+    def test_unpack_preserves_verified_bytes_without_archive_ownership(self):
+        with tempfile.TemporaryDirectory() as root:
+            import os
+            path = Path(root); row = fixture(path / 'source.tar'); source = OCIArchive(path / 'source.tar')
+            target = source.unpack(row['digest'], path / 'caller-owned')
+            for name, entry in source.members.items():
+                if not entry.isfile(): continue
+                item = target / name
+                with source.tar.extractfile(entry) as stream: expected = stream.read()
+                self.assertEqual(item.read_bytes(), expected)
+                self.assertEqual(item.stat().st_uid, os.getuid()); self.assertEqual(item.stat().st_mode & 0o777, 0o600)
+            with self.assertRaisesRegex(ValueError, 'fresh_oci'): source.unpack(row['digest'], target)
+            source.close()
+
     def test_missing_dependency_and_corrupt_content_stop_export(self):
         for options in ({'missing': True}, {'corrupt': True}, {'credential': True}):
             with self.subTest(options=options), tempfile.TemporaryDirectory() as root:

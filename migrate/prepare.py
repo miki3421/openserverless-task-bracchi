@@ -127,6 +127,20 @@ def target_profile_home(home, cluster_uid):
     return Path(home) / '.ops/profiles' / ('migrate-k3s-090-' + cluster_uid)
 
 
+def read_cli_configuration(path, uid):
+    """OPS may create config.json as 0644. Read it without changing the source."""
+    path = regular(path, uid, private=False)
+    require(path.stat().st_size <= 4 * 1024**2, 'ops_configuration_budget_exceeded')
+    def unique(pairs):
+        result = {}
+        for key, value in pairs:
+            require(key not in result, 'duplicate_ops_configuration_key'); result[key] = value
+        return result
+    value = json.loads(path.read_text(), object_pairs_hook=unique)
+    require(isinstance(value, dict), 'ops_configuration_object_required')
+    return value
+
+
 def existing_preparation(pointer, uid, source, target, archive, commit):
     selection = private_json(pointer, uid)
     path = Path(selection['profile']); profile = validate_profile(private_json(path, uid))
@@ -227,8 +241,7 @@ def prepare(request):
         target_home = target_profile_home(home, observed['target']['clusterUid'])
         profile_path = target_home / 'restore.json'
         require(not profile_path.exists(), 'existing_restore_profile_requires_review')
-        configuration = private_json(selected_home / 'config.json', uid) if (selected_home / 'config.json').exists() else {}
-        require(isinstance(configuration, dict), 'ops_configuration_object_required')
+        configuration = read_cli_configuration(selected_home / 'config.json', uid) if (selected_home / 'config.json').exists() else {}
         configuration['images'] = copy.deepcopy(release['target']['images'])
         progress('verify-published-images')
         result = availability(release['images']); save(work / 'image-availability.json', result)

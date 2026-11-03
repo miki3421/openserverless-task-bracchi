@@ -51,6 +51,16 @@ def metadata(p):
 
 
 class PreparationContract(unittest.TestCase):
+    def test_standard_cli_config_is_read_without_changing_source_permissions_or_bytes(self):
+        with tempfile.TemporaryDirectory() as root:
+            path = Path(root) / 'config.json'; path.write_text('{"apihost":"synthetic"}\n'); path.chmod(0o644)
+            raw = path.read_bytes(); self.assertEqual(prepare.read_cli_configuration(path, os.getuid())['apihost'], 'synthetic')
+            self.assertEqual(path.read_bytes(), raw); self.assertEqual(path.stat().st_mode & 0o777, 0o644)
+            path.chmod(0o664)
+            with self.assertRaises(ValueError): prepare.read_cli_configuration(path, os.getuid())
+            path.chmod(0o644); path.write_text('{"apihost":"one","apihost":"two"}')
+            with self.assertRaisesRegex(ValueError, 'duplicate_ops_configuration'): prepare.read_cli_configuration(path, os.getuid())
+
     def test_target_context_is_separate_from_all_existing_source_profiles(self):
         uid = selected()['target']['clusterUid']
         target = prepare.target_profile_home('/home/fixture', uid)
