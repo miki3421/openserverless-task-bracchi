@@ -178,7 +178,8 @@ ops restore --check
 ops restore
 ```
 
-Reset is limited to a stopped same-host rehearsal in `native-restore`, or the
+Reset is limited to a stopped same-host rehearsal before native recovery, in
+`native-restore`, or the
 first never-started target backend at `start-target-backends`, before platform
 startup or application acceptance. It validates the run, host, cluster,
 namespace UIDs and independent source archive before deletion. It removes the
@@ -189,6 +190,14 @@ the temporary legacy DNS alias namespace. Every PV path and claim binding must
 match the private promotion plan; deletion uses UID preconditions. The encrypted repository,
 recovery key, software capsule, original kind data, K3s addons and private audit
 journal are retained. Completed or later-stage restores are rejected.
+
+For a failure before native recovery, reset also removes unused images from the
+empty destination K3s cache through CRI, after checking the source archive and
+empty target layout. Running/pinned addon images remain protected by CRI and
+bootstrap readiness is checked before and after pruning. The original Docker
+cache is never accessed. A protected initial profile is recorded before the
+first restore phase; older verified pre-native attempts require matching source
+cluster/container/namespace/Whisk IDs from private staged backup metadata.
 
 The explicit reset selects the current committed descendant task revision for
 the next attempt and clears only the failed run's current pointer. Kubernetes

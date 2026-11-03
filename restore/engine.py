@@ -109,6 +109,7 @@ def main(request_path):
     def progress(phase):
         state['phase']=phase;save(root/'journal.json',state);print('OPS restore: '+phase,flush=True)
     try:
+        save(root/'initial-profile.json',p)
         save(root/'storage-plan.json',storage)
         progress('verify-archive');unpack(p,root,request['bun'],run);state['completed'].append('verify-archive')
         progress('prepare-offline-inputs');assets=Path(p['assets']['directory']);manifest=private_json(assets/'manifest.json',caller);require(digest(assets/'manifest.json')==p['assets']['manifestSha256'],'offline_manifest_changed')

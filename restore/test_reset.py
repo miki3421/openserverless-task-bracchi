@@ -22,11 +22,12 @@ import sys
 import json
 import tempfile
 from types import SimpleNamespace
+from unittest.mock import patch
 import unittest
 
 sys.path.insert(0,str(Path(__file__).resolve().parent))
 from test_same_host import selected
-from reset import validate_attempt, namespace_pins, filtered_reader, remove_namespace, discard_generated_data
+from reset import validate_attempt, namespace_pins, filtered_reader, remove_namespace, discard_generated_data, pre_native_configuration
 
 
 def fixture():
@@ -44,6 +45,37 @@ def fixture():
 
 
 class ResetContract(unittest.TestCase):
+    def test_pre_native_reset_accepts_absent_native_uid_but_later_phase_rejects_it(self):
+        values=fixture();values[2].update(phase='prepare-offline-inputs',completed=['verify-archive']);values[4]['nativeNamespaceUid']=None
+        validate_attempt(*values)
+        self.assertEqual(namespace_pins({'preparedNamespaceUid':'app'},values[4],[],pre_native=True),{'openserverless':'app'})
+        values[2]['phase']='native-restore'
+        with self.assertRaises(ValueError):validate_attempt(*values)
+
+    def test_initial_profile_keeps_pre_archive_failures_recoverable_without_source_calls(self):
+        with tempfile.TemporaryDirectory() as temp:
+            root=Path(temp);p,current,state,config,binding=fixture();state.update(phase='verify-archive',completed=[])
+            (root/'initial-profile.json').write_text(json.dumps(p))
+            with patch('reset.private_json',side_effect=lambda path,*args:json.loads(Path(path).read_text())):
+                cfg,bound=pre_native_configuration(p,root,current,state)
+                self.assertEqual(cfg['profile'],p);self.assertIsNone(bound['nativeNamespaceUid'])
+                changed=copy.deepcopy(p);changed['archive']['snapshot']='f'*64
+                with self.assertRaisesRegex(ValueError,'configuration_changed'):pre_native_configuration(changed,root,current,state)
+
+    def test_legacy_pre_native_recovery_requires_verified_snapshot_and_all_source_uids(self):
+        with tempfile.TemporaryDirectory() as temp:
+            root=Path(temp);p,current,state,config,binding=fixture();state.update(phase='prepare-offline-inputs',completed=['verify-archive'])
+            (root/'decrypted/collection').mkdir(parents=True);(root/'unpack/payload').mkdir(parents=True)
+            (root/'backup-verification.json').write_text(json.dumps({'snapshot':p['archive']['snapshot'],'components':12,'kindControlPlaneImported':False}))
+            selected={'kind':{'source':{'cluster_uid':p['source']['clusterUid'],'container_id':p['source']['kindContainerId'],'hostname':p['source']['hostname']}}}
+            (root/'decrypted/collection/source-selection.json').write_text(json.dumps(selected))
+            archived={'source':{'clusterUid':p['source']['clusterUid'],'namespaceUid':p['source']['namespaceUid'],'uid':p['source']['whiskUid']}}
+            (root/'unpack/payload/plan.json').write_text(json.dumps(archived))
+            with patch('reset.private_json',side_effect=lambda path,*args:json.loads(Path(path).read_text())):
+                cfg,bound=pre_native_configuration(p,root,current,state);self.assertEqual(cfg['profile']['archive'],p['archive'])
+                archived['source']['uid']='foreign';(root/'unpack/payload/plan.json').write_text(json.dumps(archived))
+                with self.assertRaisesRegex(ValueError,'source_identity_changed'):pre_native_configuration(p,root,current,state)
+
     def test_only_stopped_early_attempt_and_its_exact_data_roots(self):
         values=fixture();self.assertEqual(validate_attempt(*values)[0],'a'*32)
         mutations=[(2,'status','running'),(2,'status','complete'),(2,'phase','start-platform'),

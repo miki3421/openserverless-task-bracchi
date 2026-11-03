@@ -30,6 +30,7 @@ from lib import require, private_json, regular, digest, selected_snapshot
 import same_host
 from target_reset import validate_target_objects, remove_volume
 
+PRE_NATIVE_PHASES = {'verify-archive', 'prepare-offline-inputs', 'verify-offline-runtimes'}
 EARLY_COMPLETED = {'verify-archive', 'verify-offline-runtimes', 'prepare-service-dns'}
 PRE_PLATFORM_COMPLETED = EARLY_COMPLETED | {'native-restore', 'prepare-mappings', 'native-checkpoint',
     'prepare-fresh-target', 'bootstrap-target', 'prepare-target-tasks'}
@@ -42,7 +43,8 @@ def validate_attempt(profile, current, state, config, binding):
     require(profile['route'] == same_host.ROUTE and profile['mode'] == 'rehearsal', 'early_same_host_reset_only')
     require(current.get('hostUuid') == profile['target']['hostUuid'] and state.get('runId') == run_id,
             'reset_run_identity_mismatch')
-    require(state.get('status') in {'stopped', 'resetting', 'reset_failed'} and ((state.get('phase') == 'native-restore' and set(state.get('completed', [])) <= EARLY_COMPLETED) or
+    require(state.get('status') in {'stopped', 'resetting', 'reset_failed'} and ((state.get('phase') in PRE_NATIVE_PHASES and set(state.get('completed', [])) <= {'verify-archive'}) or
+             (state.get('phase') == 'native-restore' and set(state.get('completed', [])) <= EARLY_COMPLETED) or
              (state.get('phase') == 'start-target-backends' and set(state.get('completed', [])) == PRE_PLATFORM_COMPLETED)) and not state.get('finalIamVerified') and
             not state.get('applicationRestoreVerified'), 'only_stopped_pre_platform_restore_can_reset')
     saved = copy.deepcopy(config['profile']); selected = copy.deepcopy(profile)
@@ -55,7 +57,7 @@ def validate_attempt(profile, current, state, config, binding):
             binding.get('sourceClusterUid') == profile['source']['clusterUid'] and
             binding.get('targetClusterUid') == profile['target']['clusterUid'] and
             binding.get('applicationExecutionAllowed') is False and
-            binding.get('nativeNamespace') == config.get('nativeNamespace') == native and binding.get('nativeNamespaceUid'),
+            binding.get('nativeNamespace') == config.get('nativeNamespace') == native and (binding.get('nativeNamespaceUid') or state.get('phase') in PRE_NATIVE_PHASES),
             'reset_native_binding_mismatch')
     root = Path('/var/lib/ops-restore/runs') / run_id
     data = Path('/var/lib/openserverless/volumes') / run_id
@@ -68,13 +70,46 @@ def validate_attempt(profile, current, state, config, binding):
     return run_id, native, root, data
 
 
-def namespace_pins(marker, binding, rows, previous=None, promoted=False):
+def pre_native_configuration(profile, root, current, state):
+    require(state.get('phase') in PRE_NATIVE_PHASES and not (root/'host-binding.json').exists(),
+            'only_pre_native_configuration_recovery_allowed')
+    original = private_json(root/'initial-profile.json',0) if (root/'initial-profile.json').exists() else None
+    if original is None:
+        # Older pre-native runs recorded their verified archive but did not yet
+        # record the full profile. Bind every source identity from that private
+        # verified staging before accepting this one-way cleanup.
+        require(state.get('completed') == ['verify-archive'], 'verified_legacy_pre_native_run_required')
+        proof = private_json(root/'backup-verification.json',0)
+        require(proof.get('snapshot') == profile['archive']['snapshot'] and proof.get('components') == 12 and
+                proof.get('kindControlPlaneImported') is False, 'verified_source_snapshot_required')
+        selections=list((root/'decrypted').rglob('source-selection.json'))
+        require(len(selections)==1, 'unique_verified_source_selection_required')
+        source=private_json(selections[0],0)['kind']['source']
+        archived=private_json(root/'unpack/payload/plan.json',0)['source'];expected=profile['source']
+        require(source['cluster_uid']==expected['clusterUid'] and source['container_id']==expected['kindContainerId'] and
+                source['hostname']==expected['hostname'] and archived['clusterUid']==expected['clusterUid'] and
+                archived['namespaceUid']==expected['namespaceUid'] and archived['uid']==expected['whiskUid'],
+                'verified_source_identity_changed')
+        original=copy.deepcopy(profile)
+    selected=copy.deepcopy(profile);saved=copy.deepcopy(original);selected.pop('engineCommit');saved.pop('engineCommit')
+    require(selected==saved,'reset_configuration_changed')
+    run=current['runId'];native='ops-restore-native-'+run[:12]
+    config={'operation':'restore','runId':run,'profile':original,'targetClusterUid':profile['target']['clusterUid'],
+            'root':str(root),'dataRoot':'/var/lib/openserverless/volumes/'+run,'nativeNamespace':native}
+    binding={'role':'ops-local-restore','labId':run,'hostUuid':profile['target']['hostUuid'],
+             'sourceClusterUid':profile['source']['clusterUid'],'targetClusterUid':profile['target']['clusterUid'],
+             'applicationExecutionAllowed':False,'nativeNamespace':native,'nativeNamespaceUid':None}
+    return config,binding
+
+
+def namespace_pins(marker, binding, rows, previous=None, promoted=False, pre_native=False):
     pins = previous or {'openserverless': marker['preparedNamespaceUid'],
                         binding['nativeNamespace']: binding['nativeNamespaceUid']}
+    if pre_native and previous is None: pins.pop(binding['nativeNamespace'])
     if promoted and previous is None:
         legacy = next((r for r in rows if r['metadata']['name'] == 'nuvolaris'), None)
         require(legacy is not None, 'bound_legacy_alias_namespace_required'); pins['nuvolaris'] = legacy['metadata']['uid']
-    require(set(pins) == {'openserverless', binding['nativeNamespace']} | ({'nuvolaris'} if promoted else set()) and all(pins.values()),
+    require(set(pins) == ({'openserverless'} | (set() if pre_native else {binding['nativeNamespace']}) | ({'nuvolaris'} if promoted else set())) and all(pins.values()),
             'reset_namespace_uids_required')
     for row in rows:
         name = row['metadata']['name']
@@ -136,8 +171,10 @@ def main(profile, profile_path, caller, check, task):
     current = private_json(base / 'current.json', 0)
     run_id = current.get('runId', ''); require(re.fullmatch(r'[a-f0-9]{32}', run_id), 'bound_restore_run_required')
     root = base / 'runs' / run_id
-    state = private_json(root / 'journal.json', 0); config = private_json(root / 'configuration.json', 0)
-    binding = private_json(root / 'host-binding.json', 0)
+    state = private_json(root / 'journal.json', 0)
+    if (root/'configuration.json').exists():
+        config=private_json(root/'configuration.json',0);binding=private_json(root/'host-binding.json',0)
+    else:config,binding=pre_native_configuration(profile,root,current,state)
     run_id, native, root, data = validate_attempt(profile, current, state, config, binding)
     marker_path = Path('/etc/ops-restore-target.private.json'); marker = private_json(marker_path, 0)
     same_host.validate_marker(profile, marker)
@@ -160,6 +197,9 @@ def main(profile, profile_path, caller, check, task):
                 plan['targetClusterUid'] == profile['target']['clusterUid'], 'reset_plan_identity_changed')
     rows = read(['get', 'namespaces'])['items']
     promoted = state['phase'] == 'start-target-backends'
+    pre_native = state['phase'] in PRE_NATIVE_PHASES
+    if pre_native:
+        require(not data.exists() and not any(r['metadata']['name']==native for r in rows), 'pre_native_target_must_be_empty')
     volume_pins = {}
     if promoted:
         require(binding.get('restorePromotionReady') is True, 'prepared_target_checkpoint_required')
@@ -177,7 +217,7 @@ def main(profile, profile_path, caller, check, task):
             'legacyServices': [r for r in read(['get', 'services', '-A'])['items'] if r['metadata']['namespace'] == 'nuvolaris'],
         }
         volume_pins = validate_target_objects(run_id, data, target_plan, checkpoint, observed, plan.get('volumes') if plan else None)
-    pins = namespace_pins(marker, binding, rows, plan['namespaces'] if plan else None, promoted)
+    pins = namespace_pins(marker, binding, rows, plan['namespaces'] if plan else None, promoted, pre_native)
     effective = copy.deepcopy(marker)
     if promoted or not any(r['metadata']['name'] == 'openserverless' for r in rows): effective['preparedNamespaceUid'] = None
     same_host.preflight(profile, effective, filtered_reader(read, native, promoted, volume_pins), allow_unprepared=True)
@@ -197,7 +237,7 @@ def main(profile, profile_path, caller, check, task):
     selected_snapshot(json.loads(snapshot_rows.stdout), archive['snapshot'], profile['maxRestoreBytes'])
     if check:
         print(json.dumps({'status': 'reset_check_passed', 'runId': run_id,
-                          'namespaces': list(pins), 'retainedVolumes': len(volume_pins), 'sourceBackupRetained': True, 'clusterMutation': False})); return
+                          'namespaces': list(pins), 'retainedVolumes': len(volume_pins), 'pruneUnusedDestinationImages': pre_native, 'sourceBackupRetained': True, 'clusterMutation': False})); return
     (base / '.lock').mkdir(mode=0o700)
     try:
         # Verify the independent recovery source before discarding any generated data.
@@ -206,8 +246,11 @@ def main(profile, profile_path, caller, check, task):
         require(result.returncode == 0, 'source_archive_full_verification_failed')
         plan = {'schemaVersion': 1, 'runId': run_id, 'snapshot': archive['snapshot'],
                 'targetClusterUid': profile['target']['clusterUid'], 'namespaces': pins, 'volumes': volume_pins, 'resetCodeCommit': head}
-        save(plan_path, plan); state['status'] = 'resetting'; save(root / 'journal.json', state)
-        for name in (native, 'openserverless', *(['nuvolaris'] if promoted else [])):
+        save(plan_path, plan)
+        if pre_native and not (root/'configuration.json').exists():
+            save(root/'configuration.json',config);save(root/'host-binding.json',binding)
+        state['status'] = 'resetting'; save(root / 'journal.json', state)
+        for name in pins:
             print('OPS restore reset: remove-' + name, flush=True)
             remove_namespace(k, read, name, pins[name])
         for name, uid in volume_pins.items():
@@ -215,6 +258,14 @@ def main(profile, profile_path, caller, check, task):
         print('OPS restore reset: discard-generated-data', flush=True)
         discard_generated_data(root, data)
         marker['preparedNamespaceUid'] = None; save(marker_path, marker)
+        if pre_native:
+            print('OPS restore reset: prune-unused-destination-images',flush=True)
+            same_host.preflight(profile,marker,read,allow_unprepared=True)
+            prune=subprocess.run(['/usr/local/bin/k3s','crictl','rmi','--prune'],capture_output=True,timeout=600)
+            (root/'reset-image-prune.stdout.private.log').write_bytes(prune.stdout)
+            (root/'reset-image-prune.stderr.private.log').write_bytes(prune.stderr)
+            require(prune.returncode==0,'unused_destination_image_cleanup_failed')
+            same_host.preflight(profile,marker,read,allow_unprepared=True)
         refreshed = copy.deepcopy(profile); refreshed['engineCommit'] = head
         regular(profile_path, caller)
         save(profile_path, refreshed); account = pwd.getpwuid(caller); os.chown(profile_path, caller, account.pw_gid)
