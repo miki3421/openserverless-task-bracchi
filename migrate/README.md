@@ -72,6 +72,14 @@ audit found 46 of 50 image roots available. Preparation reports every missing
 image and exits nonzero before cache pulls, profile binding or cluster changes.
 It does not substitute older Apache images or claim an application restore pass.
 
+The real OPS command was also checked from a fresh private OPS profile on the
+same rehearsal VM. Local software, empty K3s inspection, backup discovery and
+Restic metadata reads passed; the command then stopped with
+`release_images_not_published` (46 available, four unavailable). No restore
+profile, context pointer or root target marker was created. The target retained
+zero application pods/PVCs and Docker service/socket stayed inactive/disabled.
+This is evidence for the blocking path, not a completed preparation or restore.
+
 The software catalog currently qualifies Linux AMD64, Python3.12,
 K3s1.36.4+k3s1 and the exact OPS/Bun binaries used by this rehearsal. Standard
 K3s addons and cert-manager must be ready. This is not a general production
