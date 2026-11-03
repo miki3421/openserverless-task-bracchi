@@ -36,7 +36,7 @@ def main(request_path):
     os.umask(0o077);require(os.getuid()==0,'local_administrator_required')
     os.environ['GIT_OPTIONAL_LOCKS']='0'
     caller=int(os.environ.get('SUDO_UID',os.getuid()));request=private_json(request_path,caller)
-    require(set(request)=={'schemaVersion','uid','profile','bun','check','status','json'}and request['schemaVersion']==1 and request['uid']==caller and all(type(request[k])is bool for k in ('check','status','json'))and not(request['check']and request['status']),'invalid_restore_request')
+    require(set(request)=={'schemaVersion','uid','profile','bun','check','status','json','reset'}and request['schemaVersion']==1 and request['uid']==caller and all(type(request[k])is bool for k in ('check','status','json','reset'))and not(request['status']and(request['check']or request['reset'])),'invalid_restore_request')
     p=validate_profile(private_json(request['profile'],caller));require(p['user']['uid']==caller,'restore_caller_mismatch')
     t=p['target'];require(Path('/sys/class/dmi/id/product_uuid').read_text().strip().lower()==t['hostUuid']and socket.gethostname()==t['hostname'],'restore_host_identity_mismatch')
     user=pwd.getpwnam(p['user']['name']);require(user.pw_uid==caller and user.pw_dir==p['user']['home'],'restore_owner_mismatch')
@@ -44,6 +44,9 @@ def main(request_path):
         if not(BASE/'current.json').exists():print(json.dumps({'status':'not_started'}));return
         current=private_json(BASE/'current.json',0);require(current['hostUuid']==t['hostUuid'],'restore_checkpoint_host_mismatch')
         state=private_json(BASE/'runs'/current['runId']/'journal.json',0);print(json.dumps({k:state.get(k)for k in ('status','phase','runId','completed','finalIamVerified','applicationRestoreVerified','errorCode')}));return
+    if request['reset']:
+        from reset import main as reset_attempt
+        reset_attempt(p,request['profile'],caller,request['check'],TASK);return
     require(sys.platform=='linux'and os.uname().machine=='x86_64','qualified_linux_amd64_required')
     marker=private_json('/etc/ops-restore-target.private.json',0)
     same_host_route=p['route']==same_host.ROUTE

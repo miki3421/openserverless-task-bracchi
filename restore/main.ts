@@ -25,20 +25,20 @@ import { privateJSON, verifyAssets } from "../upgrade/lib";
 import { profilePath } from "../migrate/context";
 
 export function options(value:any) {
-  if(!value||typeof value!=="object"||Array.isArray(value)||Object.keys(value).some(k=>!["check","status","json"].includes(k)))throw Error("invalid_restore_options");
-  const result={check:flag(value.check),status:flag(value.status),json:flag(value.json)};
-  if(result.check&&result.status)throw Error("invalid_restore_options");return result;
+  if(!value||typeof value!=="object"||Array.isArray(value)||Object.keys(value).some(k=>!["check","status","json","reset"].includes(k)))throw Error("invalid_restore_options");
+  const result={check:flag(value.check),status:flag(value.status),json:flag(value.json),reset:flag(value.reset)};
+  if(result.status&&(result.check||result.reset))throw Error("invalid_restore_options");return result;
 }
 export async function main() {
   process.umask(0o077);
-  if(process.argv.includes("--help")){console.log("Usage: ops restore [--check] [--json]\n       ops restore status [--json]");return;}
+  if(process.argv.includes("--help")){console.log("Usage: ops restore [--check] [--json]\n       ops restore status [--json]\n       ops restore reset [--check] [--json]");return;}
   const requestOptions=options(JSON.parse(process.env.OPS_RESTORE_REQUEST||"{}"));
   const home=process.env.OPS_HOME||join(homedir(),".ops"),uid=process.getuid!(),selectedProfile=profilePath(home,uid);
   const profile=privateJSON(selectedProfile,uid);
   if(profile.user?.uid!==uid||profile.user?.home!==homedir())throw Error("restore_profile_user_mismatch");
   verifyEngine();
   if(!requestOptions.status)await verifyAssets(profile,uid);
-  if(!requestOptions.status&&profile.route==="same-host-kind-010-to-k3s-090") {
+  if(!requestOptions.status&&!requestOptions.reset&&profile.route==="same-host-kind-010-to-k3s-090") {
     const bind=Bun.spawn(["sudo","-n","python3","-B",join(import.meta.dir,"../migrate/target.py"),"bind",selectedProfile],
       {stdin:"inherit",stdout:"ignore",stderr:"inherit",env:{...process.env,PYTHONDONTWRITEBYTECODE:"1",GIT_OPTIONAL_LOCKS:"0"}});
     if(await bind.exited!==0)throw Error("migration_target_binding_failed");

@@ -142,3 +142,28 @@ No automatic source deletion, backup pruning or Docker restart occurs.
 Only synthetic tests and the separately recorded target preflight can establish
 preparation at this stage. Actual data recovery and Alpha/Beta acceptance require
 the operator-led `ops restore` run and subsequent application tests.
+
+## Restarting a stopped early rehearsal
+
+A failed native restore can be discarded explicitly before retrying:
+
+```sh
+ops restore reset --check
+ops restore reset
+ops setup kubernetes prepare
+ops restore --check
+ops restore
+```
+
+Reset is limited to a stopped same-host rehearsal in `native-restore`, before
+platform startup or application acceptance. It validates the run, host, cluster,
+namespace UIDs and independent source archive before deletion. It removes the
+bound `openserverless` bootstrap namespace, that run's `ops-restore-native-*`
+namespace and generated payload/data directories. The encrypted repository,
+recovery key, software capsule, original kind data, K3s addons and private audit
+journal are retained. Completed or later-stage restores are rejected.
+
+The explicit reset selects the current committed descendant task revision for
+the next attempt and clears only the failed run's current pointer. Kubernetes
+prepare then recreates the bootstrap namespace, whose new UID is bound before
+the next restore. Bare `ops restore` never silently deletes existing state.

@@ -32,15 +32,18 @@ test.skipIf(!process.env.OPS_TEST_BINARY)("real CLI routes bare restore, check a
     writeFileSync(join(root,"restore/main.ts"),'console.log("DISPATCH="+process.env.OPS_RESTORE_REQUEST);\n');
     const run=(args:string[])=>Bun.spawnSync([process.env.OPS_TEST_BINARY!,...args],{cwd:root,timeout:30000,
       env:{...process.env,OPS_ROOT:root,OPS_PWD:root,OPS_ROOT_PLUGIN:root,OPS_HOME:root}});
-    for(const [args,check,status,json] of [
-      [["restore"],false,false,false],
-      [["restore","--check","--json"],true,false,true],
-      [["restore","status","--json"],false,true,true],
-    ] as [string[],boolean,boolean,boolean][]) {
+    for(const [args,check,status,json,reset] of [
+      [["restore"],false,false,false,false],
+      [["restore","--check","--json"],true,false,true,false],
+      [["restore","status","--json"],false,true,true,false],
+      [["restore","reset"],false,false,false,true],
+      [["restore","reset","--check","--json"],true,false,true,true],
+    ] as [string[],boolean,boolean,boolean,boolean][]) {
       const result=run(args);expect(result.exitCode,result.stderr.toString()+result.stdout.toString()).toBe(0);
       const line=result.stdout.toString().split("\n").find(x=>x.startsWith("DISPATCH="));
       expect(line).toBeDefined();const request=JSON.parse(line!.slice(9));
       expect(enabledFlag(request.check)).toBe(check);expect(enabledFlag(request.status)).toBe(status);expect(enabledFlag(request.json)).toBe(json);
+      expect(enabledFlag(request.reset)).toBe(reset);
     }
     const help=run(["restore","--help"]);expect(help.exitCode).toBe(0);expect(help.stdout.toString()).toContain("Usage:");expect(help.stdout.toString()).not.toContain("DISPATCH=");
   } finally {rmSync(root,{recursive:true,force:true});}

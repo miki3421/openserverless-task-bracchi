@@ -18,9 +18,10 @@
 import { test, expect } from "bun:test";
 import { options } from "./main";
 test("restore accepts the simple command and explicit checks",()=>{
-  expect(options({})).toEqual({check:false,status:false,json:false});
-  expect(options({check:"true",json:true})).toEqual({check:true,status:false,json:true});
+  expect(options({})).toEqual({check:false,status:false,json:false,reset:false});
+  expect(options({check:"true",json:true})).toEqual({check:true,status:false,json:true,reset:false});
+  expect(options({reset:true,check:true}).reset).toBe(true);
 });
 test("restore rejects ambiguity and invented archive arguments",()=>{
-  for(const x of [null,[],{check:true,status:true},{snapshot:"latest"},{check:"yes"}])expect(()=>options(x)).toThrow();
+  for(const x of [null,[],{check:true,status:true},{status:true,reset:true},{snapshot:"latest"},{check:"yes"}])expect(()=>options(x)).toThrow();
 });

@@ -53,7 +53,7 @@ tasks:
     silent: true
     env:
       OPS_RESTORE_REQUEST: >-
-        {"check":{{toJson (default false .__check)}},"status":{{toJson (default false .status)}},"json":{{toJson (default false .__json)}}}
+        {"check":{{toJson (default false .__check)}},"status":{{toJson (default false .status)}},"json":{{toJson (default false .__json)}},"reset":{{toJson (default false .reset)}}}
     cmds:
       - bun restore/main.ts
 
