@@ -227,6 +227,9 @@ def prepare(request):
         target_home = target_profile_home(home, observed['target']['clusterUid'])
         profile_path = target_home / 'restore.json'
         require(not profile_path.exists(), 'existing_restore_profile_requires_review')
+        configuration = private_json(selected_home / 'config.json', uid) if (selected_home / 'config.json').exists() else {}
+        require(isinstance(configuration, dict), 'ops_configuration_object_required')
+        configuration['images'] = copy.deepcopy(release['target']['images'])
         progress('verify-published-images')
         result = availability(release['images']); save(work / 'image-availability.json', result)
         if result['missing']:
@@ -243,9 +246,6 @@ def prepare(request):
         protected_directory(target_home, uid); protected_directory(target_home / 'tmp', uid)
         # Preserve caller settings while keeping subsequent target task writes
         # out of the legacy source profile.
-        configuration = private_json(selected_home / 'config.json', uid) if (selected_home / 'config.json').exists() else {}
-        require(isinstance(configuration, dict), 'ops_configuration_object_required')
-        configuration['images'] = copy.deepcopy(release['target']['images'])
         save(target_home / 'config.json', configuration)
         archive['restic'] = str(assets / 'tools/restic')
         profile = candidate_profile(source, observed['target'], archive, release, assets,
