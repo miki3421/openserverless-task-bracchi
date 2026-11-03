@@ -28,4 +28,12 @@ tasks:
   update:
     desc: Deploys updates for Openserverless components
 
- 
+
+  backup:
+    desc: capture a supported installation and verify its encrypted file recovery
+    silent: true
+    env:
+      OPS_BACKUP_REQUEST: >-
+        {"check":{{toJson (default false .__check)}},"status":{{toJson (default false .status)}},"json":{{toJson (default false .__json)}}}
+    cmds:
+      - bun backup/main.ts

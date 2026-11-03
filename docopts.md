@@ -20,6 +20,23 @@ under the License.
 
 Type `ops <task>` to see usage and subtasks.
 
+## Installation backup
+
+```text
+Usage:
+  ops backup [--check] [--json]
+  ops backup status [--json]
+
+Options:
+  --check   Validate the protected source profile and prerequisites without collecting data or changing the cluster.
+  --json    Print a structured, credential-free result.
+```
+
+`ops backup` reads the private `OPS_HOME/backup.json` profile. This command
+uses the same immutable backup engine as the 0.9.0 candidate; the installed
+platform, legacy administration tasks and CLI remain on 0.1.0. See
+`backup/README.md` for supported layouts and recovery limitations.
+
 ## OpenServerless Administration Tasks
 
 ```text

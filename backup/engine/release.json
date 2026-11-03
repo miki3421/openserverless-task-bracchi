@@ -1,0 +1,459 @@
+{
+  "schemaVersion": 1,
+  "repository": "https://github.com/miki3421/ops-k3s-backup",
+  "revision": "2a23171c937c9285a737e1527a15c1882939215d",
+  "files": [
+    {
+      "path": "adapters/ops-native/LICENSE",
+      "bytes": 18389,
+      "sha256": "c34c8f6557d4b645acb73be68e21663e3b0dd3eee5b5143a9fa1e3c1a83871a6"
+    },
+    {
+      "path": "adapters/ops-native/NOTICE",
+      "bytes": 4321,
+      "sha256": "092ab4c4ab55326e4ae9082861503448b052552076cd8390b7eb2f70b39027f8"
+    },
+    {
+      "path": "adapters/ops-native/cluster.ts",
+      "bytes": 16224,
+      "sha256": "a9ce0e00e9eedb84371e32146915b1b9a32aa2112444f333faae8710f7f00c5c"
+    },
+    {
+      "path": "adapters/ops-native/empty-milvus.ts",
+      "bytes": 2515,
+      "sha256": "b1ab2a166936d183d92c6d98898f3319f6f4bf892d1cc51d5687b083301b2eb1"
+    },
+    {
+      "path": "adapters/ops-native/files.ts",
+      "bytes": 626,
+      "sha256": "8a31f54cebc5ce79ae88eac6e0220a47fa8fbc72d114f7b4a0af486f30832d0b"
+    },
+    {
+      "path": "adapters/ops-native/kind.ts",
+      "bytes": 1215,
+      "sha256": "c3670fd62746aa84e8f089d356fe8fba961a630a38b0ee47ec458fa916a37d9e"
+    },
+    {
+      "path": "adapters/ops-native/postgres-binding.ts",
+      "bytes": 3357,
+      "sha256": "d473b1c4db8af3677deb6ea069f72810cca8128188ac1827c0f9abef6121eccb"
+    },
+    {
+      "path": "adapters/ops-native/setup/kubernetes/images.ts",
+      "bytes": 4477,
+      "sha256": "d7d2e33251d883b12794b0164846297a19b4fc74879902d03fb83587f4163f14"
+    },
+    {
+      "path": "adapters/ops-native/update/archive.ts",
+      "bytes": 19969,
+      "sha256": "3e1cc412140883fdb22203a97d13750c84c544f09eb5ffbabe4b0fe4025bd448"
+    },
+    {
+      "path": "adapters/ops-native/update/archive_extract.py",
+      "bytes": 3496,
+      "sha256": "42789dbc5a259899e74a1bb361b93c9437d127ab14cd9f2ce6e98b3d639fbb6c"
+    },
+    {
+      "path": "adapters/ops-native/update/backup.ts",
+      "bytes": 31512,
+      "sha256": "1ff6c469942e9a8ec43febdf669b399bf645d725212736a68f0246d5a47d61c9"
+    },
+    {
+      "path": "adapters/ops-native/update/bundle.ts",
+      "bytes": 5940,
+      "sha256": "32e0ba90bec92706b6517e03e0853f95605abf12ddc22eb2402c39e2a097da16"
+    },
+    {
+      "path": "adapters/ops-native/update/disk_inventory.ts",
+      "bytes": 6175,
+      "sha256": "33d17dc96ae3169f9b6076cbdf9c93058ed150bbc8b919677820261c7f10d8ca"
+    },
+    {
+      "path": "adapters/ops-native/update/inventory.ts",
+      "bytes": 16983,
+      "sha256": "beb989d78287c1de8cbd3371f35c5ce9d8934201403d773b3c774fbf80c9867a"
+    },
+    {
+      "path": "adapters/ops-native/update/migration.ts",
+      "bytes": 21373,
+      "sha256": "6c92a6bb546d7db20c13c7071b3cb4bffa75014631d008152f4c3184e2f9d4c6"
+    },
+    {
+      "path": "adapters/ops-native/update/native.ts",
+      "bytes": 16962,
+      "sha256": "a8f375d618d38d04044f7a46bb9b589bd6d987f528e78d4b0551b5f86e7a6b9a"
+    },
+    {
+      "path": "adapters/ops-native/update/offline.ts",
+      "bytes": 8277,
+      "sha256": "5286a25be52ffacac73613ade7f41e404d380c0b17926decad16436b480acdde"
+    },
+    {
+      "path": "adapters/ops-native/update/portable.ts",
+      "bytes": 10632,
+      "sha256": "91be933e7f68b0396335df952f9fb52a1eebeada0665a7704fc18e1de06e8290"
+    },
+    {
+      "path": "adapters/ops-native/update/releases.ts",
+      "bytes": 12345,
+      "sha256": "1fcc5023369ded8c2e442b8ae11a36cad974aefb5b84e40cdaa90f4f7930a92c"
+    },
+    {
+      "path": "adapters/ops-native/update/seaweed-iam.ts",
+      "bytes": 10407,
+      "sha256": "f39d89e981580a66ac3c3c75646ed24b4ca7ac15be211cfaa2ada33f391d95ba"
+    },
+    {
+      "path": "adapters/ops-native/update/seaweed-meta.ts",
+      "bytes": 6108,
+      "sha256": "dfa864370d6f7aaa966df9c414ad8a08c5ee074d84d827b2ffba82ff6c4c1228"
+    },
+    {
+      "path": "adapters/ops-native/update/sequence.ts",
+      "bytes": 9058,
+      "sha256": "1835edf0d0b2ff6003d29058bc9c6b5115aeb4a54669d53636cc777f54a3b4e9"
+    },
+    {
+      "path": "adapters/ops-native/update/source.ts",
+      "bytes": 3395,
+      "sha256": "21d33ec2a4e19059f8f43499bd828dcff12a218a62d7a6222ad5f658123087ab"
+    },
+    {
+      "path": "adapters/ops-native/update/storage.ts",
+      "bytes": 26764,
+      "sha256": "9542c3351bd07acfbf73bbedfaed6c52d2fb9dc8bfa8ca4b521087017d18d475"
+    },
+    {
+      "path": "adapters/ops-native/yaml.ts",
+      "bytes": 1644,
+      "sha256": "9ae65e73b8b0e0af6ab03ef7a138ec13a679a6af43c594977a06e4fa57999128"
+    },
+    {
+      "path": "scripts/archive_selection.py",
+      "bytes": 2192,
+      "sha256": "830dc5cf43657d7d7b49ffc93c6275703d30b43295c43fe93e3414baff76b9e5"
+    },
+    {
+      "path": "scripts/audit-source.py",
+      "bytes": 3533,
+      "sha256": "484f471313d7ce24983fc9b2d46b05d12634af137986f42577529755b8b6cda6"
+    },
+    {
+      "path": "scripts/backup-catalog.py",
+      "bytes": 5570,
+      "sha256": "c582f2f6c9fe625db4d7924b3c4c346eea7180975a5148836d0fba2b6b201834"
+    },
+    {
+      "path": "scripts/backup-dev-applications.py",
+      "bytes": 14438,
+      "sha256": "bf6149e21f1ba699607e9457dce2696d2e6dae88d8ffe51347e606e5514a76ae"
+    },
+    {
+      "path": "scripts/backup-seaweedfs-online.py",
+      "bytes": 6400,
+      "sha256": "3bc8d3fd4a7ca011e10e28fc1edfb900a1371774ba502142b4a943b1c0b6d23f"
+    },
+    {
+      "path": "scripts/backup_manifest.py",
+      "bytes": 11358,
+      "sha256": "fdd786c670936e093aecc1ddda737aa65a12478f25ea16bd9ebd4da011899338"
+    },
+    {
+      "path": "scripts/capture_host_files.py",
+      "bytes": 5032,
+      "sha256": "4a261ad4eaec60a738c31b1c1b304850bd7dadecf56c87ae8c40a99d75ff8773"
+    },
+    {
+      "path": "scripts/cluster_config.py",
+      "bytes": 7959,
+      "sha256": "eaac3a8a8efb3b14a9a18f2548947f4ba551c7ddcd54e0c95e6b0ae8522868ee"
+    },
+    {
+      "path": "scripts/cluster_credentials.py",
+      "bytes": 1590,
+      "sha256": "f4d8161955939a28dfcc54beb1d6f684de925a5e3dd77acc95d9666a13a43a09"
+    },
+    {
+      "path": "scripts/collect-k3s-online.py",
+      "bytes": 8557,
+      "sha256": "f11a3600e7ce2360528e30b80afec708cf0de34c3547cbd9bf2862d3fd88dc55"
+    },
+    {
+      "path": "scripts/collect-offline-python-environment.py",
+      "bytes": 2672,
+      "sha256": "94a373380eec735454aab55609a25c2c6f34e4a85d1c06d3321c2a85a89e2610"
+    },
+    {
+      "path": "scripts/collect-redis-acl.py",
+      "bytes": 3520,
+      "sha256": "0e40b0ba246a639aa33aba9ce11da5f647628d8a70d57f91833a1924584bbd6a"
+    },
+    {
+      "path": "scripts/export_ops_engine.py",
+      "bytes": 2205,
+      "sha256": "01723f5598874632a320ca4cbdfdd63bd530bd9317142a920556c7a9769fc05c"
+    },
+    {
+      "path": "scripts/guest-activate-lab.py",
+      "bytes": 1417,
+      "sha256": "cd97aa697654df197355e625747ce308c672b18791fbb697f357463f06a81abb"
+    },
+    {
+      "path": "scripts/guest-bootstrap-native.py",
+      "bytes": 4866,
+      "sha256": "018fbc62fd35d542fb1277646504daa8f73fcec7129b13e70f7316fa08da779b"
+    },
+    {
+      "path": "scripts/guest-enable-core.py",
+      "bytes": 4862,
+      "sha256": "684616dfd042668327c0527e349c0075ecbc4bcaf9b7374a591f878b9490e330"
+    },
+    {
+      "path": "scripts/guest-final-safety.py",
+      "bytes": 2855,
+      "sha256": "6217088fa0e489abb5fec3be08ce1e4694ae080585c23b38063b29d58f5ba266"
+    },
+    {
+      "path": "scripts/guest-load-seaweed-metadata.py",
+      "bytes": 3032,
+      "sha256": "d387b413eef339cb69e022695f42bd0d598dbcfae7f8a01e9f3c7bd914a15634"
+    },
+    {
+      "path": "scripts/guest-local-web-hosts.py",
+      "bytes": 1417,
+      "sha256": "6e0d834ecc05d718f9be371d554151769f2e4357fd1ab55cacb26799a32cf79a"
+    },
+    {
+      "path": "scripts/guest-loopback-ingress.py",
+      "bytes": 1375,
+      "sha256": "bad72df3f52e94f757e8ae9859da980e84f1821de66d48b7f73df5607c6e7efa"
+    },
+    {
+      "path": "scripts/guest-offline-api-cache.py",
+      "bytes": 2948,
+      "sha256": "dca5094040f758dd153cf8c2b0ebaeee17cd494d5bc3872e4799c6acb4521723"
+    },
+    {
+      "path": "scripts/guest-restore-redis-acl.py",
+      "bytes": 5494,
+      "sha256": "8e3f01fdfebe182ce263eebb483bf673720e581c070b5fe5c06b80a3022e0bfa"
+    },
+    {
+      "path": "scripts/guest-restore-volumes.py",
+      "bytes": 9371,
+      "sha256": "a31005ac41524e65e72dd35ca1a0779a07fedd946761597a7049dc52d5c02a2e"
+    },
+    {
+      "path": "scripts/guest-verify-application.py",
+      "bytes": 9490,
+      "sha256": "ac733a209f9c962aba418fe1f462051594aac13e47ab1d2d8d639247fb45edd8"
+    },
+    {
+      "path": "scripts/guest-verify-web-sso.py",
+      "bytes": 3941,
+      "sha256": "bd02044740a6c807f9d981095f4b1fc447da540444086bfe59e2be9b5eb50cc4"
+    },
+    {
+      "path": "scripts/host-tools.py",
+      "bytes": 1851,
+      "sha256": "f1f9d68c93abfa4efcaaa48de5e983c73b17d0fdbfefbf758d41cd108906fa0a"
+    },
+    {
+      "path": "scripts/image_cache.py",
+      "bytes": 4589,
+      "sha256": "44ee78fa1a14362ebc38e5a8a9a9b902f104e7a5bb452cfffda15a928246a044"
+    },
+    {
+      "path": "scripts/image_scope.py",
+      "bytes": 2331,
+      "sha256": "09771986e39855636040adcc05dbbb644a5d052c3db7c702d7ff02a35f4c833a"
+    },
+    {
+      "path": "scripts/inspect-k3s-cache.py",
+      "bytes": 902,
+      "sha256": "50b638d9109539beb05b97f581022382864ab5daeeaf7478e268610dafc02322"
+    },
+    {
+      "path": "scripts/install-restic.py",
+      "bytes": 2317,
+      "sha256": "e654aec8497f00d963e4447623f6593c5a9cb5456d61b920f407460a4ff3990c"
+    },
+    {
+      "path": "scripts/inventory.py",
+      "bytes": 4316,
+      "sha256": "6fc171518276d1f159390a008f22be21c58ee98de2abfb8fd3e5942251cf8e81"
+    },
+    {
+      "path": "scripts/k3s_layout.py",
+      "bytes": 3269,
+      "sha256": "b81ff4016c37c404dd2f6260c0c554f32ec1abc612ae4c42974848ced94175dc"
+    },
+    {
+      "path": "scripts/kind_adapter/__init__.py",
+      "bytes": 14996,
+      "sha256": "477c94af6f025362003819121cd0228a81cd5cd562c5134659ad6c6d63ae270e"
+    },
+    {
+      "path": "scripts/kind_adapter/archive.py",
+      "bytes": 7395,
+      "sha256": "0f5ebb7f64ce59b35bc9d24bbf88988fd9e6e0667604fee97c7c0f1dc21c1c84"
+    },
+    {
+      "path": "scripts/kind_adapter/collection.py",
+      "bytes": 11301,
+      "sha256": "912b0fac65f1ddcdc9890e65bb40883d10f90890a81ec1d633e4a7b7c946b855"
+    },
+    {
+      "path": "scripts/kind_adapter/extra_pvcs.py",
+      "bytes": 7491,
+      "sha256": "15e665e4fea554fdbddd39882b5ddd8d034901e69b0400208c9b1c0e6be5d55e"
+    },
+    {
+      "path": "scripts/kind_adapter/native_ops.py",
+      "bytes": 12031,
+      "sha256": "88c75c9c7167a82da3e6bf1cfcf1e9b8d0a72e947317d4c148dac9da6fc9d016"
+    },
+    {
+      "path": "scripts/kind_adapter/online_collection.py",
+      "bytes": 11277,
+      "sha256": "2d37685ec615635a66777c088424d31f432d1bf2b75660dba915971961a9cb59"
+    },
+    {
+      "path": "scripts/kind_adapter/online_components.py",
+      "bytes": 15663,
+      "sha256": "eb97bf7c8f8a98e74ce97f751bb284de66ef2ae9d45d02b61d654cf0061e6220"
+    },
+    {
+      "path": "scripts/kind_adapter/online_inventory.py",
+      "bytes": 11270,
+      "sha256": "c096719f64f1bf9607dac031b6eccb981661389533f9b83ca60cd3ac1ffaa216"
+    },
+    {
+      "path": "scripts/kind_adapter/online_io.py",
+      "bytes": 8716,
+      "sha256": "46f60863e3347948b1b2ab3d36498aa6fb34e8826f399628d9701121d7a76ea7"
+    },
+    {
+      "path": "scripts/kind_adapter/profiles.py",
+      "bytes": 2025,
+      "sha256": "b5891947d8143218eb0a3c6d9991e76d3e711b6f3bc8a6ed4d849d5219ef00f5"
+    },
+    {
+      "path": "scripts/kind_backup.py",
+      "bytes": 3311,
+      "sha256": "ce62e1e4afbb3a7c03e53c29f9db6b53ceae3acdc5404afc2615d4d3fc2bafbd"
+    },
+    {
+      "path": "scripts/kind_native_network.py",
+      "bytes": 7603,
+      "sha256": "e71684f8957f4539806f4299565d6718ac93c55c71866825ec399f65e4b5c4fd"
+    },
+    {
+      "path": "scripts/kind_online_backup.py",
+      "bytes": 2761,
+      "sha256": "268a8ba1aa3359a5564a30a4bcc9cb1699ff71a6287f3c48f2e1205b94de0243"
+    },
+    {
+      "path": "scripts/native_bundle.py",
+      "bytes": 3607,
+      "sha256": "fc301ce2d832ed93f58cb04a2f5d678f22ade16a35937ef56855b3c1cb966edb"
+    },
+    {
+      "path": "scripts/native_manifest.py",
+      "bytes": 2677,
+      "sha256": "53d699ee05bb75445239bcc7fb4e90f3a7c36bc51489f28c80703badfa23cc73"
+    },
+    {
+      "path": "scripts/offline_images.py",
+      "bytes": 1243,
+      "sha256": "e24308cd55df0ee00af5009104b020a235eea58796259ae492b6ef6f2dde3cbd"
+    },
+    {
+      "path": "scripts/onepassword_secrets.py",
+      "bytes": 3513,
+      "sha256": "ddb01dd3d7948d985a69d5ebb81a26245e70a932b03155dca1f737937ca14343"
+    },
+    {
+      "path": "scripts/online_methods.py",
+      "bytes": 1984,
+      "sha256": "749f63d5486f0f9a7de631c540b503fd98786bb5e088681fc43ddd09c9a2d093"
+    },
+    {
+      "path": "scripts/openwhisk_catalog.py",
+      "bytes": 7133,
+      "sha256": "b5b7ef3daf889231b0c6521da9049985eb233d627a4ab5f3bb012131b836db67"
+    },
+    {
+      "path": "scripts/ops_backup.py",
+      "bytes": 17353,
+      "sha256": "b3cfd4abc03eea4d943073b7e50e0382c05d45fd70ba5410fb80c328242d6db3"
+    },
+    {
+      "path": "scripts/pack-real-backup.py",
+      "bytes": 5315,
+      "sha256": "37319f31aa477320216c0119d81aa09e71f334e4897ca21442e84ea51bde8000"
+    },
+    {
+      "path": "scripts/prepare-arm64-vm.py",
+      "bytes": 6388,
+      "sha256": "83d1116b23b56374be815f1127be2c0da2944c5c35627cac4fa46f56ef2459aa"
+    },
+    {
+      "path": "scripts/runtime_config.py",
+      "bytes": 15220,
+      "sha256": "eea8692752c5ee010454675b5970a711390acf352643d690b198bd47085f3fb3"
+    },
+    {
+      "path": "scripts/seaweed_metadata.py",
+      "bytes": 7301,
+      "sha256": "f38e5a5f762393be474503f6a9bf99ddd38fcd5737fb3afb4452d5aa81b7707a"
+    },
+    {
+      "path": "scripts/simulate-restic.py",
+      "bytes": 6346,
+      "sha256": "4d3d9542b6d1f7e3b1d1e1a8b13cede22a4a002824ddae948535e2285deb8298"
+    },
+    {
+      "path": "scripts/sqlite_bundle.py",
+      "bytes": 6375,
+      "sha256": "9887aa976a8fca568d647b56c5361b3b6336a6c99b4a0eba87a32fe70175af69"
+    },
+    {
+      "path": "scripts/sqlite_online.py",
+      "bytes": 1692,
+      "sha256": "02b16fd7afb46d14db1730737cbe2d1860fdc9c6a15bf13ffce008ddfcaa3e78"
+    },
+    {
+      "path": "scripts/stage-private-artifact.py",
+      "bytes": 1121,
+      "sha256": "c4471e8bd43449bddb372e0f3b9fb3dbc8430218431f8ed0bf24b2f3ec7c1ac7"
+    },
+    {
+      "path": "scripts/start-arm64-vm.py",
+      "bytes": 3736,
+      "sha256": "54ff4b0164b5b4d6414091413c46cf0184188d444c61384f0f9d235a961ba2ce"
+    },
+    {
+      "path": "scripts/storage_capacity.py",
+      "bytes": 534,
+      "sha256": "4afb1e93f068e796a625d893f279051afd302616683c98473b29b75e7710fce4"
+    },
+    {
+      "path": "scripts/test-ops-native.py",
+      "bytes": 1386,
+      "sha256": "40a88a77e03011b7b64da6205816578bf7c882a6bed7cc2d97c01723c5347176"
+    },
+    {
+      "path": "scripts/verify-arm64-vm.py",
+      "bytes": 4869,
+      "sha256": "53c9bfc74144a8c556aee76821558d9a84596ed50ed6dbba50ceda38871eb06f"
+    },
+    {
+      "path": "scripts/verify-seaweed-restore.py",
+      "bytes": 4085,
+      "sha256": "1c18321115b7c65f123180edcaa5b42325dcfb2bda6700f2998f41e00dea78c1"
+    }
+  ],
+  "generated": true,
+  "handEditsAllowed": false
+}

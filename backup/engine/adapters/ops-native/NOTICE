@@ -1,0 +1,169 @@
+Apache OpenServerless (Incubating)
+Copyright 2024-2026 The Apache Software Foundation
+
+This product includes software developed at
+The Apache Software Foundation (https://www.apache.org/).
+
+This product contains parts that were originally based on software from
+Nuvolaris (https://github.com/nuvolaris).
+Copyright (C) 2022-2024 Nuvolaris S.r.l.
+
+---------------
+
+oplugins bundles, in the pre-built JavaScript file util/upload.js, the MinIO
+JavaScript client which was released under an Apache 2.0 license.
+
+MinIO Javascript Library for Amazon S3 Compatible Cloud Storage
+Copyright 2015-2024 MinIO, Inc.
+
+---------------
+
+oplugins bundles, in the pre-built JavaScript file util/upload.js, the
+following components which were released under an MIT license.
+
+async
+Copyright (c) 2010-2018 Caolan McMahon
+
+block-stream2
+Copyright (c) James Halliday
+
+browser-or-node
+Copyright (c) 2018 Dineshkumar Pandiyan
+
+buffer-crc32
+Copyright (c) 2013-2024 Brian J. Brennan
+
+decode-uri-component
+Copyright (c) Sam Verschueren
+
+docopt
+Copyright (c) 2012 Vladimir Keleshev
+
+eventemitter3
+Copyright (c) 2014 Arnout Kazemier
+
+fast-xml-parser
+Copyright (c) 2021 Natural Intelligence
+
+filter-obj
+Copyright (c) Sindre Sorhus
+
+ipaddr.js
+Copyright (C) 2011-2017 whitequark
+
+lodash
+Copyright OpenJS Foundation and other contributors
+
+mime-db, mime-types
+Copyright (c) 2014 Jonathan Ong
+
+query-string
+Copyright (c) Sindre Sorhus
+
+readable-stream, string_decoder
+Copyright Joyent, Inc. and other Node contributors
+
+safe-buffer
+Copyright (c) Feross Aboukhadijeh
+
+split-on-first
+Copyright (c) Sindre Sorhus
+
+strict-uri-encode
+Copyright (c) Kevin Martensson
+
+strnum
+Copyright (c) 2021 Natural Intelligence
+
+through2
+Copyright (c) Rod Vagg
+
+util-deprecate
+Copyright (c) 2014 Nathan Rajlich
+
+xml2js
+Copyright 2010, 2011, 2012, 2013. All rights reserved.
+
+xmlbuilder
+Copyright (c) 2013 Ozgur Ozcitak
+
+---------------
+
+oplugins bundles, in the pre-built JavaScript file util/upload.js, inherits
+and sax which were released under an ISC license.
+
+Copyright (c) Isaac Z. Schlueter and Contributors
+
+---------------
+
+oplugins bundles, in the pre-built JavaScript file util/upload.js,
+stream-chain and stream-json which were released under a BSD 3-Clause
+license.
+
+Copyright (c) 2005-2024, Eugene Lazutkin
+
+---------------
+
+oplugins bundles, in the pre-built JavaScript file admin/usage/usage.js, yaml
+which was released under an ISC license.
+
+Copyright Eemeli Aro <eemeli@gmail.com>
+
+---------------
+
+oplugins contains, in cloud/eks/ingress-deploy.yaml,
+cloud/gke/ingress-deploy.yaml, cloud/aks/ingress-deploy.yaml and
+setup/docker/ingress-deploy.yaml, the deployment manifests of the
+ingress-nginx controller, which were released under an Apache 2.0 license.
+
+Kubernetes ingress-nginx
+Copyright The Kubernetes Authors.
+
+---------------
+
+oplugins contains, in setup/kubernetes/crds/kubegres-crd.yaml,
+setup/kubernetes/roles/openserverless-kubegres-roles.yaml and
+setup/kubernetes/common/openserverless-kubegres-common.yaml, the custom
+resource definition and operator descriptors of Kubegres, which were released
+under an Apache 2.0 license.
+
+Kubegres
+Copyright Reactive Tech Limited.
+
+---------------
+
+oplugins contains, in cloud/osh/acme-openshift/acme-setup.yaml and
+cloud/osh/acme-openshift/acme-rbac.yaml, deployment descriptors of
+openshift-acme, which were released under an Apache 2.0 license.
+
+openshift-acme
+Copyright The openshift-acme Authors.
+
+---------------
+
+oplugins contains, in
+setup/kubernetes/common/openserverless-monitoring-common.yaml and
+setup/kubernetes/roles/openserverless-monitoring-roles.yaml, descriptors
+derived from the prometheus-community Helm chart, which were released under
+an Apache 2.0 license.
+
+Prometheus
+Copyright The Prometheus Authors.
+
+kube-state-metrics
+Copyright The Kubernetes Authors.
+
+---------------
+
+oplugins contains, in setup/kubernetes/common/openwhisk-core-common.yaml,
+setup/kubernetes/common/openwhisk-invoker-common.yaml,
+setup/kubernetes/roles/openwhisk-core-roles.yaml and
+setup/kubernetes/roles/openwhisk-invoker-roles.yaml, descriptors rendered
+from the openwhisk Helm chart, which were released under an Apache 2.0
+license.
+
+Apache OpenWhisk
+Copyright 2016-2024 The Apache Software Foundation
+
+This product includes software developed at
+The Apache Software Foundation (https://www.apache.org/).

@@ -30,3 +30,6 @@ node_modules/
 .DS_Store
 ide/deploy/hash.lock
 opsroot.orig
+
+# Versioned package marker in the immutable backup engine.
+!backup/engine/**/__init__.py
