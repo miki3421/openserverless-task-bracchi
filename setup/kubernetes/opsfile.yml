@@ -26,7 +26,9 @@ vars:
 env:
   KUBECONFIG:
     sh: |-
-      if test -e "$OPS_TMP/kubeconfig"
+      if test -e "$OPS_HOME/migrate/prepared.json"
+      then bun "$OPS_ROOT/migrate/context.ts"
+      elif test -e "$OPS_TMP/kubeconfig"
       then echo "$OPS_TMP/kubeconfig"
       else echo ~/.kube/config
       fi

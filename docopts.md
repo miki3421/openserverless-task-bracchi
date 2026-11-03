@@ -28,6 +28,8 @@ Usage:
   ops backup status [--json]
   ops restore [--check] [--json]
   ops restore status [--json]
+  ops migrate prepare --to=k3s [--check] [--json]
+  ops migrate prepare --to=k3s --from=<repository> --key-file=<file> [--snapshot=<id>] [--check] [--json]
   ops upgrade [--check] [--json]
   ops upgrade status [--json]
   ops upgrade resume [--check] [--json]
@@ -35,6 +37,10 @@ Usage:
 Options:
   --check   Validate the selected command's protected inputs and prerequisites without collecting data or changing the cluster.
   --json    Print a structured, credential-free result.
+  --to=<target>       Migration destination; this candidate supports k3s.
+  --from=<repository> Local encrypted repository, when it cannot be discovered from ops backup.
+  --key-file=<file>   Independently held recovery password file; never the password itself.
+  --snapshot=<id>     Exact snapshot; required for an explicitly supplied repository with multiple snapshots.
 ```
 
 `ops backup` uses the private `OPS_HOME/backup.json` profile. See
@@ -50,6 +56,13 @@ does not certify this application restore route.
 
 ## Local server upgrade
 
+`ops migrate prepare --to=k3s` prepares the qualified same-host kind0.1 to
+K3s0.9 rehearsal before `ops setup kubernetes prepare` and `ops restore`.
+It discovers the completed backup, reads encrypted metadata, checks an empty
+standard target, downloads immutable software inputs online and writes private
+restore settings. It never deploys applications or restores backend data.
+See `migrate/README.md` for the publication prerequisite and current limits.
+
 `ops upgrade` runs the versioned local-server migration selected by the protected
 `OPS_HOME/upgrade.json` profile. See `upgrade/README.md` for the supported
 rehearsal route, maintenance window, retained recovery material and limitations.
@@ -63,6 +76,7 @@ rehearsal route, maintenance window, retained recovery material and limitations.
   update      Inspect releases, inventory applications and plan updates without applying changes
   backup      Back up a selected installation and verify encrypted file recovery
   restore     Restore a selected native backup to an explicitly bound empty rehearsal target
+  migrate     Prepare a supported migration and its protected restore context
   upgrade     Migrate a supported local installation using a protected versioned profile
   debug       Debug utilities for the Apache OpenServerless platform
   cloud       OpenServerless setup utilities for supported Deployment models on Cloud Providers

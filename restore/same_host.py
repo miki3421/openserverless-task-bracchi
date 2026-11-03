@@ -111,20 +111,26 @@ def source_offline(execute=subprocess.check_output):
                          'tasks', 'list', '-q'], timeout=20).strip(), 'legacy_docker_tasks_still_running')
 
 
-def validate_layout(profile, marker, read):
+def validate_layout(profile, marker, read, allow_unprepared=False):
     target = profile['target']; network = target['network']
     namespaces = read(['get', 'namespaces'])['items']
-    require({x['metadata']['name'] for x in namespaces} <= NAMESPACES and
-            {'cert-manager', 'openserverless'} <= {x['metadata']['name'] for x in namespaces},
+    names = {x['metadata']['name'] for x in namespaces}
+    require(names <= NAMESPACES and {'cert-manager'} <= names and
+            (allow_unprepared or 'openserverless' in names),
             'only_prepared_standard_namespaces_allowed')
-    app = next(x for x in namespaces if x['metadata']['name'] == 'openserverless')
-    require(app['metadata']['uid'] == marker['preparedNamespaceUid'], 'prepared_namespace_identity_changed')
+    app = next((x for x in namespaces if x['metadata']['name'] == 'openserverless'), None)
+    require((app['metadata']['uid'] if app else None) == marker['preparedNamespaceUid'], 'prepared_namespace_identity_changed')
     require(not read(['get', 'pv'])['items'] and not read(['get', 'pvc', '-A'])['items'],
             'existing_persistent_data_rejected')
+    installed = {r['metadata']['name'] for r in read(['get', 'crds'])['items']} if allow_unprepared else None
     for resource in ('whisks.openserverless.org', 'whisksusers.openserverless.org', 'workflows.openserverless.org'):
+        if installed is not None and resource not in installed: continue
         require(not read(['get', resource, '-A'])['items'], 'existing_application_definitions_rejected')
-    for row in read(['-n', 'openserverless', 'get', 'configmaps,secrets,services'])['items']:
+    for row in read(['-n', 'openserverless', 'get', 'configmaps,secrets,services'])['items'] if app else []:
         allowed = (row['kind'] == 'ConfigMap' and row['metadata']['name'] == 'kube-root-ca.crt' or
+                   row['kind'] == 'ConfigMap' and row['metadata']['name'] == 'config' and
+                   not row.get('data') and not row.get('binaryData') and
+                   set(row['metadata'].get('annotations', {})) <= {'kubectl.kubernetes.io/last-applied-configuration'} or
                    row['kind'] == 'Secret' and row['metadata']['name'] == 'openserverless-wsku-secret' and
                    row.get('type') == 'kubernetes.io/service-account-token')
         require(allowed, 'existing_application_configuration_rejected')
@@ -168,7 +174,7 @@ def validate_layout(profile, marker, read):
     return True
 
 
-def preflight(profile, marker, read):
+def preflight(profile, marker, read, allow_unprepared=False):
     validate_marker(profile, marker)
     source_offline()
     for name, expected in marker['serviceFiles'].items():
@@ -180,4 +186,4 @@ def preflight(profile, marker, read):
             'nonstandard_k3s_configuration_requires_qualification')
     flannel = json.loads(Path('/var/lib/rancher/k3s/agent/etc/flannel/net-conf.json').read_text())
     require(flannel.get('Network') == profile['target']['network']['podCidr'], 'target_pod_network_changed')
-    validate_layout(profile, marker, read)
+    validate_layout(profile, marker, read, allow_unprepared)

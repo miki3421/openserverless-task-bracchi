@@ -56,3 +56,12 @@ tasks:
         {"check":{{toJson (default false .__check)}},"status":{{toJson (default false .status)}},"json":{{toJson (default false .__json)}}}
     cmds:
       - bun restore/main.ts
+
+  migrate:
+    desc: prepare a supported migration without restoring or deploying applications
+    silent: true
+    env:
+      OPS_MIGRATE_REQUEST: >-
+        {"to":{{toJson (default "k3s" .__to)}},"repository":{{toJson (default "" .__from)}},"key":{{toJson (default "" .__key_file)}},"snapshot":{{toJson (default "" .__snapshot)}},"check":{{toJson (default false .__check)}},"json":{{toJson (default false .__json)}}}
+    cmds:
+      - bun migrate/main.ts

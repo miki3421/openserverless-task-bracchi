@@ -1,0 +1,297 @@
+{
+  "schemaVersion": 2,
+  "id": "k3s-0.9.0-rehearsal-20261103",
+  "platform": "linux-amd64",
+  "target": {
+    "version": "0.9.0",
+    "k3sVersion": "v1.36.4+k3s1",
+    "operator": {
+      "sourceCommit": "4a325f729690d32486dbdf17d50e217b93c14ad7",
+      "baseImageId": "sha256:c10fadcbe58d35fce59d561c7ea9b9f2e29c463ce3ea0888e9ed8c23bd4439ef",
+      "candidateImage": "docker.io/miki3421/openserverless-operator:0.9.0-migration-4a325f729690",
+      "candidateImageId": "sha256:ad53723929d0f807709aa381c17afccc83a285b108f9369a937dfb2d20b6dd46",
+      "dependenciesDownloaded": false,
+      "compiledBaseAssetsRetained": true,
+      "versionedDeploymentFilesOverlaid": 140
+    },
+    "taskCommit": "1e681b28fd54e4132be1a233f8e246fa98c2c8a2",
+    "images": {
+      "alertmanager": "quay.io/prometheus/alertmanager:v0.25.0",
+      "busybox": "busybox:1.36.0",
+      "busybox_kafka": "busybox:1.36.1",
+      "cert_manager": "quay.io/jetstack/cert-manager-controller:v1.10.1",
+      "cert_manager_cainjector": "quay.io/jetstack/cert-manager-cainjector:v1.10.1",
+      "cert_manager_webhook": "quay.io/jetstack/cert-manager-webhook:v1.10.1",
+      "controller": "docker.io/miki3421/openserverless-wsk-controller:0.9.0-migration-5d509e3",
+      "couchdb": "apache/couchdb:2.3",
+      "couchdb_openshift": "ghcr.io/nuvolaris/couchdb:2.3.1-nuvolaris.23101915",
+      "devcontainer": "docker.io/apache/openserverless-devcontainer:0.9.0-incubating.26i21w32-snapshot",
+      "etcd": "docker.io/bitnamilegacy/etcd:3.5.17-debian-12-r0",
+      "ferretdb": "ghcr.io/nuvolaris/ferretdb:1.6.0",
+      "ingress": "registry.k8s.io/ingress-nginx/controller:v1.8.1@sha256:e5c4824e7375fcf2a393e1c03c293b69759af37a9ca6abdb91b13d78a93da8bd",
+      "ingress_admission": "registry.k8s.io/ingress-nginx/kube-webhook-certgen:v20230407@sha256:543c40fd093964bc9ab509d3e791f9989963021f1e9e4c9c7b6700b02bfb227b",
+      "ingress_admission_kind": "registry.k8s.io/ingress-nginx/kube-webhook-certgen:v20220916-gd32f8c343@sha256:39c5b2e3310dc4264d638ad28d9d1d96c4cbb2b2dcfb52368fe4e3c63f61e10f",
+      "ingress_kind": "registry.k8s.io/ingress-nginx/controller:v1.5.1@sha256:4ba73c697770664c1e00e9f968de14e08f606ff961c76e5d7033a4a9c593c629",
+      "invoker": "docker.io/apache/openserverless-wsk-invoker:0.9.0-incubating.26i21w32-snapshot",
+      "kafka": "ghcr.io/nuvolaris/kafka:2.3.1.2311011621",
+      "kube_state_metrics": "registry.k8s.io/kube-state-metrics/kube-state-metrics:v2.8.0",
+      "kubegres": "reactivetechio/kubegres:1.18",
+      "kvrocks": "docker.io/apache/kvrocks:2.8.0",
+      "milvus": "milvusdb/milvus:v2.5.27",
+      "milvus_operator": "docker.io/milvusdb/milvus-operator:v1.1.3",
+      "nginx": "nginxinc/nginx-unprivileged:1.24",
+      "operator": "docker.io/miki3421/openserverless-operator:0.9.0-migration-4a325f729690",
+      "pgdumper": "ghcr.io/nuvolaris/pg-dumper:16.3.2405222002",
+      "pgvector": "pgvector/pgvector:pg16",
+      "prometheus": "quay.io/prometheus/prometheus:v2.43.1",
+      "prometheus_reloader": "quay.io/prometheus-operator/prometheus-config-reloader:v0.65.1",
+      "pulsar": "apachepulsar/pulsar:3.0.7",
+      "rbacproxy": "registry.k8s.io/kubebuilder/kube-rbac-proxy:v0.14.1",
+      "redis": "docker.io/bitnamilegacy/redis:8.2.1",
+      "registry": "registry:3.0.0",
+      "seaweedfs": "chrislusf/seaweedfs:3.97",
+      "streamer": "docker.io/miki3421/openserverless-streamer:0.9.0-migration-83da0d46cfe7",
+      "systemapi": "docker.io/miki3421/openserverless-admin-api:0.9.0-migration-8c753c0275f7",
+      "tika": "docker.io/apache/tika:3.2.3.0-full",
+      "volume_exporter": "ghcr.io/nuvolaris/volume_exporter:1.0.0.2311032017",
+      "zookeeper": "ghcr.io/nuvolaris/zookeeper:3.4.14"
+    }
+  },
+  "images": [
+    {
+      "reference": "docker.io/apache/couchdb:2.3",
+      "digest": "sha256:9f895c8ae371cb895541e53100e039ac6ae5d30f6f0b199e8470d81d523537ad"
+    },
+    {
+      "reference": "docker.io/apache/openserverless-runtime-go:v1.26-26i22h40-snapshot",
+      "digest": "sha256:94eb04a290cbba70ed51a051ece44e0a6771b017ef230310e431b92879fffcfc"
+    },
+    {
+      "reference": "docker.io/apache/openserverless-runtime-java:v8-26i22h40-snapshot",
+      "digest": "sha256:19682a175bf6e53816d8b6d203b48dedf63e02a63967be946db7009f51fe2cb0"
+    },
+    {
+      "reference": "docker.io/apache/openserverless-runtime-nodejs:v22-26i22h40-snapshot",
+      "digest": "sha256:614df3085f92ca8e9990dd61b2ded160b1715896c839a315d8801c9820ed9f56"
+    },
+    {
+      "reference": "docker.io/apache/openserverless-runtime-python:sys-26i22h40-snapshot",
+      "digest": "sha256:b9611dc736f1ba01dc3e88fd7f30653a2d43fc7277c52d7c6add61f8ad4e7cf6"
+    },
+    {
+      "reference": "docker.io/apache/openserverless-runtime-python:v3.12-26i22h40-snapshot",
+      "digest": "sha256:418e1be905b98afb393939082be54822b8d5f79f588ff5bb04454cd9146256a6"
+    },
+    {
+      "reference": "docker.io/apache/openserverless-streamer:0.9.0-incubating.26i21w32-snapshot",
+      "digest": "sha256:9374345b20d2e9b628f36fd8f4e5606ab42c7a9696927c99b134cef2208fc30f"
+    },
+    {
+      "reference": "docker.io/miki3421/openserverless-wsk-controller:0.9.0-migration-5d509e3",
+      "digest": "sha256:a9dd1131022aa1a59379959ed62073171bf7ebc9ab9fa08ca61eaa0be6b006cf"
+    },
+    {
+      "reference": "docker.io/apache/openserverless-wsk-invoker:0.9.0-incubating.26i21w32-snapshot",
+      "digest": "sha256:5180166bcd57e299a236d60533be03ef16ff756d9742f26c2ac51d0ede47a706"
+    },
+    {
+      "reference": "docker.io/apache/tika:3.2.3.0-full",
+      "digest": "sha256:21d8052de04e491ccf66e8680ade4da6f3d453a56d59f740b4167e54167219b7"
+    },
+    {
+      "reference": "docker.io/apachepulsar/pulsar:3.0.7",
+      "digest": "sha256:9c9947de139d4dd6c39fab55fac441ba431fc9d742eadc7833d5dcd6d1291720"
+    },
+    {
+      "reference": "docker.io/bitnamilegacy/etcd:3.5.17-debian-12-r0",
+      "digest": "sha256:40da3a0c2b9e38723109d88c64f3506a71b1b313bb48e12bf57b80ff40793eb3"
+    },
+    {
+      "reference": "docker.io/bitnamilegacy/redis:8.2.1",
+      "digest": "sha256:25bf63f3caf75af4628c0dfcf39859ad1ac8abe135be85e99699f9637b16dc28"
+    },
+    {
+      "reference": "docker.io/chrislusf/seaweedfs:3.97",
+      "digest": "sha256:bb05d66d2963b1cc48073190781c3dd29e2c4c88a2ae2986bf58e38c86d89c6e"
+    },
+    {
+      "reference": "docker.io/library/busybox:1.36.0",
+      "digest": "sha256:9e2bbca079387d7965c3a9cee6d0c53f4f4e63ff7637877a83c4c05f2a666112"
+    },
+    {
+      "reference": "docker.io/library/busybox:1.36.1",
+      "digest": "sha256:73aaf090f3d85aa34ee199857f03fa3a95c8ede2ffd4cc2cdb5b94e566b11662"
+    },
+    {
+      "reference": "docker.io/library/registry:3.0.0",
+      "digest": "sha256:6c5666b861f3505b116bb9aa9b25175e71210414bd010d92035ff64018f9457e"
+    },
+    {
+      "reference": "docker.io/milvusdb/milvus:v2.5.2",
+      "digest": "sha256:7208f04cfd7e5f919d44bb6ae66d163a3a534d44f9437a86bc0162a9fcd8911e"
+    },
+    {
+      "reference": "docker.io/milvusdb/milvus:v2.5.27",
+      "digest": "sha256:ea3b924dfb2129fa2daca569eab657b4fcebc4baaed5706cf30d51e19d99b0c9"
+    },
+    {
+      "reference": "docker.io/nginxinc/nginx-unprivileged:1.24",
+      "digest": "sha256:f9dc6a4b27715a9cf0cecf0780c8b84df9a6eb31f18a67ba0d63e4f99cc5c8e9"
+    },
+    {
+      "reference": "docker.io/openwhisk/action-dotnet-v2.2:nightly",
+      "digest": "sha256:95231a86fa45ef5227fc2d9a43d01c233b2b8537bac881ce4348fc73b164ad6b"
+    },
+    {
+      "reference": "docker.io/openwhisk/action-ruby-v2.5:nightly",
+      "digest": "sha256:f0508174d6cdf82d0460cee2228ad3b4f5d915e49ffafd33eb5aca75582c39d9"
+    },
+    {
+      "reference": "docker.io/openwhisk/action-rust-v1.34:nightly",
+      "digest": "sha256:15b3602077bc2024acd63b74a80eccd2f99dfee9b1d643c13d79fb33fd042b74"
+    },
+    {
+      "reference": "docker.io/pgvector/pgvector:pg16",
+      "digest": "sha256:7b822b0aac60967beb1ea5e576b8602c94c300a157d187f385ae3e0da199b90a"
+    },
+    {
+      "reference": "docker.io/rancher/klipper-helm:v0.13.3-build20260727",
+      "digest": "sha256:5425a2b4613d2458dbdff99218e8d487ebb59c20e7a941f061c0777070f0aac1"
+    },
+    {
+      "reference": "docker.io/rancher/klipper-lb:v0.4.17",
+      "digest": "sha256:910944bb0bd94f060a82a56ca1ea1c577d3e49b3473a093a47a985f32e92d94a"
+    },
+    {
+      "reference": "docker.io/rancher/local-path-provisioner:v0.0.37",
+      "digest": "sha256:e757967a5ec338f6a9b371c5a9688bedaa8c3578ea3dd4db329ea0084be0a86f"
+    },
+    {
+      "reference": "docker.io/rancher/mirrored-coredns-coredns:1.14.6",
+      "digest": "sha256:900f9c109f7a33545d3c811516e8376df9019147b750f5ce3e254468769176ea"
+    },
+    {
+      "reference": "docker.io/rancher/mirrored-coredns-coredns:1.14.7",
+      "digest": "sha256:7efd3c635b03efd68c4e8398fc45f0d993d0e9ab016f72c1cefb0fd6d01aa286"
+    },
+    {
+      "reference": "docker.io/rancher/mirrored-library-busybox:1.37.0",
+      "digest": "sha256:101b4afd76732482eff9b95cae5f94bcf295e521fbec4e01b69c5421f3f3f3e5"
+    },
+    {
+      "reference": "docker.io/rancher/mirrored-library-traefik:3.7.13",
+      "digest": "sha256:f86a2cab1b5c649070c49f883c743dd32d8485a56e3368c5f93b9e91f1e91259"
+    },
+    {
+      "reference": "docker.io/rancher/mirrored-library-traefik:3.7.8",
+      "digest": "sha256:4299bbed850421258fc5448c2e0e6ad350981d4d335a68de11b92448aedbefe5"
+    },
+    {
+      "reference": "docker.io/rancher/mirrored-metrics-server:v0.9.0",
+      "digest": "sha256:d9862115e7c7881280d3d75ca26bda8ffc0fc213315979575bf23ce9826205c0"
+    },
+    {
+      "reference": "docker.io/rancher/mirrored-pause:3.10.2",
+      "digest": "sha256:f548e0e8e3dc1896ca956272154dde3314e8cc4fde0a57577ee9fa1c63f5baf4"
+    },
+    {
+      "reference": "docker.io/reactivetechio/kubegres:1.18",
+      "digest": "sha256:409413ceab460bb946a3b115eeb08bdf433009b9ab9e93100f2fce83bdef4b05"
+    },
+    {
+      "reference": "ghcr.io/nuvolaris/ferretdb:1.6.0",
+      "digest": "sha256:f26cdb07433c057d428e5605136248b08587d7188adafcecd2c8b075e63d6863"
+    },
+    {
+      "reference": "ghcr.io/nuvolaris/kafka:2.3.1.2311011621",
+      "digest": "sha256:566aa23ad1c28b450da878d7bf4b0ffbd55e2b1c9a6c8b15197c032382e4a508"
+    },
+    {
+      "reference": "ghcr.io/nuvolaris/volume_exporter:1.0.0.2311032017",
+      "digest": "sha256:60c5ca028e2cf1c86040d1c074595ef3f5b60a878fb7eb01e7870209945afcf3"
+    },
+    {
+      "reference": "ghcr.io/nuvolaris/zookeeper:3.4.14",
+      "digest": "sha256:0114f57d4a41be402e0a8dac1aaaad62208bf49ea5ae6cdcde6de42ce01649cd"
+    },
+    {
+      "reference": "docker.io/miki3421/openserverless-admin-api:0.9.0-migration-8c753c0275f7",
+      "digest": "sha256:8c753c0275f7c6684a3fdf73b8c00b64af27c9977058bed37ee2478e8c2e51bd"
+    },
+    {
+      "reference": "docker.io/miki3421/openserverless-operator:0.9.0-migration-4a325f729690",
+      "digest": "sha256:ad53723929d0f807709aa381c17afccc83a285b108f9369a937dfb2d20b6dd46"
+    },
+    {
+      "reference": "docker.io/miki3421/openserverless-streamer:0.9.0-migration-83da0d46cfe7",
+      "digest": "sha256:83da0d46cfe794b9ed69913f28e625471a640d4957daac05f9968c5f26f920b8"
+    },
+    {
+      "reference": "quay.io/jetstack/cert-manager-cainjector:v1.11.0",
+      "digest": "sha256:5c3eb25b085443b83586a98a1ae07f8364461dfca700e950c30f585efb7474ba"
+    },
+    {
+      "reference": "quay.io/jetstack/cert-manager-controller:v1.11.0",
+      "digest": "sha256:d429b6d696e0ef47cff1d15241c6ffaac351e38ac22664b82fafa771d615b89a"
+    },
+    {
+      "reference": "quay.io/jetstack/cert-manager-webhook:v1.11.0",
+      "digest": "sha256:6730d96fc382a57cde4f7519d2a32b40013e0d3bace2ea0579c7c051fbbd608d"
+    },
+    {
+      "reference": "quay.io/prometheus-operator/prometheus-config-reloader:v0.65.1",
+      "digest": "sha256:ca8684fd1e35ae73c9d497ea37cf5216a32e88f1d0e2eeab22247b532f1e508f"
+    },
+    {
+      "reference": "quay.io/prometheus/alertmanager:v0.25.0",
+      "digest": "sha256:fd4d9a3dd1fd0125108417be21be917f19cc76262347086509a0d43f29b80e98"
+    },
+    {
+      "reference": "quay.io/prometheus/prometheus:v2.43.1",
+      "digest": "sha256:3760d0bcb02f439394aa172eaadafbb9e657baff6a995458a6e82fdb38c5b6b5"
+    },
+    {
+      "reference": "registry.k8s.io/kube-state-metrics/kube-state-metrics:v2.8.0",
+      "digest": "sha256:5658d0011a41779ef114f3508143a0e67e4169f64333d0337e731d191ab7edb8"
+    },
+    {
+      "reference": "registry.k8s.io/kubebuilder/kube-rbac-proxy:v0.14.1",
+      "digest": "sha256:928e64203edad8f1bba23593c7be04f0f8410c6e4feb98d9e9c2d00a8ff59048"
+    }
+  ],
+  "mongoWheels": [
+    {
+      "name": "pymongo",
+      "version": "4.18.2",
+      "url": "https://files.pythonhosted.org/packages/a9/92/a02a4108ca4faf05bca394d65dcebc7b84b0248cff23aa89927c81a0d5dd/pymongo-4.18.2-cp312-cp312-manylinux2014_x86_64.manylinux_2_17_x86_64.manylinux_2_28_x86_64.whl",
+      "sha256": "ecde9e735e1f86559e0a71a5bbec671e59a35549bfd8c60968d9f032b05013de",
+      "bytes": 1049896
+    },
+    {
+      "name": "dnspython",
+      "version": "2.9.0",
+      "url": "https://files.pythonhosted.org/packages/10/02/cdcc9b7c051786a103c3b09e1003a82fa0c66bcb91ffbdabcfbf7b4163b9/dnspython-2.9.0-py3-none-any.whl",
+      "sha256": "9a4aedb833c3c1b49214d04d44d3032ab7a9135f7c1d29a549b4ff78fd82fda9",
+      "bytes": 354822
+    }
+  ],
+  "tools": {
+    "restic": {
+      "url": "https://github.com/restic/restic/releases/download/v0.19.1/restic_0.19.1_linux_amd64.bz2",
+      "sha256": "20d4142678d0d95ec11a4759def1b73fd9190abc9ca19e4b62d067c0b387e639"
+    },
+    "milvus": {
+      "url": "https://github.com/zilliztech/milvus-backup/releases/download/v0.6.1/milvus-backup_0.6.1_Linux_x86_64.tar.gz",
+      "archiveSha256": "e7cc1a12614b95ee5e76f87a1ef65774a4b116084242671287e500e004f7cf8a",
+      "sha256": "3e5d69d0289b3efdc10b674dc0a1ff1e677d125ea8ad7e0ca07477e610845dd0"
+    }
+  },
+  "taskRepository": "https://github.com/miki3421/openserverless-task-custom.git",
+  "taskBranch": "feature/migration-recovery-0.9.0",
+  "qualification": "candidate; same-host application restore not yet accepted",
+  "installedTools": {
+    "ops": "f59a93822eabe7b69322bfe528943c5578ecaef3bd6f1d38be652654436048f4",
+    "bun": "9fd36f87e4b90b07632b987a2e4ec81ca15a62c81bf983190cea6d715be2ad74",
+    "k3s": "835873f37245fc615f547a2fe2af9402a347875f13fa64a1f136de644955ea3f"
+  }
+}
