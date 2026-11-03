@@ -55,23 +55,41 @@ class PublishOperator(unittest.TestCase):
             self.assertNotIn(env['GITHUB_TOKEN'], ' '.join(args))
             auth = Path(args[args.index('--authfile') + 1]); self.assertEqual(auth.stat().st_mode & 0o777, 0o600)
             self.assertEqual(list(json.loads(auth.read_text())['auths']), ['ghcr.io'])
-            if len(calls) == 1: return SimpleNamespace(returncode=1, stdout=b'', stderr=b'manifest unknown')
+            if len(calls) == 3: return SimpleNamespace(returncode=1, stdout=b'', stderr=b'manifest unknown')
             return SimpleNamespace(returncode=0, stdout=raw, stderr=b'')
         with tempfile.TemporaryDirectory() as root, patch.dict(os.environ, env):
             result = publish(row, '/software/operator.oci.tar', root, execute)
             self.assertEqual(result['status'], 'published'); self.assertFalse((Path(root) / 'registry-auth.private.json').exists())
-        self.assertIn('--preserve-digests', calls[1]); self.assertEqual(len(calls), 3)
+        self.assertIn('--preserve-digests', calls[0]); self.assertEqual(len(calls), 5)
+        self.assertTrue(calls[0][-1].endswith('@' + row['digest']))
+        self.assertEqual(calls[3][-1], 'docker://' + row['reference'])
 
-    def test_existing_different_tag_and_auth_failure_never_copy(self):
+    def test_existing_different_tag_and_auth_failure_never_move_a_tag(self):
         env = {'GITHUB_ACTIONS': 'true', 'GITHUB_REPOSITORY': self.plan['repository'],
                'GITHUB_TOKEN': 'synthetic', 'GITHUB_ACTOR': 'fixture'}
+        raw = b'{"schemaVersion":2,"layers":[]}'
+        row = {**self.plan['images'][0], 'digest': 'sha256:' + hashlib.sha256(raw).hexdigest()}
         for response in [SimpleNamespace(returncode=0, stdout=b'different manifest', stderr=b''),
                          SimpleNamespace(returncode=1, stdout=b'', stderr=b'403 Forbidden')]:
             calls = []
-            def execute(args, **_): calls.append(args); return response
+            def execute(args, **_):
+                calls.append(args)
+                return response if len(calls) == 3 else SimpleNamespace(returncode=0, stdout=raw, stderr=b'')
             with self.subTest(response=response), tempfile.TemporaryDirectory() as root, patch.dict(os.environ, env):
-                with self.assertRaises(ValueError): publish(self.plan['images'][0], '/software/operator.oci.tar', root, execute)
-                self.assertEqual(len(calls), 1); self.assertFalse((Path(root) / 'registry-auth.private.json').exists())
+                with self.assertRaises(ValueError): publish(row, '/software/operator.oci.tar', root, execute)
+                self.assertEqual(len(calls), 3); self.assertFalse((Path(root) / 'registry-auth.private.json').exists())
+                self.assertTrue(all('@' in a[-1] for a in calls if a[1] == 'copy'))
+
+    def test_denied_immutable_publication_stops_before_any_tag_write(self):
+        env = {'GITHUB_ACTIONS': 'true', 'GITHUB_REPOSITORY': self.plan['repository'],
+               'GITHUB_TOKEN': 'synthetic', 'GITHUB_ACTOR': 'fixture'}
+        calls = []
+        def execute(args, **_): calls.append(args); return SimpleNamespace(returncode=1, stdout=b'', stderr=b'403 Forbidden')
+        with tempfile.TemporaryDirectory() as root, patch.dict(os.environ, env):
+            with self.assertRaisesRegex(ValueError, 'immutable_publication_failed'):
+                publish(self.plan['images'][0], '/software/operator.oci.tar', root, execute)
+            self.assertEqual(len(calls), 1); self.assertIn('@sha256:', calls[0][-1])
+            self.assertFalse((Path(root) / 'registry-auth.private.json').exists())
 
     def test_no_publication_from_another_repository_or_local_shell(self):
         with tempfile.TemporaryDirectory() as root, patch.dict(os.environ, {'GITHUB_ACTIONS': 'false'}):

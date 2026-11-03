@@ -23,6 +23,7 @@ on:
     paths:
       - .github/workflows/publish-migration-operator.yml
       - migrate/publication/operator.json
+      - migrate/publish_images.py
 
 permissions:
   contents: read

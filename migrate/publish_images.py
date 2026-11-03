@@ -72,6 +72,17 @@ def publish(row, archive, directory, execute=subprocess.run):
     # No credentials in child argv or command output. The temporary auth file
     # is private, confined to this run and removed even if the copy fails.
     try:
+        # A new GHCR package may reject read-only token acquisition before its
+        # first push. Create the exact content-addressed object first. This
+        # cannot replace another manifest or move any existing tag.
+        immutable = row['reference'].rsplit(':', 1)[0] + '@' + row['digest']
+        copy_args = ['skopeo', 'copy', '--preserve-digests', '--authfile', str(auth), 'oci-archive:' + str(archive)]
+        result = execute(copy_args + ['docker://' + immutable], capture_output=True, timeout=1200)
+        require(result.returncode == 0, 'operator_immutable_publication_failed')
+        result = execute(['skopeo', 'inspect', '--raw', '--authfile', str(auth), 'docker://' + immutable],
+                         capture_output=True, timeout=120)
+        require(result.returncode == 0 and 'sha256:' + hashlib.sha256(result.stdout).hexdigest() == row['digest'],
+                'published_immutable_operator_differs')
         inspect = ['skopeo', 'inspect', '--raw', '--authfile', str(auth), 'docker://' + row['reference']]
         previous = execute(inspect, capture_output=True, timeout=120)
         if previous.returncode == 0:
@@ -80,8 +91,7 @@ def publish(row, archive, directory, execute=subprocess.run):
         error = previous.stderr.decode(errors='replace').lower()
         require(any(code in error for code in ('manifest unknown', 'name unknown', 'not found')),
                 'operator_registry_read_access_failed')
-        result = execute(['skopeo', 'copy', '--preserve-digests', '--authfile', str(auth),
-                          'oci-archive:' + str(archive), 'docker://' + row['reference']], capture_output=True, timeout=1200)
+        result = execute(copy_args + ['docker://' + row['reference']], capture_output=True, timeout=1200)
         require(result.returncode == 0, 'operator_registry_publication_failed')
         result = execute(inspect, capture_output=True, timeout=120)
         require(result.returncode == 0 and 'sha256:' + hashlib.sha256(result.stdout).hexdigest() == row['digest'],
