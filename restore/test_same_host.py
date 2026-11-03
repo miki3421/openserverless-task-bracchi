@@ -99,7 +99,11 @@ class SameHostContract(unittest.TestCase):
             value=rows[tuple(args)]
             return {'items':value} if isinstance(value,list) else value
         validate_layout(p,m,read)
-        old['status']['reason']='Error'
+        old['status']={'phase':'Succeeded','containerStatuses':[{'state':{'terminated':{'exitCode':0}}}]}
+        validate_layout(p,m,read)
+        old['status']['containerStatuses'][0]['state']['terminated']['exitCode']=1
+        with self.assertRaises(ValueError):validate_layout(p,m,read)
+        old['status']={'phase':'Failed','reason':'Error'}
         with self.assertRaises(ValueError):validate_layout(p,m,read)
 
     def test_new_route_binds_same_hardware_but_distinct_clusters(self):
