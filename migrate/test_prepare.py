@@ -51,6 +51,15 @@ def metadata(p):
 
 
 class PreparationContract(unittest.TestCase):
+    def test_target_context_is_separate_from_all_existing_source_profiles(self):
+        uid = selected()['target']['clusterUid']
+        target = prepare.target_profile_home('/home/fixture', uid)
+        self.assertTrue(target.is_relative_to('/home/fixture/.ops/profiles'))
+        self.assertNotEqual(target, Path('/home/fixture/.ops'))
+        self.assertNotEqual(target, Path('/home/fixture/.ops/profiles/k3s-090'))
+        self.assertEqual(target, prepare.target_profile_home('/home/fixture', uid))
+        with self.assertRaises(ValueError): prepare.target_profile_home('/home/fixture', '../different')
+
     def test_discovers_only_exact_completed_file_verified_backup(self):
         with tempfile.TemporaryDirectory() as root:
             home = Path(root); ops = home / '.ops'; storage = home / 'storage'; run = storage / ('run-' + 'a' * 32)

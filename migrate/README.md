@@ -58,6 +58,20 @@ is rejected. The ordinary isolated restore route keeps its stricter checks.
 
 ## Online software and current publication blocker
 
+Custom images are not an intrinsic requirement of backup or migration. This
+catalog reproduces the previously tested patched laboratory, rather than
+certifying an unmodified Apache0.9.0 destination. The current restore workers
+use operator changes for restored-state handling, Milvus metadata/storage
+mapping, image selection and IAM reconciliation. The other three image choices
+also preserve the laboratory's software selection; they have not been proven
+necessary for the migration mechanism itself. These are separate claims.
+
+Before making custom images a default public dependency, qualify which changes
+are essential for restore and which belong to optional hardening or offline
+startup. A normal release should use official images once the required fixes
+are included and published. Presence in a source branch alone does not prove
+presence in its published container image.
+
 `releases/k3s-0.9.0.json` pins the candidate's tools, task source revision and
 OCI image roots. Downloads use HTTPS and verified hashes. Image pulls use K3s
 containerd with immutable digests; Docker is never started. A reusable software
@@ -95,3 +109,10 @@ bun test migrate/main.test.ts migrate/cli.test.ts
 
 Set `OPS_TEST_BINARY` to the real OPS executable for the command-dispatch test;
 the fixture replaces the migration executor and never accesses a cluster.
+
+The maintainer-only `release_images.py` exports the candidate software images
+from existing OCI archives, verifying their complete selected dependency closure
+and preserving manifest/config/layer bytes. It never publishes images or runs
+Docker. The Controller publication selects the exact qualified AMD64 manifest;
+the old index also referenced an attestation absent from the local cache. This
+selection does not rebuild the Controller or change its runtime layers.

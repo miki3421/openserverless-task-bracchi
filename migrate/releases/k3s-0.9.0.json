@@ -8,7 +8,7 @@
     "operator": {
       "sourceCommit": "4a325f729690d32486dbdf17d50e217b93c14ad7",
       "baseImageId": "sha256:c10fadcbe58d35fce59d561c7ea9b9f2e29c463ce3ea0888e9ed8c23bd4439ef",
-      "candidateImage": "docker.io/miki3421/openserverless-operator:0.9.0-migration-4a325f729690",
+      "candidateImage": "ghcr.io/miki3421/openserverless-operator:0.9.0-migration-4a325f729690",
       "candidateImageId": "sha256:ad53723929d0f807709aa381c17afccc83a285b108f9369a937dfb2d20b6dd46",
       "dependenciesDownloaded": false,
       "compiledBaseAssetsRetained": true,
@@ -22,7 +22,7 @@
       "cert_manager": "quay.io/jetstack/cert-manager-controller:v1.10.1",
       "cert_manager_cainjector": "quay.io/jetstack/cert-manager-cainjector:v1.10.1",
       "cert_manager_webhook": "quay.io/jetstack/cert-manager-webhook:v1.10.1",
-      "controller": "docker.io/miki3421/openserverless-wsk-controller:0.9.0-migration-5d509e3",
+      "controller": "ghcr.io/miki3421/openserverless-wsk-controller:0.9.0-migration-5d509e3",
       "couchdb": "apache/couchdb:2.3",
       "couchdb_openshift": "ghcr.io/nuvolaris/couchdb:2.3.1-nuvolaris.23101915",
       "devcontainer": "docker.io/apache/openserverless-devcontainer:0.9.0-incubating.26i21w32-snapshot",
@@ -40,7 +40,7 @@
       "milvus": "milvusdb/milvus:v2.5.27",
       "milvus_operator": "docker.io/milvusdb/milvus-operator:v1.1.3",
       "nginx": "nginxinc/nginx-unprivileged:1.24",
-      "operator": "docker.io/miki3421/openserverless-operator:0.9.0-migration-4a325f729690",
+      "operator": "ghcr.io/miki3421/openserverless-operator:0.9.0-migration-4a325f729690",
       "pgdumper": "ghcr.io/nuvolaris/pg-dumper:16.3.2405222002",
       "pgvector": "pgvector/pgvector:pg16",
       "prometheus": "quay.io/prometheus/prometheus:v2.43.1",
@@ -50,8 +50,8 @@
       "redis": "docker.io/bitnamilegacy/redis:8.2.1",
       "registry": "registry:3.0.0",
       "seaweedfs": "chrislusf/seaweedfs:3.97",
-      "streamer": "docker.io/miki3421/openserverless-streamer:0.9.0-migration-83da0d46cfe7",
-      "systemapi": "docker.io/miki3421/openserverless-admin-api:0.9.0-migration-8c753c0275f7",
+      "streamer": "ghcr.io/miki3421/openserverless-streamer:0.9.0-migration-83da0d46cfe7",
+      "systemapi": "ghcr.io/miki3421/openserverless-admin-api:0.9.0-migration-8c753c0275f7",
       "tika": "docker.io/apache/tika:3.2.3.0-full",
       "volume_exporter": "ghcr.io/nuvolaris/volume_exporter:1.0.0.2311032017",
       "zookeeper": "ghcr.io/nuvolaris/zookeeper:3.4.14"
@@ -87,8 +87,8 @@
       "digest": "sha256:9374345b20d2e9b628f36fd8f4e5606ab42c7a9696927c99b134cef2208fc30f"
     },
     {
-      "reference": "docker.io/miki3421/openserverless-wsk-controller:0.9.0-migration-5d509e3",
-      "digest": "sha256:a9dd1131022aa1a59379959ed62073171bf7ebc9ab9fa08ca61eaa0be6b006cf"
+      "reference": "ghcr.io/miki3421/openserverless-wsk-controller:0.9.0-migration-5d509e3",
+      "digest": "sha256:154815174e53bdde5bc2ce0ac6eba0001773fc7d212d8651e7cb9ee1f1b9a50b"
     },
     {
       "reference": "docker.io/apache/openserverless-wsk-invoker:0.9.0-incubating.26i21w32-snapshot",
@@ -215,15 +215,15 @@
       "digest": "sha256:0114f57d4a41be402e0a8dac1aaaad62208bf49ea5ae6cdcde6de42ce01649cd"
     },
     {
-      "reference": "docker.io/miki3421/openserverless-admin-api:0.9.0-migration-8c753c0275f7",
+      "reference": "ghcr.io/miki3421/openserverless-admin-api:0.9.0-migration-8c753c0275f7",
       "digest": "sha256:8c753c0275f7c6684a3fdf73b8c00b64af27c9977058bed37ee2478e8c2e51bd"
     },
     {
-      "reference": "docker.io/miki3421/openserverless-operator:0.9.0-migration-4a325f729690",
+      "reference": "ghcr.io/miki3421/openserverless-operator:0.9.0-migration-4a325f729690",
       "digest": "sha256:ad53723929d0f807709aa381c17afccc83a285b108f9369a937dfb2d20b6dd46"
     },
     {
-      "reference": "docker.io/miki3421/openserverless-streamer:0.9.0-migration-83da0d46cfe7",
+      "reference": "ghcr.io/miki3421/openserverless-streamer:0.9.0-migration-83da0d46cfe7",
       "digest": "sha256:83da0d46cfe794b9ed69913f28e625471a640d4957daac05f9968c5f26f920b8"
     },
     {
@@ -293,5 +293,13 @@
     "ops": "f59a93822eabe7b69322bfe528943c5578ecaef3bd6f1d38be652654436048f4",
     "bun": "9fd36f87e4b90b07632b987a2e4ec81ca15a62c81bf983190cea6d715be2ad74",
     "k3s": "835873f37245fc615f547a2fe2af9402a347875f13fa64a1f136de644955ea3f"
+  },
+  "imageProvenance": {
+    "controller": {
+      "qualifiedIndexDigest": "sha256:a9dd1131022aa1a59379959ed62073171bf7ebc9ab9fa08ca61eaa0be6b006cf",
+      "selectedPlatform": "linux/amd64",
+      "selectedManifestDigest": "sha256:154815174e53bdde5bc2ce0ac6eba0001773fc7d212d8651e7cb9ee1f1b9a50b",
+      "note": "Exact AMD64 manifest from qualified local index. Original optional attestation manifest is absent from the cache; no rebuild or runtime layer change."
+    }
   }
 }

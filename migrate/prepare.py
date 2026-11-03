@@ -122,6 +122,11 @@ def protected_directory(path, uid, private=True):
     return path
 
 
+def target_profile_home(home, cluster_uid):
+    require(UUID.fullmatch(cluster_uid), 'explicit_target_cluster_uid_required')
+    return Path(home) / '.ops/profiles' / ('migrate-k3s-090-' + cluster_uid)
+
+
 def existing_preparation(pointer, uid, source, target, archive, commit):
     selection = private_json(pointer, uid)
     path = Path(selection['profile']); profile = validate_profile(private_json(path, uid))
@@ -217,6 +222,11 @@ def prepare(request):
                 run('rebind-target', ['sudo', '-n', 'python3', '-B', str(TASK / 'migrate/target.py'), 'bind', path])
             state.update(status='check_passed' if request['check'] else 'prepared', restoreConfigured=True)
             save(work / 'journal.json', state); print(json.dumps(state)); return 0
+        # Never replace an older source/prototype profile, even when the caller
+        # selected it. The public pointer selects a separate target context.
+        target_home = target_profile_home(home, observed['target']['clusterUid'])
+        profile_path = target_home / 'restore.json'
+        require(not profile_path.exists(), 'existing_restore_profile_requires_review')
         progress('verify-published-images')
         result = availability(release['images']); save(work / 'image-availability.json', result)
         if result['missing']:
@@ -230,22 +240,21 @@ def prepare(request):
         require(shutil.disk_usage(work).free > LIMIT + 20 * 1024**3, 'insufficient_preparation_and_restore_storage')
         assemble(release, assets, request['ops'], request['bun'], request['bin'], run, progress)
         # Keep migration caches separate from the stopped source kind cache.
-        target_home = selected_home if selected_home.is_relative_to(home / '.ops/profiles') else home / '.ops/profiles/migrate-k3s-090'
         protected_directory(target_home, uid); protected_directory(target_home / 'tmp', uid)
         archive['restic'] = str(assets / 'tools/restic')
         profile = candidate_profile(source, observed['target'], archive, release, assets,
                                     {'uid': uid, 'name': account.pw_name, 'home': str(home)}, target_home, commit)
-        profile_path = target_home / 'restore.json'
-        require(not profile_path.exists(), 'existing_restore_profile_requires_review')
+        kubeconfig = run('read-target-kubeconfig', ['sudo', '-n', 'cat', '/etc/rancher/k3s/k3s.yaml'])
+        config_path = target_home / 'tmp/kubeconfig'
+        if config_path.exists(): regular(config_path, uid)
+        require(not config_path.is_symlink(), 'linked_target_kubeconfig_rejected')
+        with config_path.open('w') as output: os.fchmod(output.fileno(), 0o600); output.write(kubeconfig.decode())
         # Stage and bind only after every download and archive metadata check.
         save(profile_path, profile)
         try:
             binding = json.loads(run('bind-target', ['sudo', '-n', 'python3', '-B', str(TASK / 'migrate/target.py'), 'bind', str(profile_path)]))
         except Exception:
             profile_path.unlink(); raise
-        kubeconfig = run('read-target-kubeconfig', ['sudo', '-n', 'cat', '/etc/rancher/k3s/k3s.yaml'])
-        config_path = target_home / 'tmp/kubeconfig'; require(not config_path.is_symlink(), 'linked_target_kubeconfig_rejected')
-        with config_path.open('w') as output: os.fchmod(output.fileno(), 0o600); output.write(kubeconfig.decode())
         save(root / 'prepared.json', {'schemaVersion': 1, 'profile': str(profile_path), 'targetClusterUid': observed['target']['clusterUid'],
                                      'snapshot': archive['snapshot']})
         state.update(status='prepared', restoreConfigured=True, kubernetesPrepared=binding['kubernetesPrepared'],
