@@ -20,7 +20,8 @@ import pwd
 p=Promotion('apis-090')
 account=pwd.getpwnam(PLAN['user']);home=Path(account.pw_dir)
 task=home/'.ops/feature/migration-recovery-0.9.0/oplugins'
-config_path=home/'.ops/config.json'
+selected_home=Path(CONFIG['targetOpsHome']) if globals().get('SAME_HOST_RESTORE',False) else home/'.ops'
+config_path=selected_home/'config.json'
 config=json.loads(config_path.read_text()) if config_path.exists() else {}
 config['images']=p.plan['finalWhiskSpec']['images']
 config.setdefault('operator',{})['component']=p.plan['finalWhiskSpec']['components']
@@ -28,6 +29,8 @@ config_path.write_text(json.dumps(config,indent=2));config_path.chmod(0o600);os.
 env={'OPS_ROOT':str(task),'OPS_BRANCH':'feature/migration-recovery-0.9.0',
      'OPS_REPO':'https://github.com/miki3421/openserverless-task-custom',
      'KUBECONFIG':str(home/'.kube/config'),'PATH':str(home/'.local/bin')+':'+str(home/'.ops/linux-amd64/bin')+':/usr/local/bin:/usr/bin:/bin'}
+if globals().get('SAME_HOST_RESTORE',False):
+    env.update(OPS_HOME=str(selected_home),OPS_TMP=str(selected_home/'tmp'))
 for component,pod in [('streamer','openserverless-streamer-api-0'),('system-api','openserverless-system-api-0')]:
     if not p.state.get('deployed-'+component):
         p.run('real-ops-deploy-'+component,['sudo','-u',PLAN['user'],'env']+[k+'='+v for k,v in env.items()]+[str(home/'.local/bin/ops'),'setup','openserverless',component,'deploy'],timeout=300,cwd=str(home))

@@ -46,9 +46,10 @@ def request_bytes(url, headers, limit, opener=urllib.request.urlopen):
     return raw
 
 
-def manifest(reference, digest, opener=urllib.request.urlopen):
-    if not re.fullmatch(r'sha256:[a-f0-9]{64}', digest): raise ValueError('immutable_image_digest_required')
-    host, repo = location(reference); url = 'https://' + host + '/v2/' + repo + '/manifests/' + digest
+def manifest_bytes(reference, selector, opener=urllib.request.urlopen):
+    if not re.fullmatch(r'(?:sha256:[a-f0-9]{64}|[A-Za-z0-9_][A-Za-z0-9_.-]{0,127})', selector):
+        raise ValueError('invalid_registry_manifest_selector')
+    host, repo = location(reference); url = 'https://' + host + '/v2/' + repo + '/manifests/' + selector
     headers = {'Accept': ACCEPT, 'User-Agent': 'ops-migrate-prepare'}
     try:
         raw = request_bytes(url, headers, 4 * 1024**2, opener)
@@ -65,10 +66,27 @@ def manifest(reference, digest, opener=urllib.request.urlopen):
         value = token.get('token') or token.get('access_token')
         if not isinstance(value, str) or len(value) > 16384: raise ValueError('registry_token_missing')
         raw = request_bytes(url, {**headers, 'Authorization': 'Bearer ' + value}, 4 * 1024**2, opener)
+    return raw
+
+
+def manifest(reference, digest, opener=urllib.request.urlopen):
+    if not re.fullmatch(r'sha256:[a-f0-9]{64}', digest): raise ValueError('immutable_image_digest_required')
+    raw = manifest_bytes(reference, digest, opener)
     if 'sha256:' + hashlib.sha256(raw).hexdigest() != digest: raise ValueError('registry_manifest_digest_mismatch')
     data = json.loads(raw)
     if data.get('schemaVersion') != 2: raise ValueError('unsupported_registry_manifest')
     return data
+
+
+def resolve(reference, opener=urllib.request.urlopen):
+    """Maintainer resolution only; the user command always uses frozen digests."""
+    selector = reference.rsplit('@', 1)[1] if '@' in reference else reference.rsplit('/', 1)[-1].rsplit(':', 1)[1]
+    raw = manifest_bytes(reference, selector, opener)
+    digest = 'sha256:' + hashlib.sha256(raw).hexdigest()
+    if selector.startswith('sha256:') and selector != digest: raise ValueError('registry_manifest_digest_mismatch')
+    data = json.loads(raw)
+    if data.get('schemaVersion') != 2: raise ValueError('unsupported_registry_manifest')
+    return {'reference': reference, 'digest': digest}, data
 
 
 def availability(images, fetch=manifest):

@@ -56,49 +56,44 @@ prepare, allowing that single transition. A changed bound UID, foreign workload,
 existing PV/PVC, application definitions or populated application configuration
 is rejected. The ordinary isolated restore route keeps its stricter checks.
 
-## Online software and current publication blocker
+## Minimum image candidate
 
 Custom images are not an intrinsic requirement of backup or migration. This
-catalog reproduces the previously tested patched laboratory, rather than
-certifying an unmodified Apache0.9.0 destination. The current restore workers
-use operator changes for restored-state handling, Milvus metadata/storage
-mapping, image selection and IAM reconciliation. The other three image choices
-also preserve the laboratory's software selection; they have not been proven
-necessary for the migration mechanism itself. These are separate claims.
+candidate retains **one** personal operator image, with the restore changes
+already exercised by the previous rehearsal. Controller, Admin API and Streamer
+now use the official Apache0.9.0 references from the upstream task catalog.
+Their immutable roots were resolved anonymously and pinned before testing;
+tags are never resolved dynamically by the user command.
 
-Before making custom images a default public dependency, qualify which changes
-are essential for restore and which belong to optional hardening or offline
-startup. A normal release should use official images once the required fixes
-are included and published. Presence in a source branch alone does not prove
-presence in its published container image.
+The operator changes handle restored Milvus paths, existing CouchDB state,
+SeaweedFS IAM/storage settings, Redis ACL persistence and controlled platform
+image selection. See [required operator changes](required-operator-changes.md).
+The artifact retains the previously tested operator source; it is not a new
+claim that every individual hunk is mathematically minimal. No new operator
+build is required for this candidate.
 
-`releases/k3s-0.9.0.json` pins the candidate's tools, task source revision and
-OCI image roots. Downloads use HTTPS and verified hashes. Image pulls use K3s
-containerd with immutable digests; Docker is never started. A reusable software
-capsule is assembled locally so the later restore workers need no ad hoc host
-files. A separately distributed offline kit is not required by this command.
+`releases/k3s-0.9.0.json` pins tools, target task source and image roots. Downloads
+use HTTPS and verified hashes. Image pulls use K3s containerd; Docker is never
+started. A reusable software capsule is assembled locally for the restore
+workers. Operators do not need a separately supplied offline kit.
 
-The candidate is **not yet self-service qualified**. Four exact image roots
-from the earlier local qualification need public distribution in the personal
-registry: operator, Admin API, streamer and OpenWhisk controller. Their proposed
-references and immutable roots are in the release catalog. A live registry
-audit found 46 of 50 image roots available. Preparation reports every missing
-image and exits nonzero before cache pulls, profile binding or cluster changes.
-It does not substitute older Apache images or claim an application restore pass.
+The single required operator artifact is distributed through personal GHCR.
+The maintainer-only publication workflow verifies the exact OCI archive and
+copies it with digest preservation, using an ephemeral GitHub Actions token.
+It cannot publish the other components or write to Apache. Registry visibility
+and anonymous pull access are independently checked before preparation passes.
 
-The real OPS command was also checked from a fresh private OPS profile on the
-same rehearsal VM. Local software, empty K3s inspection, backup discovery and
-Restic metadata reads passed; the command then stopped with
-`release_images_not_published` (46 available, four unavailable). No restore
-profile, context pointer or root target marker was created. The target retained
-zero application pods/PVCs and Docker service/socket stayed inactive/disabled.
-This is evidence for the blocking path, not a completed preparation or restore.
+**Qualification remains pending.** The old four-image laboratory rehearsal does
+not certify this reduced combination. Its fresh-profile preflight demonstrated
+backup discovery, encrypted metadata reads and rejection of unavailable images,
+without creating profiles, markers or application resources. The reduced
+candidate needs its own preparation and application acceptance results.
 
 The software catalog currently qualifies Linux AMD64, Python3.12,
-K3s1.36.4+k3s1 and the exact OPS/Bun binaries used by this rehearsal. Standard
-K3s addons and cert-manager must be ready. This is not a general production
-migration promise. Source-image closure and application acceptance are checked
-by the subsequent restore and application tests.
+K3s1.36.4+k3s1 and the exact OPS/Bun binaries used by the rehearsal. Standard
+K3s addons and cert-manager must be ready. The restore subsequently verifies
+source-image closure and restored data. Application compatibility and existing
+security gaps in official images remain separate acceptance considerations.
 
 ## Validation
 
@@ -110,9 +105,8 @@ bun test migrate/main.test.ts migrate/cli.test.ts
 Set `OPS_TEST_BINARY` to the real OPS executable for the command-dispatch test;
 the fixture replaces the migration executor and never accesses a cluster.
 
-The maintainer-only `release_images.py` exports the candidate software images
-from existing OCI archives, verifying their complete selected dependency closure
+The maintainer-only `release_images.py` exports only the explicit
+`customImageSlots` from an existing OCI archive, verifying the dependency closure
 and preserving manifest/config/layer bytes. It never publishes images or runs
-Docker. The Controller publication selects the exact qualified AMD64 manifest;
-the old index also referenced an attestation absent from the local cache. This
-selection does not rebuild the Controller or change its runtime layers.
+Docker. `publish_images.py --check` verifies the reviewed operator artifact
+without registry writes. Publication is restricted to the personal fork's CI.

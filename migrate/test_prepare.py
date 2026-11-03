@@ -151,6 +151,15 @@ class PreparationContract(unittest.TestCase):
         self.assertEqual(images.manifest('docker.io/example/image:v1', 'sha256:' + hashlib.sha256(raw).hexdigest(),
                                          lambda *a, **k: Response(raw))['schemaVersion'], 2)
 
+    def test_maintainer_resolves_official_tag_once_and_freezes_its_root(self):
+        raw = b'{"schemaVersion":2,"manifests":[]}'
+        class Response(io.BytesIO): url = 'https://registry-1.docker.io/manifest'
+        seen = []
+        def opener(request, **_): seen.append(request.full_url); return Response(raw)
+        row, _ = images.resolve('docker.io/apache/fixture:0.9.0', opener)
+        self.assertEqual(row['digest'], 'sha256:' + hashlib.sha256(raw).hexdigest())
+        self.assertTrue(seen[0].endswith('/manifests/0.9.0'))
+
     def test_download_verifies_bytes_and_refuses_existing_wrong_payload(self):
         class Response(io.BytesIO): url = 'https://downloads.example/tool'
         with tempfile.TemporaryDirectory() as root, patch('assets.urllib.request.urlopen', return_value=Response(b'pinned')):
@@ -165,6 +174,12 @@ class PreparationContract(unittest.TestCase):
         for row in release['images']:
             self.assertRegex(row['digest'], r'^sha256:[a-f0-9]{64}$'); images.location(row['reference'])
         self.assertNotIn('localhost/', path.read_text()); self.assertNotIn('/root/', path.read_text())
+        self.assertEqual(release['customImageSlots'], ['operator'])
+        for name in ('controller', 'systemapi', 'streamer'):
+            reference = release['target']['images'][name]
+            self.assertTrue(reference.startswith('docker.io/apache/'))
+            self.assertEqual(sum(r['reference'] == reference for r in release['images']), 1)
+        self.assertEqual(sum('/miki3421/' in r['reference'] for r in release['images']), 1)
 
     def test_existing_profile_cannot_be_rebound_to_a_different_backup(self):
         with tempfile.TemporaryDirectory() as root:

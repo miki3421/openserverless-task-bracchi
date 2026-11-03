@@ -130,8 +130,11 @@ def package(catalog, sources, destination):
     try:
         for path in sources: archives.append(OCIArchive(path))
         result = {'schemaVersion': 1, 'publicationPerformed': False, 'platform': 'linux/amd64', 'images': []}
-        rows = [row for row in catalog['images'] if '/miki3421/' in row['reference']]
-        require(len(rows) == 4, 'four_candidate_image_roots_required')
+        slots = catalog.get('customImageSlots', [])
+        require(isinstance(slots, list) and slots and len(set(slots)) == len(slots), 'explicit_custom_image_slots_required')
+        refs = {catalog['target']['images'][slot] for slot in slots}
+        rows = [row for row in catalog['images'] if row['reference'] in refs]
+        require(len(rows) == len(refs), 'complete_custom_image_roots_required')
         for row in rows:
             archive = next((a for a in archives if digest_name(row['digest']) in a.members), None)
             require(archive is not None, 'selected_image_root_missing')

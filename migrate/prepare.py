@@ -241,6 +241,12 @@ def prepare(request):
         assemble(release, assets, request['ops'], request['bun'], request['bin'], run, progress)
         # Keep migration caches separate from the stopped source kind cache.
         protected_directory(target_home, uid); protected_directory(target_home / 'tmp', uid)
+        # Preserve caller settings while keeping subsequent target task writes
+        # out of the legacy source profile.
+        configuration = private_json(selected_home / 'config.json', uid) if (selected_home / 'config.json').exists() else {}
+        require(isinstance(configuration, dict), 'ops_configuration_object_required')
+        configuration['images'] = copy.deepcopy(release['target']['images'])
+        save(target_home / 'config.json', configuration)
         archive['restic'] = str(assets / 'tools/restic')
         profile = candidate_profile(source, observed['target'], archive, release, assets,
                                     {'uid': uid, 'name': account.pw_name, 'home': str(home)}, target_home, commit)

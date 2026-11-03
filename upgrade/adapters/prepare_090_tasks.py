@@ -64,8 +64,10 @@ runtime_target=json.loads((task/'runtimes.json').read_text())
 runtime_merged,required_runtime_kinds=merge_system_runtimes(runtime_source,runtime_target)
 runtime=json.dumps(runtime_merged,indent=2)+'\n'
 p.apply('compatible-runtime-catalog',[{'apiVersion':'v1','kind':'ConfigMap','metadata':{'name':'openwhisk-runtimes','namespace':'openserverless'},'data':{'runtimes.json':runtime}}])
-(home/'.ops/tmp/runtimes.json').write_text(runtime)
-os.chown(home/'.ops/tmp/runtimes.json',account.pw_uid,account.pw_gid)
+runtime_cache=(Path(CONFIG['targetOpsHome'])/'tmp/runtimes.json'
+               if globals().get('SAME_HOST_RESTORE',False) else home/'.ops/tmp/runtimes.json')
+runtime_cache.write_text(runtime)
+os.chown(runtime_cache,account.pw_uid,account.pw_gid)
 for name in ['whisks.openserverless.org','whisksusers.openserverless.org']:
     p.run('crd-established-'+name,p.k+['wait','--for=condition=Established','crd/'+name,'--timeout=60s'])
 checks={}
