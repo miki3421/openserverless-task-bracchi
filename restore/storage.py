@@ -28,13 +28,14 @@ def storage_plan(snapshot_bytes, asset_bytes, expansion_budget, capacity, availa
     require(all(type(x) is int and x > 0 for x in
                 (snapshot_bytes, asset_bytes, expansion_budget, capacity, available)), 'invalid_restore_storage_inputs')
     require(snapshot_bytes <= expansion_budget and 20 <= reserve_percent <= 90, 'invalid_restore_storage_budget')
-    # One software capsule plus the larger of a full source/extraction pair
-    # and the selected aggregate working-set budget. Image imports and native
-    # recovery share that allowance: they are not silently unbudgeted writes.
-    working = asset_bytes + max(2 * snapshot_bytes, expansion_budget)
+    # Keep the decrypted source and software staging separate from the
+    # allowance for native recovery plus additional containerd content/snapshots.
+    # Import transient files need explicit headroom as well; existing cached
+    # images must not be assumed to survive garbage collection.
+    working = snapshot_bytes + asset_bytes + expansion_budget + 4 * GIB
     reserve = max(4 * GIB, math.ceil(capacity * reserve_percent / 100))
     return {'sourceBytes': snapshot_bytes, 'softwareBytes': asset_bytes,
-            'workingSetBudgetBytes': max(2 * snapshot_bytes, expansion_budget), 'workingBytes': working,
+            'expansionAllowanceBytes': expansion_budget, 'importScratchBytes': 4 * GIB, 'workingBytes': working,
             'kubernetesReserveBytes': reserve, 'requiredFreeBytes': working + reserve,
             'availableBytes': available, 'sufficient': available >= working + reserve}
 

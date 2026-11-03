@@ -32,9 +32,9 @@ class StorageContract(unittest.TestCase):
     def test_old_free_space_check_is_insufficient_at_observed_peak(self):
         plan = storage_plan(6*GIB, 8*GIB, 32*GIB, 154*GIB, 60*GIB)
         self.assertFalse(plan['sufficient'])
-        self.assertGreater(plan['requiredFreeBytes'], 70*GIB)
-        self.assertEqual(plan['workingBytes'], 40*GIB)
-        self.assertTrue(storage_plan(6*GIB, 8*GIB, 32*GIB, 154*GIB, 80*GIB)['sufficient'])
+        self.assertGreater(plan['requiredFreeBytes'], 80*GIB)
+        self.assertEqual(plan['workingBytes'], 50*GIB)
+        self.assertTrue(storage_plan(6*GIB, 8*GIB, 32*GIB, 154*GIB, 90*GIB)['sufficient'])
 
     def test_custom_kubelet_thresholds_raise_reserve_and_absolute_thresholds_reject(self):
         self.assertEqual(reserve_percent({}),20)

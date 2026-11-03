@@ -146,10 +146,11 @@ the operator-led `ops restore` run and subsequent application tests.
 ## Peak space and private staging
 
 Preflight checks the actual selected snapshot size, software manifest size and
-filesystem capacity/free space. The working estimate is the protected software
-size plus the larger of twice the snapshot size and the profile's working-set
-budget. That allowance covers native recovery and additional containerd content
-and snapshots. A separate reserve is at least20% of filesystem capacity or4GiB,
+filesystem capacity/free space. The working estimate includes the full decrypted
+snapshot, the protected software capsule, the profile's additional expansion
+allowance and4GiB for import transient files. The expansion allowance covers native
+recovery and additional containerd content/snapshots; it does not absorb or
+double-count already required decrypted-source space. A separate reserve is at least20% of filesystem capacity or4GiB,
 and increases with the actual kubelet eviction and image-GC thresholds. Source,
 software, data and image-cache staging are never treated as free just because
 they are temporary. Split data/image filesystems require separate qualification.
