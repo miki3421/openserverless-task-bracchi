@@ -78,6 +78,16 @@ export async function qualifyRunningOCIImage(
     descriptorChainVerified: true };
 }
 
+export async function qualifySourceAndRunningOCIImage(
+  expected: { rootDigest: string; platform: string; cachedRootDigest: string; reportedImageId: string; sourceReportedImageId: string },
+  load: (digest: string) => Promise<Uint8Array>,
+) {
+  const source = await qualifyRunningOCIImage({...expected, reportedImageId: expected.sourceReportedImageId}, load);
+  const running = await qualifyRunningOCIImage(expected, load);
+  return {...running, sourceReportedDigestType: source.reportedDigestType,
+    sourceDescriptorChainVerified: source.descriptorChainVerified};
+}
+
 // A Kubernetes List creation is not transactional: duplicate identities must be
 // resolved before submitting it, including Secrets shared by environment keys.
 export function deduplicateRecoveryObjects(objects: any[]): any[] {

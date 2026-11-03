@@ -16,7 +16,7 @@
 // under the License.
 
 import { expect, test } from "bun:test";
-import { deduplicateRecoveryObjects, platformImageImportArgs, qualifyRunningOCIImage, waitRegisteredNode, waitStorageEndpoints } from "./offline";
+import { deduplicateRecoveryObjects, platformImageImportArgs, qualifyRunningOCIImage, qualifySourceAndRunningOCIImage, waitRegisteredNode, waitStorageEndpoints } from "./offline";
 import { createHash } from "node:crypto";
 
 const identity = { name: "isolated-recovery", ip: "192.0.2.10" };
@@ -67,6 +67,20 @@ test("image qualification rejects ambiguous platforms and supports a pinned sing
   await expect(qualifyRunningOCIImage({...f.expected,rootDigest:root,cachedRootDigest:root},f.load)).rejects.toThrow("ambiguous_or_missing");
   expect((await qualifyRunningOCIImage({...f.expected,rootDigest:f.manifest,cachedRootDigest:f.manifest},f.load)).descriptorChainVerified).toBe(true);
   await expect(qualifyRunningOCIImage({...f.expected,platform:"linux/arm64"},f.load)).rejects.toThrow();
+});
+
+test("source config IDs and target manifest/index IDs verify against the same immutable image",async()=>{
+  const f=ociFixture();
+  for(const sourceReportedImageId of [f.config,f.manifest,f.root])for(const reportedImageId of [f.config,f.manifest,f.root]) {
+    const proof=await qualifySourceAndRunningOCIImage({...f.expected,sourceReportedImageId,reportedImageId},f.load);
+    expect(proof.sourceDescriptorChainVerified).toBe(true);expect(proof.descriptorChainVerified).toBe(true);
+  }
+});
+
+test("valid target never permits an unrelated source identity, or conversely",async()=>{
+  const f=ociFixture(),foreign="sha256:"+"f".repeat(64);
+  await expect(qualifySourceAndRunningOCIImage({...f.expected,sourceReportedImageId:foreign},f.load)).rejects.toThrow("running_oci_image_identity_mismatch");
+  await expect(qualifySourceAndRunningOCIImage({...f.expected,sourceReportedImageId:f.config,reportedImageId:foreign},f.load)).rejects.toThrow("running_oci_image_identity_mismatch");
 });
 
 test("shared credential references produce one Secret before Kubernetes List creation", () => {

@@ -23,11 +23,33 @@ import ipaddress
 import json
 import os
 from pathlib import Path
+import re
 import shlex
 import socket
 import stat
 import subprocess
 import tarfile
+
+
+def normalized_image_reference(reference):
+    if not isinstance(reference,str) or not re.fullmatch(r'[A-Za-z0-9._:/@-]+',reference):
+        raise ValueError('Invalid saved image reference')
+    for prefix in ('registry.hub.docker.com/','index.docker.io/'):
+        if reference.startswith(prefix):reference='docker.io/'+reference[len(prefix):]
+    first=reference.split('/')[0]
+    if '/'not in reference:reference='docker.io/library/'+reference
+    elif '.'not in first and ':'not in first and first!='localhost':reference='docker.io/'+reference
+    if '@'not in reference and ':'not in reference.rsplit('/',1)[-1]:reference+=':latest'
+    return reference
+
+
+def source_image_reference(source,references):
+    name=normalized_image_reference(source['image'])
+    matches=[row for row in references if normalized_image_reference(row['reference'])==name]
+    roots={row['manifestDigest']for row in matches}
+    if len(roots)!=1 or not re.fullmatch(r'sha256:[a-f0-9]{64}',next(iter(roots),'') or ''):
+        raise ValueError('Saved source image root missing or ambiguous')
+    return next((row for row in matches if row['reference']==source['image']),matches[0])
 
 
 class Lab:
@@ -55,9 +77,9 @@ class Lab:
         self.configuration=json.loads(self.artifact(self.files('platform-configuration')[0]).read_text())
         (self.logs/'offline.ts').write_text(OFFLINE_MODULE)
         (self.logs/'deduplicate.ts').write_text('import { deduplicateRecoveryObjects } from "./offline";\nconsole.log(JSON.stringify(deduplicateRecoveryObjects(JSON.parse(await Bun.stdin.text()))));\n')
-        (self.logs/'qualify-image.ts').write_text('''import { qualifyRunningOCIImage } from "./offline";
+        (self.logs/'qualify-image.ts').write_text('''import { qualifySourceAndRunningOCIImage } from "./offline";
 const o=JSON.parse(await Bun.stdin.text());
-const result=await qualifyRunningOCIImage(o,async(d)=>{
+const result=await qualifySourceAndRunningOCIImage(o,async(d)=>{
  const p=Bun.spawn(["/usr/local/bin/k3s","ctr","--namespace","k8s.io","content","get",d],{stdout:"pipe",stderr:"pipe"});
  const [data,status]=await Promise.all([new Response(p.stdout).arrayBuffer(),p.exited]);
  if(status!==0 || data.byteLength>4194304)throw new Error("required_image_metadata_read_failed");
@@ -148,12 +170,12 @@ console.log(JSON.stringify(result));
         pod=self.get('native-pod-status','pod',target['pod'])
         runtime=next(c for c in pod['status']['containerStatuses'] if c['name']==target['container'])
         source=next(r for r in RUNTIME['nativeImages'] if r['pod']==target['pod'] and r['container']==target['container'])
-        reference=next(r for r in RUNTIME['runtimeImages'] if r['manifestDigest']==source['runningImageId'].rsplit('@',1)[-1])
+        reference=source_image_reference(source,RUNTIME['runtimeImages'])
         listing=self.run('native-image-cache',['/usr/local/bin/k3s','ctr','--namespace','k8s.io','images','ls']).stdout.decode().splitlines()
         cached={line.split()[0]:line.split()[2] for line in listing[1:] if len(line.split())>=3}
-        expected={'rootDigest':reference['manifestDigest'],'cachedRootDigest':cached.get(reference['reference']),'platform':'linux/amd64','reportedImageId':runtime['imageID']}
+        expected={'rootDigest':reference['manifestDigest'],'cachedRootDigest':cached.get(reference['reference']),'platform':'linux/amd64','reportedImageId':runtime['imageID'],'sourceReportedImageId':source['runningImageId']}
         proof=json.loads(self.run('native-image-proof',[str(self.root/'candidate/tools/bun'),str(self.logs/'qualify-image.ts')],input=json.dumps(expected).encode()).stdout)
-        if proof['descriptorChainVerified'] is not True:raise ValueError('Native image identity not proven')
+        if proof['descriptorChainVerified'] is not True or proof['sourceDescriptorChainVerified'] is not True:raise ValueError('Native source and target image identities not proven')
         return pod
 
     def finish(self,summary):
