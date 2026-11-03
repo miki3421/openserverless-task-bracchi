@@ -1,0 +1,52 @@
+# Licensed to the Apache Software Foundation (ASF) under one
+# or more contributor license agreements.  See the NOTICE file
+# distributed with this work for additional information
+# regarding copyright ownership.  The ASF licenses this file
+# to you under the Apache License, Version 2.0 (the
+# "License"); you may not use this file except in compliance
+# with the License.  You may obtain a copy of the License at
+#
+#   http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing,
+# software distributed under the License is distributed on an
+# "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+# KIND, either express or implied.  See the License for the
+# specific language governing permissions and limitations
+# under the License.
+
+name: Publish reviewed migration operator
+
+on:
+  push:
+    branches: [feature/migrate-prepare-0.9.0]
+    paths:
+      - .github/workflows/publish-migration-operator.yml
+      - migrate/publication/operator.json
+
+permissions:
+  contents: read
+  packages: write
+
+concurrency:
+  group: publish-reviewed-migration-operator
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    if: github.repository == 'miki3421/openserverless-task-custom'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - name: Read the exact personal-fork source
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          persist-credentials: false
+      - name: Install the registry copy tool
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y skopeo
+      - name: Verify and publish the existing operator image without rebuilding
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: python3 -B migrate/publish_images.py --plan migrate/publication/operator.json
