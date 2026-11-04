@@ -20,7 +20,7 @@ import { join, resolve, dirname } from "node:path";
 import { hostname } from "node:os";
 import { randomUUID } from "node:crypto";
 import { assessSourceBackup, captureFreshBackup } from "./backup";
-import { cachedImages, verifyExportableCache } from "./cache";
+import { cachedImages, cacheReadiness } from "./cache";
 import { phaseMessage, logDriverOutput } from "./progress";
 import { inspectNativeResume } from "./resume";
 import { noSymlinks, privateJSON, saveJSON, validateProfile, validateJournalBinding, verifyAssets, sha256, runPhases, type UpgradeProfile, type Journal } from "./lib";
@@ -130,16 +130,16 @@ async function saveRuntime(root:string,profile:UpgradeProfile,source:any) {
   const refs=entries.map(x=>x.reference);
   await privateCommand(root,"export-source-image-cache",["/usr/local/bin/k3s","ctr","-n","k8s.io","images","export","--platform","linux/amd64",join(root,"source-cache.tar"),...refs],undefined,1800000);
 }
-async function inspectSourceCache() {
+async function inspectSourceCache(reportMissing=false) {
   const ctr=["/usr/local/bin/k3s","ctr","-n","k8s.io"];
   const entries=cachedImages(await command([...ctr,"images","ls"]));
   const available=new Set((await command([...ctr,"content","ls","-q"])).trim().split("\n"));
-  const proof=await verifyExportableCache(entries,available,async digest=>
-    new TextEncoder().encode(await command([...ctr,"content","get",digest])));
-  return {entries,proof};
+  const result=await cacheReadiness(entries,available,async digest=>
+    new TextEncoder().encode(await command([...ctr,"content","get",digest])),reportMissing);
+  return {entries,proof:result.proof,ready:result.ready};
 }
 /** Read-only discovery for the versioned CLI; never expose source spec/credentials. */
-export async function inspectUpgradeSource(template:UpgradeProfile,discover:boolean) {
+export async function inspectUpgradeSource(template:UpgradeProfile,discover:boolean,reportMissingCache=false) {
   validateProfile(template);
   let profile=template;
   if(discover) {
@@ -149,9 +149,10 @@ export async function inspectUpgradeSource(template:UpgradeProfile,discover:bool
       source:{clusterUid:cluster.metadata.uid,namespaceUid:ns.metadata.uid,whiskUid:whisk.metadata.uid,namespace:"nuvolaris",instance:"controller"}};
     validateProfile(profile);
   }
-  const source=await facts(profile),cache=await inspectSourceCache();
+  const source=await facts(profile),cache=await inspectSourceCache(reportMissingCache);
   return {profile,sourceVersion:"0.1.0",sourceK3sVersion:"v1.27.7-rc1+k3s2",tenantCount:source.tenantCount,
-    sourceImageCache:cache.proof,clusterMutation:false};
+    sourceImageCache:cache.proof,sourceImageCacheReady:cache.ready,
+    sourceImageEntries:cache.entries,clusterMutation:false};
 }
 async function freeze(root:string,source:any) {
   const ingress=source.workloads.find((w:any)=>w.kind==="Deployment"&&w.metadata.namespace==="kube-system"&&w.metadata.name==="traefik");

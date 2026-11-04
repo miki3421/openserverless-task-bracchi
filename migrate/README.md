@@ -31,6 +31,23 @@ maintenance. A valid retained profile allows `--check` to run the full existing
 engine preflight. `status` can read the retained engine journal after cutover
 without requiring the original source to remain online.
 
+Read-only discovery also reports missing original source-image content as
+`sourceImageCachePreparationRequired:true`. It does not fetch that content or
+claim export completeness. The normal command recovers a missing root only from
+an original public registry identity at the exact observed digest, after the
+same acquisition-capacity and filesystem/reserve checks used for target staging.
+It uses content-only fetch, never unpack/tag substitution, and rechecks every
+source reference plus the unchanged host/cluster binding afterward. An absent
+public identity requires independently verified original local input; unavailable
+bytes, corrupt metadata and unqualified platforms remain errors. No image is
+omitted. Repeated incomplete roots or more than64 recovered roots stop before
+maintenance. The existing upgrade preflight/export gates stay strict.
+
+The preparation worker returns exit2 for `preparation_required`; this CLI can
+wrap that task exit as process exit1. Inspect the structured state: it is not a
+complete preflight PASS. The normal migration command performs preparation
+automatically before its existing full preflight and maintenance phases.
+
 During normal preparation the pinned target image content is fetched into source
 containerd without unpacking and exported for offline recovery; this is explicitly
 outside read-only check mode. The target K3s **binary is downloaded and verified** into

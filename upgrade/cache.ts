@@ -93,3 +93,15 @@ export async function verifyExportableCache(
   return {platform:"linux/amd64",imageReferences:entries.length,uniqueImageRoots:roots.size,
     requiredBlobsPresent:checked.size,metadataChecksumsVerified:documents.size};
 }
+
+// Discovery can report missing original bytes without authorizing a backup.
+// Every other cache error, and every ordinary preflight, remains a hard error.
+export async function cacheReadiness(entries:CachedImage[],available:ReadonlySet<string>,
+  load:(digest:string)=>Promise<Uint8Array>,reportMissing=false) {
+  try {return {ready:true as const,proof:await verifyExportableCache(entries,available,load)};}
+  catch(error) {
+    if(!reportMissing||!(error instanceof ImageCacheError)||error.message!=="source_image_cache_incomplete")throw error;
+    return {ready:false as const,proof:{platform:"linux/amd64",missing:{code:error.message,
+      reference:error.reference,digest:error.digest}},entries};
+  }
+}

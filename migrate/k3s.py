@@ -35,6 +35,7 @@ sys.path.insert(0, str(TASK / 'backup/engine/scripts'))
 from store_common import require, read, save, regular, digest
 from assets import assemble, download
 from images import availability
+from source_cache import recover_missing,recovery_image
 
 REQUEST_FIELDS = {'to', 'source', 'status', 'check', 'json', 'repository', 'key',
                   'snapshot', 'ops', 'bun', 'bin', 'opsHome'}
@@ -119,7 +120,11 @@ def inspect_source(profile, discover, request, work, run, label):
             selected['assets'] == profile['assets'], 'source_inspection_profile_changed')
     if not discover:
         require(selected == profile, 'bound_k3s_source_changed')
-    return selected
+    require(type(result.get('sourceImageCacheReady'))is bool,'source_cache_readiness_required')
+    cache={'ready':result['sourceImageCacheReady'],'proof':result['sourceImageCache'],
+           'entries':result.get('sourceImageEntries',[])}
+    require(discover or cache['ready'],'source_image_cache_incomplete')
+    return selected,cache
 
 
 def prepare_profile(request, profile_path, work, uid, account, run, progress):
@@ -139,10 +144,26 @@ def prepare_profile(request, profile_path, work, uid, account, run, progress):
                 'qualified_' + name + '_binary_required')
     assets = work / 'assets'
     template = profile_template(release, assets, uid, account, commit)
-    profile = inspect_source(template, True, request, work, run, 'inspect-source')
+    profile,cache = inspect_source(template, True, request, work, run, 'inspect-source')
+    save(work/'source-cache-readiness.json',cache)
     if request['check']:
         # No profile creation, downloads, image pulls or service changes in --check.
         return False
+    repaired=set()
+    original_entries={row['reference']:row['manifestDigest']for row in cache['entries']}
+    while not cache['ready']:
+        original=recovery_image(cache)['digest']
+        require(original not in repaired and len(repaired)<64,'source_cache_recovery_incomplete_or_budget_exceeded')
+        progress('prepare-source-images','Fetch the missing original image content by pinned digest without unpacking; source applications remain running.')
+        recovered=recover_missing(cache,work,run,len(repaired)+1)
+        require(recovered==original,'recovered_image_root_changed')
+        repaired.add(original)
+        observed,cache=inspect_source(profile,True,request,work,run,'recheck-source-cache-'+str(len(repaired)))
+        require(observed==profile,'source_changed_during_cache_preparation')
+        current_entries={row['reference']:row['manifestDigest']for row in cache['entries']}
+        require(all(current_entries.get(ref)==root for ref,root in original_entries.items()),
+                'original_source_image_alias_changed_or_disappeared')
+        save(work/('source-cache-readiness-'+str(len(repaired))+'.json'),cache)
     progress('prepare-inputs', 'Download and verify the pinned target tools and images while the original applications remain running.')
     result = availability(release['images'])
     save(work / 'image-availability.json', result)
@@ -159,7 +180,10 @@ def prepare_profile(request, profile_path, work, uid, account, run, progress):
     require(manifest['files']['tools/k3s']['sha256'] == release['installedTools']['k3s'],
             'target_capsule_contains_wrong_k3s')
     profile = bind_assets(profile, assets, manifest)
-    inspect_source(profile, False, request, work, run, 'recheck-source')
+    _,final_cache=inspect_source(profile, False, request, work, run, 'recheck-source')
+    final_entries={row['reference']:row['manifestDigest']for row in final_cache['entries']}
+    require(all(final_entries.get(ref)==root for ref,root in original_entries.items()),
+            'original_source_image_alias_changed_or_disappeared')
     save(profile_path, profile)
     return True
 
@@ -222,6 +246,11 @@ def execute(request, request_path):
             if not ready:
                 state.update(status='preparation_required', clusterMutation=False, downloadRequired=True,
                              migrationReady=False, assetVerification='NOT_RUN')
+                cache_path=work/'source-cache-readiness.json'
+                if cache_path.exists():
+                    cache=read(cache_path,uid)
+                    state.update(sourceImageCacheReady=cache['ready'],
+                                 sourceImageCachePreparationRequired=not cache['ready'])
                 save(work / 'journal.json', state)
                 print(json.dumps(state))
                 return 2

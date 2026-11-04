@@ -27,7 +27,7 @@ export async function main() {
   if(Object.keys(request).sort().join(",")!=="discover,profile,schemaVersion,uid"||
     request.schemaVersion!==1||request.uid!==caller||request.profile?.user?.uid!==caller||typeof request.discover!=="boolean")
     throw Error("invalid_source_inspection_request");
-  console.log(JSON.stringify(await inspectUpgradeSource(request.profile,request.discover)));
+  console.log(JSON.stringify(await inspectUpgradeSource(request.profile,request.discover,request.discover)));
 }
 if(import.meta.main)main().catch(error=>{
   const code=/^[a-z0-9_]{1,100}$/.test(error?.message||"")?error.message:"protected_source_inspection_failed";

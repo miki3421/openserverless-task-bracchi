@@ -85,7 +85,7 @@ class RequestBoundary(unittest.TestCase):
 
 
 class ProfilePreparation(unittest.TestCase):
-    def exercise(self, check=False, fail=False, wrong_binary=False):
+    def exercise(self, check=False, fail=False, wrong_binary=False, missing_cache=False, cache_stays_missing=False, source_changes=False, alias_disappears=False, alias_lost_after_target=False):
         with tempfile.TemporaryDirectory() as temp:
             work = Path(temp); home = work / '.ops'; home.mkdir(mode=0o700)
             profile = home / k3s.PROFILE_NAME
@@ -100,10 +100,15 @@ class ProfilePreparation(unittest.TestCase):
                 return b'a' * 40 if label == 'task-revision' else b''
 
             def inspection(value, discover, *args):
+                cache={'ready':not missing_cache or inspect.call_count>1 and not cache_stays_missing,
+                       'proof':{'missing':{'code':'source_image_cache_incomplete','reference':'registry.example/source:original','digest':'sha256:'+'b'*64}},
+                       'entries':[{'reference':'registry.example/source:original','manifestDigest':'sha256:'+'c'*64}]}
+                if alias_disappears and inspect.call_count>1:cache['entries']=[]
+                if alias_lost_after_target and not discover:cache['entries']=[]
                 if discover:
-                    return {**value, 'hostUuid': 'host', 'source': {'clusterUid': 'source'}}
+                    return {**value, 'hostUuid': 'host', 'source': {'clusterUid': 'foreign'if source_changes and inspect.call_count>1 else'source'}},cache
                 self.assertEqual(value['hostUuid'], 'host')
-                return value
+                return value,cache
 
             def assembled(spec, assets, ops, bun, binaries, run, progress, *, k3s_binary):
                 self.assertEqual(Path(k3s_binary), work / 'target-k3s')
@@ -129,11 +134,13 @@ class ProfilePreparation(unittest.TestCase):
             with mock.patch.object(Path, 'read_text', reading), mock.patch.object(k3s, 'regular', side_effect=lambda p, *a: Path(p)), \
                  mock.patch.object(k3s, 'digest', side_effect=digest), mock.patch.object(k3s, 'inspect_source', side_effect=inspection) as inspect, \
                  mock.patch.object(k3s, 'availability', return_value={'missing': []}) as available, \
+                 mock.patch.object(k3s,'recover_missing',return_value='sha256:'+'c'*64)as recover, \
                  mock.patch.object(k3s.shutil, 'disk_usage', return_value=SimpleNamespace(free=100 * 1024**3)), \
                  mock.patch.object(k3s, 'download', return_value=work / 'target-k3s') as download, \
                  mock.patch.object(k3s, 'assemble', side_effect=assembled) as assemble:
-                if fail or wrong_binary:
-                    with self.assertRaisesRegex(ValueError, 'synthetic_input_failure' if fail else 'wrong_k3s'):
+                if fail or wrong_binary or cache_stays_missing or source_changes or alias_disappears or alias_lost_after_target:
+                    reason='synthetic_input_failure'if fail else'wrong_k3s'if wrong_binary else'source_cache_recovery'if cache_stays_missing else'source_changed_during_cache'if source_changes else'original_source_image_alias'
+                    with self.assertRaisesRegex(ValueError,reason):
                         k3s.prepare_profile(req, profile, work, os.getuid(), account, run, lambda *a: None)
                     self.assertFalse(profile.exists())
                 else:
@@ -142,9 +149,12 @@ class ProfilePreparation(unittest.TestCase):
                     self.assertEqual(profile.exists(), not check)
                     if check:
                         available.assert_not_called(); download.assert_not_called(); assemble.assert_not_called()
+                        recover.assert_not_called()
                         self.assertEqual(inspect.call_count, 1)
+                        self.assertEqual(json.loads((work/'source-cache-readiness.json').read_text())['ready'],not missing_cache)
                     else:
-                        self.assertEqual(inspect.call_count, 2)
+                        self.assertEqual(inspect.call_count,3 if missing_cache else 2)
+                        self.assertEqual(recover.call_count,int(missing_cache))
                         saved = json.loads(profile.read_text())
                         self.assertEqual(saved['target']['operator']['archiveSha256'], 'd' * 64)
                         self.assertEqual(saved['engineCommit'], 'a' * 40)
@@ -154,6 +164,12 @@ class ProfilePreparation(unittest.TestCase):
     def test_full_preparation_binds_target_binary_and_rechecks_source(self): self.exercise()
     def test_failed_input_preparation_never_commits_profile_or_touches_old_profile(self): self.exercise(fail=True)
     def test_source_k3s_binary_cannot_accidentally_enter_target_capsule(self): self.exercise(wrong_binary=True)
+    def test_check_reports_missing_source_bytes_without_fetch(self):self.exercise(check=True,missing_cache=True)
+    def test_normal_preparation_recovers_original_bytes_then_rechecks_complete_cache(self):self.exercise(missing_cache=True)
+    def test_recovery_without_original_bytes_never_retries_or_commits_profile(self):self.exercise(missing_cache=True,cache_stays_missing=True)
+    def test_changed_source_during_recovery_stops_before_target_preparation(self):self.exercise(missing_cache=True,source_changes=True)
+    def test_source_alias_cannot_disappear_during_recovery(self):self.exercise(missing_cache=True,alias_disappears=True)
+    def test_target_preparation_cannot_drop_any_original_source_alias(self):self.exercise(alias_lost_after_target=True)
 
     def test_existing_profile_is_not_silently_refreshed(self):
         with tempfile.TemporaryDirectory() as temp:

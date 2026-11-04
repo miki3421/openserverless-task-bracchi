@@ -17,7 +17,7 @@
 
 import { expect, test } from "bun:test";
 import { createHash } from "node:crypto";
-import { cachedImages, verifyExportableCache } from "./cache";
+import { cachedImages, verifyExportableCache, cacheReadiness } from "./cache";
 
 function fixture(architecture="amd64",ambiguous=false) {
   const blobs=new Map<string,Uint8Array>();
@@ -47,6 +47,20 @@ test("unpacked/running images cannot hide a missing compressed layer",async()=>{
   const f=fixture();f.available.delete(f.layer.digest);
   try {await verifyExportableCache(f.entries,f.available,f.load);throw new Error("must_reject");}
   catch(error:any){expect(error.message).toBe("source_image_cache_incomplete");expect(error.reference).toBe(f.entries[0].reference);expect(error.digest).toBe(f.layer.digest);}
+});
+test("discovery reports missing original bytes without weakening strict export verification",async()=>{
+  const f=fixture();f.available.delete(f.manifest.digest);
+  await expect(cacheReadiness(f.entries,f.available,f.load)).rejects.toThrow("source_image_cache_incomplete");
+  const result=await cacheReadiness(f.entries,f.available,f.load,true);
+  expect(result.ready).toBe(false);
+  expect(result.proof).toEqual({platform:"linux/amd64",missing:{code:"source_image_cache_incomplete",reference:f.entries[0].reference,digest:f.manifest.digest}});
+  expect("entries"in result&&result.entries).toEqual(f.entries);
+});
+test("discovery never downgrades corruption or platform errors to preparation",async()=>{
+  const f=fixture();f.blobs.set(f.config.digest,Buffer.from("{}"));
+  await expect(cacheReadiness(f.entries,f.available,f.load,true)).rejects.toThrow("checksum_mismatch");
+  const foreign=fixture("arm64");
+  await expect(cacheReadiness(foreign.entries,foreign.available,foreign.load,true)).rejects.toThrow("platform_mismatch");
 });
 test("missing index, selected manifest or configuration fails closed",async()=>{
   for(const key of ["index","manifest","config"] as const){const f=fixture();f.available.delete(f[key].digest);
