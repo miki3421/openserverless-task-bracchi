@@ -98,7 +98,7 @@ def restore_locked(c,bun,check=False):
     original=manifest['inspect'];identity=original['Id'];current=provider.inspect(identity)
     require(identity==b['source']['containerId'] and current['Id']==identity and current['Name']==original['Name'] and current['State']['Running'],'exact_running_original_kind_required')
     require(manifest['source']['docker_daemon_id']==source['docker_daemon_id'] and manifest['source']['cluster_uid']==c['s3']['prefix'],'cold_checkpoint_identity_mismatch')
-    require([(m['Type'],m['Source'],m['Destination'])for m in current['Mounts']]==[(m['Type'],m['Source'],m['Destination'])for m in original['Mounts']],'original_mounts_changed')
+    require(sorted((m['Type'],m['Source'],m['Destination'])for m in current['Mounts'])==sorted((m['Type'],m['Source'],m['Destination'])for m in original['Mounts']),'original_mounts_changed')
     archives={r['file']:r for r in manifest['archives']};expected={'rootfs.tar'}|{f'mount-{i:03d}.tar'for i,m in enumerate(manifest['mounts'])if m['include']}
     require(len(archives)==len(manifest['archives']) and set(archives)==expected,'complete_cold_archive_set_required')
     require(sum(r['bytes']for r in archives.values())==b['docker']['bytes'],'cold_archive_size_mismatch')
