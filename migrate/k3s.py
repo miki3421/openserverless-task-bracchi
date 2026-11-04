@@ -28,6 +28,7 @@ import stat
 import subprocess
 import sys
 import traceback
+import urllib.error
 import uuid
 
 TASK = Path(__file__).resolve().parents[1]
@@ -173,6 +174,7 @@ def prepare_profile(request, profile_path, work, uid, account, run, progress):
             f"Verify pinned metadata: {count} objects; {origins['file']+origins['source']} local, {origins['registry']} registry. Keep the original image identities."))
     result = availability(release['images'],fetch=manifests)
     save(work / 'image-availability.json', result)
+    require(not any(row.get('reason')=='registry_http_429'for row in result['missing']),'registry_rate_limited')
     require(not result['missing'], 'target_images_not_published')
     require(shutil.disk_usage(work).free >= 55 * 1024**3, 'insufficient_upgrade_preparation_storage')
     installer = json.loads((TASK / 'migrate/releases/local-k3s-installer.json').read_text())
@@ -272,10 +274,14 @@ def execute(request, request_path):
                          applicationAcceptanceRequired=True)
             save(work / 'journal.json', state)
             return result
-        except Exception:
+        except Exception as error:
             state['status'] = 'stopped'
+            limited=(isinstance(error,urllib.error.HTTPError)and error.code==429)or str(error)=='registry_rate_limited'
+            if limited:state['failureCode']='registry_rate_limited'
             save(work / 'journal.json', state)
             save(work / 'failure.private.json', {'traceback': traceback.format_exc()})
+            if limited:
+                print('OPS migrate: the registry rate limit is exhausted. Verified metadata is retained; retry the same command after the registry cooldown. Source applications remain running.',file=sys.stderr)
             print('OPS migrate stopped at ' + state['phase'] + '. Source preparation did not invoke later migration phases; private diagnostics retained.', file=sys.stderr)
             return 1
     finally:

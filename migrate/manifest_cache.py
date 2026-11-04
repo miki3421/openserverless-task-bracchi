@@ -44,7 +44,11 @@ class ManifestSource:
             raw=self.run('image-metadata-'+uuid.uuid4().hex,['sudo','-n','python3','-B',str(Path(__file__).with_name('local_metadata.py')),digest],timeout=45)
             self.counts['source']+=1
         else:
-            raw=manifest_bytes(reference,digest);self.counts['registry']+=1
+            try:raw=manifest_bytes(reference,digest)
+            except (OSError,ValueError)as error:
+                error.add_note('Pinned image metadata: '+reference+' '+digest)
+                raise
+            self.counts['registry']+=1
         data=decode_manifest(raw,digest)
         if not path.exists():
             # Cache is an optimization only; bound its physical allocation. No
