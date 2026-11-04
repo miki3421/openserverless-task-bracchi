@@ -162,11 +162,47 @@ phases; insufficient space or active DiskPressure stops recovery.
 
 The initial `--check` validates this minimum from encrypted snapshot metadata.
 After decrypting and verifying the archives, `verify-image-storage` refines the
-plan before any image import: it counts unique OCI content and each distinct
-overlay snapshot chain, streaming and hashing compressed and plain layers.
-Filesystem blocks, per-entry metadata and binary extended attributes are
-included. Shared aliases do not duplicate a chain; the same layer above different
-parents does. No cache reuse is assumed. Insufficient expanded-image space stops
+plan before any image import. Each uncompressed OCI archive must have a valid
+`oci-layout` and nonempty `index.json`. Every original root must resolve to at
+least one `linux/amd64` manifest, matching the existing import platform. Nested
+multiarch indices may reference unexported foreign-platform siblings; the
+original selected amd64 branches, configurations and layers must be complete in
+each archive. JSON whitespace is accepted. Descriptor sizes, blob hashes,
+uncompressed layer hashes, graph cycles and metadata budgets are checked; no
+root or selected image is omitted to make the check pass.
+
+The plan deduplicates content globally by digest and snapshots by their full
+parent chain. It includes content-store block/metadata overhead, snapshot
+directories, implicit and copied-up parent directories, per-entry metadata and
+binary extended attributes. Parent symlinks and hardlinks to symlinks are tracked
+per chain. For every distinct hardlink target not proven to be a regular file
+created in the same layer, the estimate additionally charges the entire
+cumulative parent bound. Repeated links to the same target share that charge;
+different lower aliases are charged independently because overlayfs `index=off`
+can copy their data independently. This can substantially overestimate space,
+especially over repeated hardlink layers; exceeding the budget fails explicitly
+instead of dropping an image. Same-layer regular hardlink aliases retain their
+local proof, while aliases originating from a lower file remain conservative.
+Symlink metadata bytes are maintained incrementally, and an ordered path index
+limits descendant removal to the affected range. Ordinary file entries do not
+scan inherited symlinks. Removing a directory or applying an opaque whiteout
+clears all same-layer regular-file proofs conservatively; later links to
+unrelated surviving local files can therefore receive an extra parent charge.
+
+Run `python3 -B restore/benchmark_image_storage.py` for the in-memory synthetic
+workload of 10000 files over 1000 inherited symlinks. It reports elapsed time and
+metadata encoding operations; regression tests bound operation counts without
+time-based pass/fail thresholds. It does not import images or write layer files.
+
+The qualified layer formats remain gzip and raw tar, with at most 4096 layers per
+manifest and 256 GiB total content/snapshot allowance. Individual JSON documents
+are limited to 16 MiB and aggregate decoded JSON to 64 MiB; descriptor depth is
+limited to 64 and traversal to 32768 descriptors per archive. Layer path/link
+metadata is bounded separately; escaping paths,
+symlink traversal cycles and unsupported layouts fail before import. These are
+local estimator checks and synthetic regressions, not a new live qualification.
+Shared aliases do not duplicate a chain; the same layer above different
+parents does. No existing cache reuse is assumed. Insufficient expanded-image space stops
 before import, with the private image-storage plan retained. This second check
 is required even when the initial metadata-only preflight passes.
 
