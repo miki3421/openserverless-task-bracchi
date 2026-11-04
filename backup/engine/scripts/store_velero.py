@@ -72,7 +72,7 @@ class Velero:
         for name,ref in sorted(self.c['images'].items()):
             require('@sha256:' in ref,'immutable_velero_image_required')
             command(['docker','--context',self.source['docker_context'],'exec',self.source['container_id'],
-                     'ctr','--namespace','k8s.io','images','pull','--platform','linux/amd64',ref],
+                     'ctr','--namespace','k8s.io','images','pull','--local','--platform','linux/amd64',ref],
                     self.logs/('prepare-image-'+name+'.stderr'),timeout=1800)
     def backup(self,run_id):
         self.ready();name='ops-'+run_id

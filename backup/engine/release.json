@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
   "repository": "https://github.com/miki3421/ops-k3s-backup",
-  "revision": "c319d77af6a0bad840871e85fdc55a5c7068ba71",
+  "revision": "c5b7d181dc34ba2001d7887aa1d3b02a5ecbad0e",
   "files": [
     {
       "path": "adapters/ops-native/LICENSE",
@@ -475,8 +475,8 @@
     },
     {
       "path": "scripts/store_velero.py",
-      "bytes": 6163,
-      "sha256": "c48e29dfe9854d63fa231cf2ad5d18816c82b516c534ef57e71ef52da32bff01"
+      "bytes": 6173,
+      "sha256": "819b7d5b0ad5bec6b6a2fc3a18aa6eaee5668c97d0295fd44bf4d0bd71952ce4"
     },
     {
       "path": "scripts/test-ops-native.py",
