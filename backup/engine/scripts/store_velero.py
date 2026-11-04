@@ -36,7 +36,9 @@ class Velero:
     def install(self):
         self.verify_source()
         existing=self.kube('get','ns',self.ns,'--ignore-not-found')
-        if existing:self.ready();return
+        if existing:
+            require(self.get('ns',self.ns)['metadata'].get('labels',{}).get(LABEL)==self.source['cluster_uid'],'foreign_backup_namespace')
+            self.cache_tools();self.ready();return
         crds=[x for x in self.get('crd')['items']if x['metadata']['name'].endswith('.velero.io')]
         require(not crds,'foreign_velero_installation')
         credentials=Path(self.c['paths']['state'])/'velero-aws.credential'
@@ -52,6 +54,7 @@ class Velero:
         for item in manifest['items']:
             if item['metadata'].get('namespace') or item['kind']=='Namespace':continue
             require(not self.kube('get',item['kind'],item['metadata']['name'],'--ignore-not-found'),'existing_cluster_resource_collision')
+        self.cache_tools()
         self.kube('apply','-f','-',payload=json.dumps({'apiVersion':'v1','kind':'List','items':[x for x in manifest['items']if x['kind']=='CustomResourceDefinition']}).encode())
         for item in manifest['items']:
             if item['kind']=='CustomResourceDefinition':self.kube('wait','crd/'+item['metadata']['name'],'--for=condition=Established','--timeout=60s')
@@ -62,6 +65,15 @@ class Velero:
             try:self.ready();return
             except ValueError:time.sleep(2)
         raise ValueError('velero_destination_not_ready')
+    def cache_tools(self):
+        # CRI may discard unpacked image blobs. Explicit provisioning retains
+        # the two pinned platform images; backup preflight remains read-only.
+        print('OPS backup prepare: retain original-platform blobs for the two pinned Velero images',flush=True)
+        for name,ref in sorted(self.c['images'].items()):
+            require('@sha256:' in ref,'immutable_velero_image_required')
+            command(['docker','--context',self.source['docker_context'],'exec',self.source['container_id'],
+                     'ctr','--namespace','k8s.io','images','pull','--platform','linux/amd64',ref],
+                    self.logs/('prepare-image-'+name+'.stderr'),timeout=1800)
     def backup(self,run_id):
         self.ready();name='ops-'+run_id
         # The pre-existing native coverage plan rejects unsupported data. Velero
