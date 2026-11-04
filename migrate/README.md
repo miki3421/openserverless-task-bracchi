@@ -1,5 +1,68 @@
 # Migration candidate
 
+## Select target version and source installation
+
+```sh
+ops migrate --to:0.9.0 --from:k3s --check
+ops migrate --to:0.9.0 --from:k3s
+ops migrate status --to:0.9.0 --from:k3s
+```
+
+The equivalent standard spelling is `--to=0.9.0 --from=k3s`. Here `to` selects
+the target **OpenServerless version** and `from` selects the source **installation
+type**. The source 0.1.0 layout is independently inspected; a CLI assertion does
+not override the observed host, cluster, namespace, workload or image identities.
+Both spellings are exercised through a real OPS binary with a stub executor.
+
+The K3s route reuses the accepted `ops upgrade` engine and all its phase gates.
+It automatically discovers the local source and builds its private migration
+profile and checksum-pinned software capsule. No manually authored upgrade
+JSON, tenant list, application `.env`, Codex directory or per-application deploy
+is required. Its profile is separate from the existing `OPS_HOME/upgrade.json`:
+`OPS_HOME/migrate/k3s-010-to-090.json`. Existing profiles and failed-run evidence
+are never silently replaced or advanced to a new code revision.
+
+`--check` and `status` do not download inputs, pull images, stop services or
+change Kubernetes. If no prepared capsule exists, `--check` inspects the source
+but returns `preparation_required` with exit2 and `migrationReady:false`;
+unavailable asset verification is not reported as PASS. The normal migration
+command stages inputs first, then the existing engine verifies them before
+maintenance. A valid retained profile allows `--check` to run the full existing
+engine preflight. `status` can read the retained engine journal after cutover
+without requiring the original source to remain online.
+
+During normal preparation the pinned target images are pulled into source
+containerd and exported for offline recovery; this is explicitly outside
+read-only check mode. The target K3s **binary is downloaded and verified** into
+the capsule; the running source K3s binary is not substituted for it. Source
+identity, workload readiness and exportable cache are checked again after
+staging and by the engine before freezing applications. The migration lock is
+held across preparation and engine execution. Original K3s files/data and the
+fresh encrypted backup remain retained under the established rollback contract.
+
+This adapter keeps the qualified native collection/encrypted archive path of
+`ops upgrade`. It does not silently replace it with the separate Kind
+Velero/Versity host-store implementation currently under independent PA review.
+It uses the target catalog already pinned in this task: one personal operator
+artifact, with official Controller/Admin API/Streamer references. That catalog
+combination and the new automatic K3s wrapper require their own live rehearsal;
+the earlier accepted K3s run is evidence for the reused engine, not a new run.
+
+The initial source remains the qualified single-node Linux AMD64 legacy0.1.0
+layout on `v1.27.7-rc1+k3s2`, standard K3s paths, ten PVCs, all required native
+backends and TLS disabled. This is a fresh-control-plane migration to pinned
+K3s `v1.36.4+k3s1`, not an in-place Kubernetes datastore version jump. Other
+K3s versions, distributions, external datastores, TLS resources and layouts
+remain rejected. Run from the non-root administrator's default OPS home with
+the qualified installed OPS/Bun, Python3.12 and administrator sudo access.
+Application-specific acceptance remains separate from generic completion.
+
+The old `ops upgrade` interface remains available, including its explicitly
+reviewed resume contract. The new migration wrapper does not automatically
+replay a failed data restore or bypass the existing checkpoint review.
+
+## Existing Kind-to-K3s route
+
 `ops migrate --to=k3s` orchestrates the opt-in host-store rehearsal from a
 completed `ops backup` generation: verify the exact selection, hydrate its
 encrypted native set, download pinned inputs, stop and disable the selected
@@ -132,7 +195,8 @@ security gaps in official images remain separate acceptance considerations.
 
 ```sh
 python3 -B -m unittest discover -s migrate -p 'test_*.py'
-bun test migrate/main.test.ts migrate/cli.test.ts
+python3 -O -B -m unittest discover -s migrate -p 'test_*.py'
+bun test --no-install migrate/main.test.ts migrate/cli.test.ts migrate/k3s.test.ts
 ```
 
 Set `OPS_TEST_BINARY` to the real OPS executable for the command-dispatch test;

@@ -60,10 +60,10 @@ def tar_files(path, rows):
     Path(path).chmod(0o600)
 
 
-def assemble(release, root, ops, bun, bin_dir, command, progress):
+def assemble(release, root, ops, bun, bin_dir, command, progress, *, k3s_binary='/usr/local/bin/k3s'):
     root = Path(root); root.mkdir(mode=0o700)
     for name in ('tools', 'clients', 'tasks', 'images', 'downloads'): (root / name).mkdir(mode=0o700)
-    for name, source in [('ops', ops), ('bun', bun), ('k3s', '/usr/local/bin/k3s')]:
+    for name, source in [('ops', ops), ('bun', bun), ('k3s', k3s_binary)]:
         shutil.copyfile(source, root / 'tools' / name); (root / 'tools' / name).chmod(0o700)
     progress('tools')
     restic = root / 'tools/restic'; spec = release['tools']['restic']

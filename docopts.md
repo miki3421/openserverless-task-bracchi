@@ -31,6 +31,10 @@ Usage:
   ops restore status [--json]
   ops restore reset [--check] [--json]
   ops migrate --to=k3s [--check] [--json]
+  ops migrate --to=<target> --from=<source> [--check] [--json]
+  ops migrate --to:0.9.0 --from:k3s [--check] [--json]
+  ops migrate status --to=<target> --from=<source> [--json]
+  ops migrate status --to:0.9.0 --from:k3s [--json]
   ops migrate prepare --to=k3s [--check] [--json]
   ops migrate prepare --to=k3s --from=<repository> --key-file=<file> [--snapshot=<id>] [--check] [--json]
   ops upgrade [--check] [--json]
@@ -40,8 +44,10 @@ Usage:
 Options:
   --check   Validate the selected command's protected inputs and prerequisites without collecting data or changing the cluster.
   --json    Print a structured, credential-free result.
-  --to=<target>       Migration destination; this candidate supports k3s.
-  --from=<repository> Local encrypted repository, when it cannot be discovered from ops backup.
+  --to=<target>       Target version 0.9.0 with --from=k3s; legacy --to=k3s retains the Kind migration route.
+  --from=<source>     Source distribution k3s; for migrate prepare this is the explicit local encrypted repository.
+  --to:0.9.0         Alias for target version 0.9.0; pair with --from:k3s.
+  --from:k3s         Alias for source distribution k3s; pair with --to:0.9.0.
   --key-file=<file>   Independently held recovery password file; never the password itself.
   --snapshot=<id>     Exact snapshot; required for an explicitly supplied repository with multiple snapshots.
 ```
@@ -58,6 +64,13 @@ single-node AMD64 K3s target for0.9.0. See `restore/README.md`. A file backup pa
 does not certify this application restore route.
 
 ## Local server upgrade
+
+`ops migrate --to:0.9.0 --from:k3s` (also `--to=0.9.0 --from=k3s`)
+discovers the qualified legacy K3s0.1.0 source and prepares pinned software
+inputs before invoking the established upgrade engine. `--check` never downloads
+or changes the cluster; missing staged inputs return `preparation_required`
+instead of a complete preflight PASS. `ops migrate status` with the same route
+reads its journal. Other source K3s versions/layouts remain unsupported.
 
 `ops migrate prepare --to=k3s` prepares the qualified same-host kind0.1 to
 K3s0.9 rehearsal before `ops setup kubernetes prepare` and `ops restore`.

@@ -22,11 +22,14 @@ import { randomUUID } from "node:crypto";
 import { enabledFlag, privateJSON, validateProfile } from "./lib";
 
 export async function main() {
-  process.umask(0o077);
   if(process.argv.includes("--help")){console.log("Usage: ops upgrade [--check] [--json]\n       ops upgrade status [--json]\n       ops upgrade resume [--check] [--json]");return;}
-  const options=JSON.parse(process.env.OPS_UPGRADE_REQUEST||"{}");
+  return runUpgrade(JSON.parse(process.env.OPS_UPGRADE_REQUEST||"{}"));
+}
+/** Shared entry: migration routing changes the selected profile, not the engine. */
+export async function runUpgrade(options:any,selectedProfile?:string) {
+  process.umask(0o077);
   const uid=process.getuid!();const home=process.env.OPS_HOME||join(homedir(),".ops");
-  const path=join(home,"upgrade.json");const profile=privateJSON(path,uid);validateProfile(profile);
+  const path=selectedProfile||join(home,"upgrade.json");const profile=privateJSON(path,uid);validateProfile(profile);
   if(profile.user.uid!==uid||profile.user.home!==homedir())throw new Error("upgrade_profile_user_mismatch");
   if(process.platform!=="linux"||process.arch!=="x64")throw new Error("supported_local_linux_amd64_host_required");
   const temporary=join(home,"tmp");mkdirSync(temporary,{recursive:true,mode:0o700});

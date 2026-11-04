@@ -87,6 +87,11 @@ export function saveJSON(path:string,value:any):void {
 }
 export const PHASES=["preflight","freeze-applications","backup","native-restore","prepare-mappings","native-checkpoint","switch-control-plane","bootstrap-target","prepare-target-tasks","start-target-backends","final-iam","start-platform","wait-platform","legacy-dns","verify-target-data","restore-routes","deploy-apis","verify-original-definitions","resume-schedules","complete"] as const;
 export interface Journal { schemaVersion:1;runId:string;hostUuid:string;sourceClusterUid:string;status:string;phase:string;completed:string[];error?:string;backupVerified?:boolean;finalIamVerified?:boolean }
+export function validateJournalBinding(profile:Pick<UpgradeProfile,"hostUuid"|"source">,current:any,state:Journal):void {
+  if(!/^[a-f0-9]{32}$/.test(current?.runId||"")||current.hostUuid!==profile.hostUuid||
+     state.runId!==current.runId||state.hostUuid!==profile.hostUuid||state.sourceClusterUid!==profile.source.clusterUid)
+    throw new Error("upgrade_checkpoint_profile_mismatch");
+}
 export function phaseAllowed(phase:string,state:Journal):void {
   if(!PHASES.includes(phase as any))throw new Error("unknown_upgrade_phase");
   if(PHASES.indexOf(phase as any)>PHASES.indexOf("backup")&&!state.backupVerified)throw new Error("verified_backup_required");

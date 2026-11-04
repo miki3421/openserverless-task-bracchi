@@ -58,10 +58,10 @@ tasks:
       - bun restore/main.ts
 
   migrate:
-    desc: migrate the selected kind backup to a fresh local K3s installation
+    desc: migrate a qualified legacy installation to the selected target version
     silent: true
     env:
       OPS_MIGRATE_REQUEST: >-
-        {"prepare":{{toJson (default false .prepare)}},"to":{{toJson (default "k3s" .__to)}},"repository":{{toJson (default "" .__from)}},"key":{{toJson (default "" .__key_file)}},"snapshot":{{toJson (default "" .__snapshot)}},"check":{{toJson (default false .__check)}},"json":{{toJson (default false .__json)}}}
+        {"prepare":{{toJson (default false .prepare)}},"status":{{toJson (default false .status)}},"to":{{toJson (default "" .__to)}},"from":{{toJson (default "" .__from)}},"toColon":{{toJson (default false (index . "__to:0.9.0"))}},"fromColon":{{toJson (default false (index . "__from:k3s"))}},"key":{{toJson (default "" .__key_file)}},"snapshot":{{toJson (default "" .__snapshot)}},"check":{{toJson (default false .__check)}},"json":{{toJson (default false .__json)}}}
     cmds:
       - bun migrate/main.ts

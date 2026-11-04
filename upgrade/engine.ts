@@ -23,7 +23,7 @@ import { assessSourceBackup, captureFreshBackup } from "./backup";
 import { cachedImages, verifyExportableCache } from "./cache";
 import { phaseMessage, logDriverOutput } from "./progress";
 import { inspectNativeResume } from "./resume";
-import { noSymlinks, privateJSON, saveJSON, validateProfile, verifyAssets, sha256, runPhases, type UpgradeProfile, type Journal } from "./lib";
+import { noSymlinks, privateJSON, saveJSON, validateProfile, validateJournalBinding, verifyAssets, sha256, runPhases, type UpgradeProfile, type Journal } from "./lib";
 
 const BASE="/var/lib/ops-upgrade";
 const SOURCE_KUBECONFIG="/etc/rancher/k3s/k3s.yaml";
@@ -138,6 +138,21 @@ async function inspectSourceCache() {
     new TextEncoder().encode(await command([...ctr,"content","get",digest])));
   return {entries,proof};
 }
+/** Read-only discovery for the versioned CLI; never expose source spec/credentials. */
+export async function inspectUpgradeSource(template:UpgradeProfile,discover:boolean) {
+  validateProfile(template);
+  let profile=template;
+  if(discover) {
+    const cluster=await kube(["get","namespace/kube-system"]),ns=await kube(["get","namespace/nuvolaris"]);
+    const whisk=await kube(["-n","nuvolaris","get","whisk.nuvolaris.org/controller"]);
+    profile={...template,hostUuid:readFileSync("/sys/class/dmi/id/product_uuid","utf8").trim().toLowerCase(),
+      source:{clusterUid:cluster.metadata.uid,namespaceUid:ns.metadata.uid,whiskUid:whisk.metadata.uid,namespace:"nuvolaris",instance:"controller"}};
+    validateProfile(profile);
+  }
+  const source=await facts(profile),cache=await inspectSourceCache();
+  return {profile,sourceVersion:"0.1.0",sourceK3sVersion:"v1.27.7-rc1+k3s2",tenantCount:source.tenantCount,
+    sourceImageCache:cache.proof,clusterMutation:false};
+}
 async function freeze(root:string,source:any) {
   const ingress=source.workloads.find((w:any)=>w.kind==="Deployment"&&w.metadata.namespace==="kube-system"&&w.metadata.name==="traefik");
   if(!ingress)throw new Error("supported_traefik_ingress_gate_required");
@@ -166,6 +181,9 @@ export async function main() {
   // Backup inventory helpers also inspect Git. A privileged read must never
   // refresh the caller-owned index using root ownership and the private umask.
   process.env.GIT_OPTIONAL_LOCKS="0";
+  // Every subprocess, including the ingress freeze before backup, must use
+  // this server's bound K3s API rather than an inherited user context.
+  process.env.KUBECONFIG=SOURCE_KUBECONFIG;
   const requestPath=process.argv[2];if(!requestPath)throw new Error("protected_request_required");
   const caller=Number(process.env.SUDO_UID||process.getuid!());const request=privateJSON(requestPath,caller);
   if(request.schemaVersion!==1||request.uid!==caller)throw new Error("request_identity_mismatch");
@@ -175,7 +193,9 @@ export async function main() {
   if(request.status){
     const current=existsSync(join(BASE,"current.json"))?privateJSON(join(BASE,"current.json"),0):null;
     if(!current){console.log(JSON.stringify({status:"not_started"}));return;}
+    if(!/^[a-f0-9]{32}$/.test(current.runId||"")||current.hostUuid!==profile.hostUuid)throw new Error("upgrade_checkpoint_profile_mismatch");
     const state=privateJSON(join(BASE,"runs",current.runId,"journal.json"),0);
+    validateJournalBinding(profile,current,state);
     const adapterFile=join(BASE,"runs",current.runId,"adapter-journal.json");
     const adapter=existsSync(adapterFile)?privateJSON(adapterFile,0):null;
     console.log(JSON.stringify({status:state.status,phase:state.phase,step:adapter?.activeStep||adapter?.failedStep||null,completed:state.completed,runId:state.runId,error:state.error||null}));return;

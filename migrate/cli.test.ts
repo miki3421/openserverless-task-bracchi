@@ -38,5 +38,15 @@ test.skipIf(!process.env.OPS_TEST_BINARY)("real OPS dispatch preserves paths and
       if(args.some(v=>v.startsWith("--from=")))expect(request.repository).toBe("/backup with spaces/repo");
     }
     const help=run(["migrate","--help"]);expect(help.exitCode).toBe(0);expect(help.stdout.toString()).toContain("Usage:");
+    for(const args of [
+      ["migrate","--to=0.9.0","--from=k3s","--check","--json"],
+      ["migrate","--to:0.9.0","--from:k3s","--check","--json"],
+      ["migrate","status","--to=0.9.0","--from=k3s","--json"],
+      ["migrate","status","--to:0.9.0","--from:k3s","--json"],
+    ]) {
+      const result=run(args);expect(result.exitCode,result.stdout.toString()+result.stderr.toString()).toBe(0);
+      const line=result.stdout.toString().split("\n").find(v=>v.startsWith("REQUEST="));expect(line).toBeDefined();
+      expect(options(JSON.parse(line!.slice(8)))).toMatchObject({to:"0.9.0",source:"k3s",status:args.includes("status"),check:args.includes("--check"),json:true});
+    }
   } finally {rmSync(root,{recursive:true,force:true});}
 });

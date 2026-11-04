@@ -1,5 +1,12 @@
 # Local server upgrade rehearsal
 
+The versioned public adapter `ops migrate --to:0.9.0 --from:k3s` now reuses this
+engine with automatic source discovery and pinned input preparation. It keeps
+a separate protected profile and preserves the original `ops upgrade` entry.
+See [migration routing](../migrate/README.md) for exact scopes and read-only
+checks. The new adapter/catalog combination needs a separate live rehearsal;
+the previous engine acceptance is not automatically extended to it.
+
 Run `ops upgrade --check`, then `ops upgrade` on the server hosting the source
 installation. `ops upgrade status` reports the private checkpoint after a stop.
 The protected `OPS_HOME/upgrade.json` profile supplies the host/cluster identity,

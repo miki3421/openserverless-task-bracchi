@@ -16,10 +16,18 @@
 // under the License.
 
 import { describe, expect, test } from "bun:test";
-import { enabledFlag, PHASES, phaseAllowed, runPhases, safeAssetName, validateProfile, type Journal } from "./lib";
+import { enabledFlag, PHASES, phaseAllowed, runPhases, safeAssetName, validateProfile, validateJournalBinding, type Journal } from "./lib";
 
 const state=():Journal=>({schemaVersion:1,runId:"0".repeat(32),hostUuid:"00000000-0000-0000-0000-000000000001",sourceClusterUid:"source",status:"running",phase:"preflight",completed:[]});
 describe("upgrade execution gates",()=>{
+  test("status cannot attribute another host or source journal to this migration",()=>{
+    const s=state(),profile={hostUuid:s.hostUuid,source:{clusterUid:s.sourceClusterUid}} as any;
+    const pointer={runId:s.runId,hostUuid:s.hostUuid};
+    expect(()=>validateJournalBinding(profile,pointer,s)).not.toThrow();
+    for(const changed of [{...s,sourceClusterUid:"another-source"},{...s,hostUuid:"another-host"},{...s,runId:"1".repeat(32)}])
+      expect(()=>validateJournalBinding(profile,pointer,changed)).toThrow("checkpoint_profile_mismatch");
+    expect(()=>validateJournalBinding(profile,{...pointer,runId:"../other"},s)).toThrow();
+  });
   test("CLI string flags keep check read-only and malformed flags fail closed",()=>{
     for(const value of [true,"true"])expect(enabledFlag(value)).toBe(true);
     for(const value of [false,"false",undefined])expect(enabledFlag(value)).toBe(false);
