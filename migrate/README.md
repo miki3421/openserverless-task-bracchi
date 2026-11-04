@@ -112,11 +112,15 @@ copies it with digest preservation, using an ephemeral GitHub Actions token.
 It cannot publish the other components or write to Apache. Registry visibility
 and anonymous pull access are independently checked before preparation passes.
 
-**Qualification remains pending.** The old four-image laboratory rehearsal does
-not certify this reduced combination. Its fresh-profile preflight demonstrated
-backup discovery, encrypted metadata reads and rejection of unavailable images,
-without creating profiles, markers or application resources. The reduced
-candidate needs its own preparation and application acceptance results.
+The reduced combination completed a separate isolated Linux AMD64 rehearsal
+with a fresh target: the bare migration command completed, final IAM and the
+selected user kubeconfig were verified, and Alpha/Beta retained their original
+credentials, frontends, Python/Node.js behavior and synthetic data across all
+five backends. Reciprocal private action requests returned403. The same exact
+encrypted backup generation had also passed an independent Docker recovery
+after a post-backup fixture change. These are local application results for the
+pinned catalog and fixture, not certification of production cutover, other
+architectures, remote filesystems or the earlier complete security baseline.
 
 The software catalog currently qualifies Linux AMD64, Python3.12,
 K3s1.36.4+k3s1 and the exact OPS/Bun binaries used by the rehearsal. Standard
