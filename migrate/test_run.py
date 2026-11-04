@@ -47,12 +47,12 @@ class MigrationBoundary(unittest.TestCase):
                 elif 'ctr'in args[2]:data=b''
                 else:data=b'synthetic-daemon\n'
                 stdout.write(data);return mock.Mock(returncode=0)
-            with mock.patch.object(run.os,'getuid',return_value=1000),mock.patch.object(run,'verified_store',return_value=c),mock.patch.object(run,'selected',return_value=(None,bundle)),mock.patch.object(run,'hardware_uuid',return_value='synthetic-host'),mock.patch.object(run,'read',return_value={'kind':{'source':source}}),mock.patch.object(run,'regular',side_effect=lambda p,*a:Path(p)),mock.patch.object(run,'digest',return_value='qualified'),mock.patch.object(run.subprocess,'check_output',side_effect=check_output),mock.patch.object(run.subprocess,'run',side_effect=subprocess_run),mock.patch('kind_adapter.KindConfig'),mock.patch('kind_adapter.cluster_identity'),mock.patch.object(run,'hydrate_native')as hydrate,mock.patch.object(run,'download')as download,contextlib.redirect_stdout(io.StringIO()),contextlib.redirect_stderr(io.StringIO()):
+            with mock.patch.object(run.sys,'version_info',(3,12)),mock.patch.object(run.os,'getuid',return_value=1000),mock.patch.object(run,'verified_store',return_value=c),mock.patch.object(run,'selected',return_value=(None,bundle)),mock.patch.object(run,'hardware_uuid',return_value='synthetic-host'),mock.patch.object(run,'availability',return_value={'missing':[]}),mock.patch.object(run,'read',return_value={'kind':{'source':source}}),mock.patch.object(run,'regular',side_effect=lambda p,*a:Path(p)),mock.patch.object(run,'digest',return_value='qualified'),mock.patch.object(run.subprocess,'check_output',side_effect=check_output),mock.patch.object(run.subprocess,'run',side_effect=subprocess_run),mock.patch('kind_adapter.KindConfig'),mock.patch('kind_adapter.cluster_identity'),mock.patch.object(run,'hydrate_native')as hydrate,mock.patch.object(run,'download')as download,contextlib.redirect_stdout(io.StringIO()),contextlib.redirect_stderr(io.StringIO()):
                 # Read only the two real checked-in release files; config reads
                 # are supplied by the protected-selection mock above.
                 original=Path.read_text
                 def release_read(path,*a,**kw):
-                    if path.name=='k3s-0.9.0.json':return json.dumps({'installedTools':{'ops':'qualified','bun':'qualified'}})
+                    if path.name=='k3s-0.9.0.json':return json.dumps({'installedTools':{'ops':'qualified','bun':'qualified'},'images':[]})
                     return original(path,*a,**kw)
                 with mock.patch.object(Path,'read_text',release_read):result=run.execute(r)
                 hydrate.assert_not_called();download.assert_not_called()

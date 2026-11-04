@@ -31,10 +31,12 @@ sys.path.insert(0,str(TASK/'backup/engine/scripts'))
 from store_common import require,read,save,digest,regular,hardware_uuid
 from store_driver import verified_store,selected,hydrate_native
 from assets import download
+from images import availability
 
 def execute(r):
     os.umask(0o077);uid=os.getuid();home=Path(r['opsHome']);require(uid>0,'local_ops_owner_required')
     require(set(r)=={'to','check','json','repository','key','snapshot','ops','bun','bin','opsHome'} and type(r['check'])is bool and type(r['json'])is bool,'closed_migrate_request_required')
+    require(sys.version_info[:2]==(3,12),'qualified_python312_required')
     require(r['to']=='k3s' and not any(r.get(k)for k in ('repository','key','snapshot')),'migrate_uses_selected_host_store_generation')
     root=home/'migrate';root.mkdir(mode=0o700,exist_ok=True)
     fd=os.open(root/'run.lock',os.O_RDWR|os.O_CREAT|os.O_NOFOLLOW,0o600);fcntl.flock(fd,fcntl.LOCK_EX|fcntl.LOCK_NB)
@@ -62,6 +64,8 @@ def execute(r):
         target_release=json.loads((TASK/'migrate/releases/k3s-0.9.0.json').read_text())
         for key,path in [('ops',r['ops']),('bun',r['bun'])]:
             require(digest(regular(path,uid,False))==target_release['installedTools'][key],'qualified_'+key+'_required')
+        images=availability(target_release['images']);save(work/'image-availability.json',images)
+        require(not images['missing'],'target_images_not_published')
         units=['docker.service','docker.socket']
         states=[subprocess.run(['systemctl','is-active',name],capture_output=True,text=True).stdout.strip()for name in units]
         source_online=states==['active','active']

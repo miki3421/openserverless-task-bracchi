@@ -56,7 +56,8 @@ def install(path):
     require(any(a.get('local')==r['address'] for i in addresses for a in i['addr_info']),'target_network_changed')
     shutil.copyfile(work/'k3s','/usr/local/bin/k3s');Path('/usr/local/bin/k3s').chmod(0o755)
     save(MARKER,identity)
-    env={**os.environ,'INSTALL_K3S_SKIP_DOWNLOAD':'true','INSTALL_K3S_VERSION':release['version'],'INSTALL_K3S_EXEC':'',
+    env={'PATH':'/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin','HOME':'/root','LANG':'C.UTF-8',
+         'INSTALL_K3S_SKIP_DOWNLOAD':'true','INSTALL_K3S_VERSION':release['version'],'INSTALL_K3S_EXEC':'',
          'INSTALL_K3S_SKIP_ENABLE':'false','INSTALL_K3S_SKIP_START':'false'}
     args=['/bin/sh',str(work/'install.sh'),'server','--node-ip',r['address'],'--flannel-iface',r['interface'],
           '--cluster-cidr','10.42.0.0/16','--service-cidr','10.43.0.0/16','--cluster-dns','10.43.0.10','--tls-san',r['address']]
