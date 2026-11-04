@@ -36,6 +36,17 @@ def create(root, command):
     return receipt
 
 
+def verify_owner(receipt,listing):
+    owner = receipt['owner']; namespace = receipt['namespace']
+    if not re.fullmatch('[a-f0-9]{32}', owner) or namespace != 'ops-migrate-inputs-' + owner:
+        raise ValueError('owned_image_namespace_required')
+    rows = [row.split(maxsplit=1) for row in listing.splitlines()[1:] if row.split()]
+    labels = [[label.strip() for label in row[1].split(',')]
+              for row in rows if row[0] == namespace and len(row) == 2]
+    if labels != [[OWNER_LABEL + '=' + owner]]:
+        raise ValueError('owned_image_namespace_required')
+
+
 def release(root, receipt, references, command):
     """Release only our namespace after complete archive/expansion verification.
 
@@ -47,11 +58,7 @@ def release(root, receipt, references, command):
     if not re.fullmatch('[a-f0-9]{32}', owner) or namespace != 'ops-migrate-inputs-' + owner:
         raise ValueError('owned_image_namespace_required')
     listing = command('image-namespace-owner', CTR + ['namespaces', 'list']).decode()
-    rows = [row.split(maxsplit=1) for row in listing.splitlines()[1:] if row.split()]
-    labels = [[label.strip() for label in row[1].split(',')]
-              for row in rows if row[0] == namespace and len(row) == 2]
-    if labels != [[OWNER_LABEL + '=' + owner]]:
-        raise ValueError('owned_image_namespace_required')
+    verify_owner(receipt,listing)
     prefix = CTR + ['--namespace', namespace]
     table = command('image-namespace-final-images', prefix + ['images', 'list']).decode()
     actual = {r.split()[0]: r.split()[2] for r in table.splitlines()[1:] if len(r.split()) >= 3}

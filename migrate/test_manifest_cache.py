@@ -24,6 +24,7 @@ sys.path.insert(0,str(Path(__file__).resolve().parent))
 import images
 import local_metadata
 import manifest_cache
+import seed_metadata
 
 RAW=b'{"schemaVersion":2,"manifests":[]}'
 DIGEST='sha256:'+hashlib.sha256(RAW).hexdigest()
@@ -101,6 +102,38 @@ class RegistryRetry(unittest.TestCase):
         opener=mock.Mock(side_effect=lambda *a,**k:(_ for _ in ()).throw(self.error()))
         with mock.patch.object(images.time,'sleep')as sleep,self.assertRaises(urllib.error.HTTPError):images.request_bytes('https://registry.invalid/manifest',{},1024,opener)
         self.assertEqual(opener.call_count,3);self.assertEqual([x.args[0]for x in sleep.call_args_list],[2,4])
+
+
+class MetadataSeed(unittest.TestCase):
+    def test_verified_bytes_go_only_to_owned_namespace_without_fetch_or_unpack(self):
+        run=mock.Mock(return_value=mock.Mock(returncode=0))
+        seed_metadata.seed('ops-migrate-inputs-'+'a'*32,DIGEST,RAW,run)
+        self.assertEqual(run.call_count,2)
+        first=run.call_args_list[0]
+        self.assertEqual(first.kwargs['input'],RAW)
+        self.assertIn(DIGEST,first.args[0]);self.assertIn('ingest',first.args[0])
+        self.assertTrue(any(x.startswith('containerd.io/gc.root=')for x in run.call_args_list[1].args[0]))
+        self.assertFalse(any(word in args.args[0]for args in run.call_args_list for word in ('fetch','pull','unpack','images')))
+
+    def test_wrong_digest_source_namespace_or_oversized_metadata_is_rejected_before_ingest(self):
+        for ns,digest,raw in [('k8s.io',DIGEST,RAW),('ops-migrate-inputs-'+'a'*32,DIGEST,b'wrong'),('ops-migrate-inputs-'+'a'*32,DIGEST,b'x'*(4*1024**2+1))]:
+            run=mock.Mock()
+            with self.subTest(namespace=ns),self.assertRaises(ValueError):seed_metadata.seed(ns,digest,raw,run)
+            run.assert_not_called()
+
+    def test_content_gc_race_retries_only_same_original_bytes_and_is_bounded(self):
+        good=mock.Mock(returncode=0);missing=mock.Mock(returncode=1,stderr=b'not found')
+        run=mock.Mock(side_effect=[good,missing,good,good])
+        seed_metadata.seed('ops-migrate-inputs-'+'a'*32,DIGEST,RAW,run)
+        self.assertEqual([x.kwargs['input']for x in run.call_args_list if'input'in x.kwargs],[RAW,RAW])
+        run=mock.Mock(side_effect=[good,missing]*3)
+        with self.assertRaisesRegex(ValueError,'protection_failed'):seed_metadata.seed('ops-migrate-inputs-'+'a'*32,DIGEST,RAW,run)
+        self.assertEqual(run.call_count,6)
+
+    def test_non_gc_failure_never_retries(self):
+        run=mock.Mock(return_value=mock.Mock(returncode=1,stderr=b'permission denied'))
+        with self.assertRaisesRegex(ValueError,'ingest_failed'):seed_metadata.seed('ops-migrate-inputs-'+'a'*32,DIGEST,RAW,run)
+        self.assertEqual(run.call_count,1)
 
 
 if __name__=='__main__':unittest.main()

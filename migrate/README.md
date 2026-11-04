@@ -56,6 +56,12 @@ remain errors; neither causes digest substitution. Metadata reads are bounded in
 size/time and do not pull, retag or mutate source content. Availability checks and
 the complete acquisition graph share the same verified cache. This reduces repeat
 registry requests without assuming layer/cache reuse in capacity calculations.
+After the acquisition bound passes, verified original manifest bytes are seeded
+into the owned temporary namespace with their exact sizes and hashes. This
+avoids fetching the same manifests again during content acquisition. Seeding
+never creates snapshots, reconstructs a manifest/index or changes the source
+namespace. Root protection keeps these bounded objects available until normal
+owned-namespace cleanup; failed staging retains its receipt and diagnostics.
 HTTP429 retries are limited and honor `Retry-After`; an excessive cooldown stops
 preparation. No alternate identity, registry or image is selected to bypass a limit.
 These caches and network retries are not used by read-only `--check`/`status`.

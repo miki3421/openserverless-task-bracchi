@@ -27,6 +27,7 @@ LIMIT=4*1024**2
 class ManifestSource:
     def __init__(self,root,run,notify=lambda *_:None):
         self.root=Path(root);self.run=run;self.counts={'file':0,'source':0,'registry':0}
+        self.verified_paths={}
         self.notify=notify
         raw=run('image-metadata-inventory',['sudo','-n','/usr/local/bin/k3s','ctr','--namespace','k8s.io','content','list','-q'])
         if len(raw)>8*1024**2:raise ValueError('bounded_local_metadata_inventory_required')
@@ -62,6 +63,7 @@ class ManifestSource:
                     os.link(temporary,path,follow_symlinks=False)
                 finally:
                     if temporary is not None:temporary.unlink()
+        if path.exists():self.verified_paths[digest]=path
         count=sum(self.counts.values())
         if count==1 or count%32==0:self.notify(count,dict(self.counts))
         return data

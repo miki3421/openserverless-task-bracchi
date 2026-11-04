@@ -126,7 +126,7 @@ def assemble(release, root, ops, bun, bin_dir, command, progress, *, k3s_binary=
     (root / 'clients/cli.tar').chmod(0o600)
     progress('target-tasks')
     assemble_target_tasks(release,root,command)
-    acquire_images(release,root,command,progress,acquisition)
+    acquire_images(release,root,command,progress,acquisition,metadata=getattr(manifest_fetch,'verified_paths',{}))
     manifest = {'schemaVersion': 1, 'files': {}}
     for directory in ('tools', 'clients', 'tasks', 'images'):
         for path in (root / directory).iterdir():
@@ -135,7 +135,7 @@ def assemble(release, root, ops, bun, bin_dir, command, progress, *, k3s_binary=
     return manifest
 
 
-def acquire_images(release,root,command,progress,acquisition):
+def acquire_images(release,root,command,progress,acquisition,*,metadata=None):
     root=Path(root)
     # The software stage is complete, and its actual retained files must fit the
     # fixed scratch allocation before any provider fetch is allowed.
@@ -146,6 +146,14 @@ def acquire_images(release,root,command,progress,acquisition):
     check_remaining(acquisition,root,command)
     staging = image_namespace.create(root,command)
     prefix = image_namespace.CTR + ['--namespace', staging['namespace']]
+    if metadata:
+        request=root/'metadata-seed.private.json'
+        with request.open('x')as out:
+            request.chmod(0o600)
+            json.dump({'schemaVersion':1,'namespace':staging['namespace'],'owner':staging['owner'],
+                       'entries':{digest:str(path)for digest,path in metadata.items()}},out)
+        check_remaining(acquisition,root,command)
+        command('image-metadata-seed',['sudo','-n','python3','-B',str(Path(__file__).with_name('seed_metadata.py')),str(request)],timeout=300)
     progress('target-images')
     references = []
     expected_aliases = {}

@@ -151,6 +151,7 @@ class ProfilePreparation(unittest.TestCase):
                     if check:
                         available.assert_not_called(); download.assert_not_called(); assemble.assert_not_called()
                         recover.assert_not_called()
+                        manifests.assert_not_called()
                         self.assertEqual(inspect.call_count, 1)
                         self.assertEqual(json.loads((work/'source-cache-readiness.json').read_text())['ready'],not missing_cache)
                     else:
