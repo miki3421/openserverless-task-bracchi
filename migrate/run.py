@@ -33,18 +33,26 @@ from store_driver import verified_store,selected,hydrate_native
 from assets import download
 from images import availability
 
-def await_nodes(k,work,timeout=240):
-    """systemd readiness can precede first Node registration."""
+def await_resource(k,args,predicate,work,label,timeout):
+    """Wait for creation as well as readiness during asynchronous bootstrap."""
     deadline=time.monotonic()+timeout;last={}
     while time.monotonic()<deadline:
-        p=subprocess.run([*k,'get','nodes','-o','json','--request-timeout=5s'],capture_output=True,timeout=15)
+        try:p=subprocess.run([*k,*args,'-o','json','--request-timeout=5s'],capture_output=True,timeout=15)
+        except subprocess.TimeoutExpired:
+            last={'error':'metadata_request_timeout'};time.sleep(2);continue
         if p.returncode==0:
             try:
                 value=json.loads(p.stdout)
-                if len(value.get('items',[]))==1:return
+                if predicate(value):return
             except ValueError:pass
         last={'stdout':p.stdout.decode(errors='replace'),'stderr':p.stderr.decode(errors='replace')};time.sleep(2)
-    save(Path(work)/'node-registration-failure.private.json',last);raise ValueError('target_node_registration_timeout')
+    save(Path(work)/(label+'-failure.private.json'),last);raise ValueError('target_'+label.replace('-','_')+'_timeout')
+
+def await_nodes(k,work,timeout=240):
+    await_resource(k,['get','nodes'],lambda v:len(v.get('items',[]))==1,work,'node-registration',timeout)
+
+def await_deployment(k,namespace,name,work,timeout=300):
+    await_resource(k,['get','deployment',name,'-n',namespace,'--ignore-not-found'],lambda v:v.get('kind')=='Deployment',work,'deployment-'+namespace+'-'+name,timeout)
 
 def execute(r):
     os.umask(0o077);uid=os.getuid();home=Path(r['opsHome']);require(uid>0,'local_ops_owner_required')
@@ -117,7 +125,9 @@ def execute(r):
         progress('bootstrap-target','Install the pinned certificate controller and wait for all standard K3s controllers.')
         command('install-cert-manager',k+['apply','-f',str(work/'cert-manager.yaml')])
         for ns,names in [('kube-system',['coredns','local-path-provisioner','metrics-server','traefik']),('cert-manager',['cert-manager','cert-manager-cainjector','cert-manager-webhook'])]:
-            for name in names:command('wait-'+ns+'-'+name,k+['rollout','status','deployment/'+name,'-n',ns,'--timeout=300s'],timeout=330)
+            for name in names:
+                await_deployment(k,ns,name,work)
+                command('wait-'+ns+'-'+name,k+['rollout','status','deployment/'+name,'-n',ns,'--timeout=300s'],timeout=330)
         # Let standard Helm jobs and the load balancer settle before binding a
         # strict empty target. This wait does not relax the target inspector.
         for attempt in range(90):

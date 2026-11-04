@@ -20,6 +20,7 @@ import contextlib
 import io
 import json
 import os
+import subprocess
 from pathlib import Path
 import sys
 import tempfile
@@ -38,6 +39,14 @@ class MigrationBoundary(unittest.TestCase):
         with tempfile.TemporaryDirectory()as d,mock.patch.object(run.time,'monotonic',side_effect=[0,300]),mock.patch.object(run.subprocess,'run')as execute:
             with self.assertRaisesRegex(ValueError,'node_registration_timeout'):run.await_nodes(['kubectl'],Path(d),240)
             execute.assert_not_called()
+    def test_standard_controller_creation_is_awaited(self):
+        replies=[mock.Mock(returncode=0,stdout=b'',stderr=b''),mock.Mock(returncode=0,stdout=b'{"kind":"Deployment"}',stderr=b'')]
+        with tempfile.TemporaryDirectory()as d,mock.patch.object(run.subprocess,'run',side_effect=replies)as execute,mock.patch.object(run.time,'sleep'):
+            run.await_deployment(['kubectl'],'kube-system','coredns',Path(d));self.assertEqual(execute.call_count,2)
+    def test_bootstrap_metadata_timeout_is_retried_within_budget(self):
+        replies=[subprocess.TimeoutExpired(['kubectl'],15),mock.Mock(returncode=0,stdout=b'{"items":[{}]}',stderr=b'')]
+        with tempfile.TemporaryDirectory()as d,mock.patch.object(run.subprocess,'run',side_effect=replies)as execute,mock.patch.object(run.time,'sleep'):
+            run.await_nodes(['kubectl'],Path(d));self.assertEqual(execute.call_count,2)
     def exercise(self,foreign=False,offline=False):
         with tempfile.TemporaryDirectory()as tmp:
             r={'to':'k3s','check':True,'json':False,'repository':'','key':'','snapshot':'','ops':'/ops','bun':'/bun','bin':'/bin','opsHome':tmp}
