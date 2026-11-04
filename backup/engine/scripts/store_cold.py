@@ -95,8 +95,9 @@ def collect(repo,source_cfg,run,progress,maximum):
     with SourceLock(cfg):
         try:
             attempted=True;progress('checkpoint-stop','Stop the exact kind node for a consistent Docker recovery checkpoint; the host gateway stays available.')
-            subprocess.run(docker(cfg,'stop','--time','60',cfg.source['container_id']),check=True,capture_output=True,timeout=90)
-            stopped=inspect_node(cfg,runner);require(not stopped['State']['Running'] and stopped['State']['ExitCode']==0 and not stopped['State']['OOMKilled'],'clean_kind_stop_required')
+            subprocess.run(docker(cfg,'stop','--time','300',cfg.source['container_id']),check=True,capture_output=True,timeout=330)
+            stopped=inspect_node(cfg,runner);save(Path(run)/'source-stop.private.json',{'state':stopped['State']})
+            require(not stopped['State']['Running'] and stopped['State']['ExitCode']==0 and not stopped['State']['OOMKilled'],'clean_kind_stop_required')
             maximum=cfg.data['storage']['max_capture_bytes']
             commands=[('rootfs.tar',docker(cfg,'export',cfg.source['container_id']))]
             commands += [(f'mount-{i:03d}.tar',docker(cfg,'cp','--archive',cfg.source['container_id']+':'+m['destination']+'/.','-'))for i,m in enumerate(cfg.mounts)if m['include']]

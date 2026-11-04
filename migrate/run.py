@@ -92,7 +92,7 @@ def execute(r):
               'interface':routes[0]['dev'],'work':str(work),'runId':run_id,'backupRunId':archive['runId']})
         progress('stop-docker','Stop the verified kind source, then stop and disable Docker service and socket.')
         if source_online:
-            command('stop-source',docker+['stop','--time','120',s['container_id']],timeout=180)
+            command('stop-source',docker+['stop','--time','300',s['container_id']],timeout=330)
             command('disable-docker',['sudo','-n','systemctl','disable','--now','docker.service','docker.socket'])
         progress('install-k3s','Create the fresh pinned K3s control plane on this host; the encrypted backup remains outside it.')
         command('install-k3s',['sudo','-n','python3','-B',TASK/'migrate/install.py',request],timeout=900)

@@ -45,10 +45,12 @@ def create_spec(original,image,volumes):
     for key in ['Devices','DeviceRequests','VolumesFrom','Links']:require(not original['HostConfig'].get(key),'unsupported_kind_host_attachment')
     for key in ['PidMode','IpcMode','UTSMode','UsernsMode']:
         require(original['HostConfig'].get(key,'') not in ['host'] and not str(original['HostConfig'].get(key,'')).startswith('container:'),'foreign_namespace_attachment_rejected')
-    config=original['Config'];spec={k:copy.deepcopy(config[k])for k in ['Hostname','Domainname','User','Env','Cmd','Entrypoint','WorkingDir','Labels','ExposedPorts','StopSignal']if k in config}
+    tmpfs=original['HostConfig'].get('Tmpfs')or{}
+    require(isinstance(tmpfs,dict) and set(tmpfs)<={'/run','/tmp'} and all(v==''for v in tmpfs.values()),'unqualified_kind_tmpfs')
+    config=original['Config'];spec={k:copy.deepcopy(config[k])for k in ['Hostname','Domainname','User','Env','Cmd','Entrypoint','WorkingDir','Labels','ExposedPorts','StopSignal','StopTimeout','Tty','OpenStdin','StdinOnce','AttachStdin','AttachStdout','AttachStderr']if k in config}
     spec['Image']=image
     keys=['Privileged','ReadonlyRootfs','CapAdd','CapDrop','SecurityOpt','CgroupnsMode','CgroupParent','IpcMode','PidMode','UTSMode','UsernsMode',
-          'Memory','MemorySwap','CpuShares','NanoCpus','ShmSize','PidsLimit','LogConfig','RestartPolicy','Sysctls','Ulimits','PortBindings','PublishAllPorts','NetworkMode','Init','ExtraHosts','Dns','DnsSearch']
+          'Memory','MemorySwap','CpuShares','NanoCpus','ShmSize','PidsLimit','LogConfig','RestartPolicy','Sysctls','Ulimits','PortBindings','PublishAllPorts','NetworkMode','Init','ExtraHosts','Dns','DnsSearch','Tmpfs','MaskedPaths','ReadonlyPaths']
     spec['HostConfig']={k:copy.deepcopy(original['HostConfig'][k])for k in keys if k in original['HostConfig']}
     spec['HostConfig']['Mounts']=volumes
     ip=original['NetworkSettings']['Networks']['kind']['IPAddress']
@@ -122,7 +124,7 @@ def restore(c,bun,check=False):
         save(run/'created-volumes.json',{'names':created})
         spec=create_spec(original,image,mounts);spec['Labels']['ops-backup-restore']=run_id
         progress('switch-node','Stop and retain the original node and storage; reuse its private address for certificate compatibility.')
-        provider.command('stop','--time','60',identity,timeout=90)
+        provider.command('stop','--time','300',identity,timeout=330)
         require(provider.inspect(identity)['State']['ExitCode']==0,'clean_original_stop_required')
         provider.command('rename',identity,preserved);renamed=True
         provider.api('POST','networks/kind/disconnect',{'Container':identity,'Force':False});detached=True
