@@ -36,6 +36,7 @@ from store_common import require, read, save, regular, digest
 from assets import assemble, download
 from images import availability
 from source_cache import recover_missing,recovery_image
+from image_references import pinned_workloads
 
 REQUEST_FIELDS = {'to', 'source', 'status', 'check', 'json', 'repository', 'key',
                   'snapshot', 'ops', 'bun', 'bin', 'opsHome'}
@@ -89,6 +90,7 @@ def profile_template(release, assets, uid, account, commit):
             release['target']['k3sVersion'] == 'v1.36.4+k3s1',
             'qualified_k3s_target_release_required')
     target = copy.deepcopy(release['target'])
+    target['images'] = pinned_workloads(release)
     target['operator']['archiveSha256'] = '0' * 64
     return {'schemaVersion': 1, 'kind': 'ops-upgrade-profile', 'route': 'k3s-010-to-090',
             'mode': 'rehearsal', 'engineCommit': commit, 'hostUuid': ZERO_UUID,

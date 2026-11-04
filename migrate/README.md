@@ -48,9 +48,22 @@ wrap that task exit as process exit1. Inspect the structured state: it is not a
 complete preflight PASS. The normal migration command performs preparation
 automatically before its existing full preflight and maintenance phases.
 
-During normal preparation the pinned target image content is fetched into source
-containerd without unpacking and exported for offline recovery; this is explicitly
-outside read-only check mode. The target K3s **binary is downloaded and verified** into
+During normal preparation the pinned target image content is fetched without
+unpacking into a dedicated, uniquely owned containerd namespace and exported for
+offline recovery. It never retags the running source's `k8s.io` namespace. A
+shared mutable tag may therefore retain the original source root while the target
+uses its separately pinned root. Acquired target workload images use immutable
+references in the migration profile; both tag and immutable aliases are exported,
+so later source-cache import cannot silently select the old root for a target
+workload. The separately verified operator candidate retains its repository/tag
+contract. Unselected entries of the full configuration catalog remain unchanged;
+no image is excluded from the required acquisition set.
+
+The temporary namespace is released only after complete archive and expansion
+verification, with ownership and alias checks. A failure retains its private
+namespace receipt and diagnostics. Capacity/reserve checks still precede every
+fetch and export. These operations are explicitly outside read-only check mode.
+The target K3s **binary is downloaded and verified** into
 the capsule; the running source K3s binary is not substituted for it. Source
 identity, workload readiness and exportable cache are checked again after
 staging and by the engine before freezing applications. The migration lock is

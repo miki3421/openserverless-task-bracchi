@@ -81,11 +81,14 @@ class AcquisitionBoundary(unittest.TestCase):
             def check(p,*args):
                 checks.append(copy.deepcopy(p))
                 if capacity_failure:raise ValueError('synthetic capacity failure')
-            with mock.patch.object(assets,'check_remaining',side_effect=check),mock.patch.object(assets,'check_expansion')as expand:
+            with mock.patch.object(assets,'check_remaining',side_effect=check),mock.patch.object(assets,'check_expansion')as expand,\
+                    mock.patch.object(assets.image_namespace,'create',return_value={'namespace':'synthetic-private'}),\
+                    mock.patch.object(assets.image_namespace,'release')as release:
                 if capacity_failure or fetch_failure:
                     with self.assertRaisesRegex(ValueError,'synthetic'):
                         assets.acquire_images({'images':images,'target':{'images':{'operator':images[0]['reference']}}},root,command,mock.Mock(),plan)
                     expand.assert_not_called()
+                    release.assert_not_called()
                 else:
                     assets.acquire_images({'images':images,'target':{'images':{'operator':images[0]['reference']}}},root,command,mock.Mock(),plan)
                     self.assertTrue(all(p.exists()for p in expand.call_args.args[1]))

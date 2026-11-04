@@ -30,6 +30,8 @@ import urllib.request
 import zipfile
 
 from acquisition import preflight as acquisition_preflight,check_remaining,check_expansion
+import image_namespace
+from image_references import immutable as immutable_reference
 
 
 def sha(path):
@@ -141,11 +143,14 @@ def acquire_images(release,root,command,progress,acquisition):
                        for p in (root/directory).rglob('*') if p.is_file() and not p.is_symlink())
     if software_bytes>acquisition['softwareStageUpperBoundBytes']:raise ValueError('software_staging_budget_exceeded')
     acquisition={**acquisition,'remainingWorkBytes':acquisition['workingBytes']-acquisition['softwareStageUpperBoundBytes']}
-    prefix = ['sudo', '-n', '/usr/local/bin/k3s', 'ctr', '--namespace', 'k8s.io']
+    check_remaining(acquisition,root,command)
+    staging = image_namespace.create(root,command)
+    prefix = image_namespace.CTR + ['--namespace', staging['namespace']]
     progress('target-images')
     references = []
+    expected_aliases = {}
     for index, row in enumerate(release['images'], 1):
-        ref = row['reference']; immutable = ref.split('@')[0].rsplit(':', 1)[0] + '@' + row['digest']
+        ref = row['reference']; immutable = immutable_reference(ref,row['digest'])
         check_remaining(acquisition,root,command)
         # Client.Fetch explicitly refuses unpack. Unlike images pull this stage
         # cannot allocate overlay snapshots before their verified expansion bound.
@@ -155,7 +160,10 @@ def acquire_images(release,root,command,progress,acquisition):
         existing = {r.split()[0]: r.split()[2] for r in table.splitlines()[1:] if len(r.split()) >= 3}
         if ref in existing and existing[ref] != row['digest']: raise ValueError('existing_target_image_alias_differs')
         if ref not in existing: command('image-alias-' + str(index), prefix + ['images', 'tag', immutable, ref])
-        references.append(ref)
+        expected_aliases.update({immutable:row['digest'],ref:row['digest']})
+        # Keep the verified immutable alias in the archive as well. Source-cache
+        # import may later restore a different root under the same mutable tag.
+        references.extend([ref,immutable])
         check_remaining(acquisition,root,command)
         progress('target-images', index, len(release['images']))
     operator = release['target']['images']['operator']
@@ -167,4 +175,6 @@ def acquire_images(release,root,command,progress,acquisition):
         dest.chmod(0o600)
         acquisition['remainingWorkBytes']-=acquisition['exportUpperBoundBytes']
         check_remaining(acquisition,root,command)
-    return check_expansion(acquisition,[root/'images/baseline.tar',root/'images/operator-candidate.tar'],root,command)
+    verified=check_expansion(acquisition,[root/'images/baseline.tar',root/'images/operator-candidate.tar'],root,command)
+    image_namespace.release(root,staging,expected_aliases,command)
+    return verified
