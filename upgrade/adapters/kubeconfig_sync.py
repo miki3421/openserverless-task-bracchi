@@ -46,7 +46,7 @@ def _read(path, owners):
     return value
 
 
-def planned_kubeconfigs(master_path, previous_path, home, uid, address, hostname, cache=None):
+def planned_kubeconfigs(master_path, previous_path, home, uid, address, hostname, cache=None, include_home=True):
     master_path, previous_path, home = Path(master_path), Path(previous_path), Path(home)
     master = _read(master_path, {0, os.getuid()})
     previous = _read(previous_path, {0, os.getuid()})
@@ -57,7 +57,9 @@ def planned_kubeconfigs(master_path, previous_path, home, uid, address, hostname
     cache = Path(cache) if cache is not None else home / '.ops/tmp'
     if not cache.is_absolute() or '..'in cache.parts or not cache.is_relative_to(home):
         raise ValueError('Explicit user-owned kubeconfig cache required')
-    candidates = [home / '.kube/config', cache / 'kubeconfig']
+    if type(include_home) is not bool or (not include_home and cache == home / '.ops/tmp'):
+        raise ValueError('Explicit selected profile required for cache-only refresh')
+    candidates = ([home / '.kube/config'] if include_home else []) + [cache / 'kubeconfig']
     candidates += [cache / ('k3s-' + host + '.kubeconfig') for host in sorted({address, hostname})]
     planned = []
     for path in candidates:
@@ -85,9 +87,9 @@ def planned_kubeconfigs(master_path, previous_path, home, uid, address, hostname
     return planned
 
 
-def refresh_kubeconfigs(master_path, previous_path, home, uid, gid, address, hostname, backup, cache=None):
+def refresh_kubeconfigs(master_path, previous_path, home, uid, gid, address, hostname, backup, cache=None, include_home=True):
     # Validate every destination before writing any of them.
-    planned = planned_kubeconfigs(master_path, previous_path, home, uid, address, hostname, cache)
+    planned = planned_kubeconfigs(master_path, previous_path, home, uid, address, hostname, cache, include_home)
     backup = Path(backup); _parents(backup)
     backup.mkdir(mode=0o700, parents=True, exist_ok=True)
     if backup.stat().st_uid != os.getuid() or backup.stat().st_mode & 0o077:

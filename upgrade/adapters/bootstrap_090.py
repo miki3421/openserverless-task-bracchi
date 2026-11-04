@@ -82,7 +82,8 @@ helpers={}
 exec(compile(source('kubeconfig_sync.py'),'kubeconfig_sync.py','exec'),helpers)
 refreshed=helpers['refresh_kubeconfigs']('/etc/rancher/k3s/k3s.yaml', ROOT/'source-rollback/kubeconfig.private.yaml',
     home, account.pw_uid, account.pw_gid, PLAN['guestIp'], PLAN['hostname'], p.root/'kubeconfig-before-refresh',
-    cache=Path(CONFIG['targetOpsHome'])/'tmp'if globals().get('SAME_HOST_RESTORE',False)else None)
+    cache=Path(CONFIG['targetOpsHome'])/'tmp'if globals().get('SAME_HOST_RESTORE',False)else None,
+    include_home=not globals().get('SAME_HOST_RESTORE',False))
 p.state.update(refreshed)
 p.state['homeToolingPrepared'] = True; p.save()
 print(json.dumps({'freshClusterUid':p.cluster_uid, 'k3sVersion':'v1.36.4+k3s1', 'imageArchivesImported':3,

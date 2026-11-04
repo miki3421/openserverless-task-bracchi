@@ -106,8 +106,10 @@ and a closed `network` object containing `podCidr`, `nodePodCidr`, `serviceCidr`
 `clusterDns` and `interface`. Validation compares the node, Flannel configuration,
 ServiceCIDR API, DNS service and local interface; networks cannot overlap. The
 selected profile must be inside this exact target OPS home. Source CLI settings
-and kind kubeconfigs are retained; only the selected target cache and standard
-user kubeconfig are refreshed.
+and kind kubeconfigs are retained; only the selected target profile's cache is
+refreshed. An unrelated standard user kubeconfig is preserved, including its CA
+and contexts. The same-host K3s upgrade route still refreshes its bound standard
+user kubeconfig as before.
 
 Before preflight the administrator prepares the mode0600 root-owned marker
 `/etc/ops-restore-target.private.json`, role
@@ -179,7 +181,7 @@ ops restore
 ```
 
 Reset is limited to a stopped same-host rehearsal before native recovery, in
-`native-restore`, or the
+`native-restore`, at `bootstrap-target` after a complete native checkpoint, or the
 first never-started target backend at `start-target-backends`, before platform
 startup or application acceptance. It validates the run, host, cluster,
 namespace UIDs and independent source archive before deletion. It removes the

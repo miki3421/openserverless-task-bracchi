@@ -32,6 +32,7 @@ from target_reset import validate_target_objects, remove_volume
 
 PRE_NATIVE_PHASES = {'verify-archive', 'prepare-offline-inputs', 'verify-offline-runtimes'}
 EARLY_COMPLETED = {'verify-archive', 'verify-offline-runtimes', 'prepare-service-dns'}
+BOOTSTRAP_COMPLETED = EARLY_COMPLETED | {'native-restore', 'prepare-mappings', 'native-checkpoint', 'prepare-fresh-target'}
 PRE_PLATFORM_COMPLETED = EARLY_COMPLETED | {'native-restore', 'prepare-mappings', 'native-checkpoint',
     'prepare-fresh-target', 'bootstrap-target', 'prepare-target-tasks'}
 PAYLOADS = ('decrypted', 'unpack', 'inputs', 'source-cache.tar', 'candidate', 'catalog-tasks.git', 'target-090')
@@ -45,6 +46,7 @@ def validate_attempt(profile, current, state, config, binding):
             'reset_run_identity_mismatch')
     require(state.get('status') in {'stopped', 'resetting', 'reset_failed'} and ((state.get('phase') in PRE_NATIVE_PHASES and set(state.get('completed', [])) <= {'verify-archive'}) or
              (state.get('phase') == 'native-restore' and set(state.get('completed', [])) <= EARLY_COMPLETED) or
+             (state.get('phase') == 'bootstrap-target' and set(state.get('completed', [])) == BOOTSTRAP_COMPLETED) or
              (state.get('phase') == 'start-target-backends' and set(state.get('completed', [])) == PRE_PLATFORM_COMPLETED)) and not state.get('finalIamVerified') and
             not state.get('applicationRestoreVerified'), 'only_stopped_pre_platform_restore_can_reset')
     saved = copy.deepcopy(config['profile']); selected = copy.deepcopy(profile)

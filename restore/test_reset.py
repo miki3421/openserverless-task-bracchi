@@ -27,7 +27,7 @@ import unittest
 
 sys.path.insert(0,str(Path(__file__).resolve().parent))
 from test_same_host import selected
-from reset import validate_attempt, namespace_pins, filtered_reader, remove_namespace, discard_generated_data, pre_native_configuration
+from reset import validate_attempt, namespace_pins, filtered_reader, remove_namespace, discard_generated_data, pre_native_configuration, BOOTSTRAP_COMPLETED
 
 
 def fixture():
@@ -45,6 +45,15 @@ def fixture():
 
 
 class ResetContract(unittest.TestCase):
+    def test_bootstrap_failure_reset_requires_complete_native_checkpoint_and_disabled_applications(self):
+        values=fixture();values[2].update(phase='bootstrap-target',completed=sorted(BOOTSTRAP_COMPLETED))
+        validate_attempt(*values)
+        for completed in (sorted(BOOTSTRAP_COMPLETED-{'native-checkpoint'}),sorted(BOOTSTRAP_COMPLETED|{'bootstrap-target'})):
+            changed=copy.deepcopy(values);changed[2]['completed']=completed
+            with self.assertRaisesRegex(ValueError,'only_stopped_pre_platform'):validate_attempt(*changed)
+        values[4]['applicationExecutionAllowed']=True
+        with self.assertRaisesRegex(ValueError,'native_binding'):validate_attempt(*values)
+
     def test_pre_native_reset_accepts_absent_native_uid_but_later_phase_rejects_it(self):
         values=fixture();values[2].update(phase='prepare-offline-inputs',completed=['verify-archive']);values[4]['nativeNamespaceUid']=None
         validate_attempt(*values)

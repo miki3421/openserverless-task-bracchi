@@ -80,6 +80,28 @@ class KubeconfigSyncTests(unittest.TestCase):
             refresh_kubeconfigs(self.master, self.previous, self.home, os.getuid(), os.getgid(),
                                 '192.0.2.10', 'synthetic-host', self.root / 'recovery', cache=self.root / 'foreign')
 
+    def test_profile_only_refresh_preserves_unrelated_home_and_legacy_clients(self):
+        self.write(self.normal, kubeconfig('foreign-ca', 'foreign-client', 'https://other.invalid:6443'))
+        original = {path: path.read_bytes() for path in (self.normal, self.cache)}
+        cache = self.home / '.ops/profiles/target/tmp'; cache.mkdir(parents=True, mode=0o700)
+        self.write(cache / 'kubeconfig', kubeconfig('old-ca', 'old-client'))
+        result = refresh_kubeconfigs(self.master, self.previous, self.home, os.getuid(), os.getgid(),
+                                    '192.0.2.10', 'synthetic-host', self.root / 'selected-only-recovery',
+                                    cache=cache, include_home=False)
+        self.assertEqual(result['userKubeconfigsVerified'], 1)
+        for path, value in original.items(): self.assertEqual(path.read_bytes(), value)
+        self.assertEqual(yaml.safe_load((cache / 'kubeconfig').read_text())['clusters'][0]['cluster']['certificate-authority-data'], 'new-ca')
+        self.write(cache / 'kubeconfig', kubeconfig('foreign-ca', 'foreign-client'))
+        with self.assertRaisesRegex(ValueError, 'Foreign kubeconfig'):
+            refresh_kubeconfigs(self.master, self.previous, self.home, os.getuid(), os.getgid(),
+                                '192.0.2.10', 'synthetic-host', self.root / 'selected-only-recovery',
+                                cache=cache, include_home=False)
+
+    def test_cache_only_mode_requires_an_explicit_profile(self):
+        with self.assertRaisesRegex(ValueError, 'Explicit selected profile'):
+            refresh_kubeconfigs(self.master, self.previous, self.home, os.getuid(), os.getgid(),
+                                '192.0.2.10', 'synthetic-host', self.root / 'recovery', include_home=False)
+
     def test_foreign_endpoint_cannot_be_preserved_even_with_matching_ca(self):
         self.write(self.cache, kubeconfig('old-ca', 'old-client', 'https://foreign.invalid:6443'))
         with self.assertRaisesRegex(ValueError, 'Foreign kubeconfig'):
