@@ -12,7 +12,7 @@ import time
 import uuid
 
 from store_common import require,save
-from kind_adapter import KindConfig,inventory,inspect_node,docker,cluster_identity
+from kind_adapter import KindConfig,inventory,inspect_node,docker,cluster_identity,Runner
 from kind_adapter.collection import SourceLock
 
 class Tee(io.RawIOBase):
@@ -32,7 +32,12 @@ def inspect_tar(stream):
             for member in archive:
                 count+=1;p=PurePosixPath(member.name)
                 require(count<=2000000 and not member.name.startswith('/') and '..' not in p.parts and '\\' not in member.name,'unsafe_cold_archive_member')
-                require(member.isfile() or member.isdir() or member.issym() or member.islnk(),'unsupported_cold_archive_type')
+                parts=p.parts
+                if parts[:1]==('var',):parts=parts[1:]
+                whiteout=(member.ischr() and member.devmajor==0 and member.devminor==0 and
+                    len(parts)>6 and parts[:4]==('lib','containerd','io.containerd.snapshotter.v1.overlayfs','snapshots') and
+                    parts[4].isdigit() and parts[5]=='fs')
+                require(member.isfile() or member.isdir() or member.issym() or member.islnk() or whiteout,'unsupported_cold_archive_type')
                 if member.islnk():require(not member.linkname.startswith('/') and '..' not in PurePosixPath(member.linkname).parts,'unsafe_cold_hardlink')
                 if member.isfile():
                     with archive.extractfile(member)as src:
@@ -80,7 +85,7 @@ def verify_stream(repo,row,sink=None):
 
 def collect(repo,source_cfg,run,progress,maximum):
     selection=copy.deepcopy(source_cfg['kind']);selection['storage']['max_capture_bytes']=maximum
-    cfg=KindConfig(selection);before=inventory(cfg);source=inspect_node(cfg)
+    cfg=KindConfig(selection);runner=Runner();before=inventory(cfg,runner);source=inspect_node(cfg,runner)
     require(not any('ollama' in str(v).lower()for v in source['Config'].get('Env',[])),'cold_scope_requires_review')
     # The checkpoint is a whole-node set; installed Ollama data is unsupported here.
     raw=subprocess.check_output(docker(cfg,'exec',cfg.source['container_id'],'ctr','-n','k8s.io','images','ls','-q'),text=True)
@@ -91,7 +96,7 @@ def collect(repo,source_cfg,run,progress,maximum):
         try:
             attempted=True;progress('checkpoint-stop','Stop the exact kind node for a consistent Docker recovery checkpoint; the host gateway stays available.')
             subprocess.run(docker(cfg,'stop','--time','60',cfg.source['container_id']),check=True,capture_output=True,timeout=90)
-            stopped=inspect_node(cfg);require(not stopped['State']['Running'] and stopped['State']['ExitCode']==0 and not stopped['State']['OOMKilled'],'clean_kind_stop_required')
+            stopped=inspect_node(cfg,runner);require(not stopped['State']['Running'] and stopped['State']['ExitCode']==0 and not stopped['State']['OOMKilled'],'clean_kind_stop_required')
             maximum=cfg.data['storage']['max_capture_bytes']
             commands=[('rootfs.tar',docker(cfg,'export',cfg.source['container_id']))]
             commands += [(f'mount-{i:03d}.tar',docker(cfg,'cp','--archive',cfg.source['container_id']+':'+m['destination']+'/.','-'))for i,m in enumerate(cfg.mounts)if m['include']]
@@ -101,11 +106,11 @@ def collect(repo,source_cfg,run,progress,maximum):
                 require(sum(x['bytes']for x in manifest['archives'])<=maximum,'cold_checkpoint_total_budget')
         finally:
             if attempted:
-                current=inspect_node(cfg)
+                current=inspect_node(cfg,runner)
                 if not current['State']['Running']:subprocess.run(docker(cfg,'start',cfg.source['container_id']),check=True,capture_output=True,timeout=90)
                 end=time.monotonic()+cfg.data['timeouts']['recovery_seconds']
                 while time.monotonic()<end:
-                    try:cluster_identity(cfg);manifest['sourceRecovered']=True;break
+                    try:cluster_identity(cfg,runner);manifest['sourceRecovered']=True;break
                     except Exception:time.sleep(2)
                 require(manifest['sourceRecovered'],'original_kind_recovery_required')
     progress('checkpoint-verify','Read every encrypted checkpoint byte back and validate every archive member without host extraction.')

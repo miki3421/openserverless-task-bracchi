@@ -78,8 +78,8 @@ def execute(r):
             require(info['Id']==s['container_id'] and info['State']['Running'] and info['Config']['Labels'].get('io.x-k8s.kind.cluster')==s['kind_cluster'],'source_container_changed')
             require(command('running-containers',docker+['ps','-q','--no-trunc']).decode().split()==[s['container_id']],'foreign_running_docker_workload')
             require(command('docker-daemon',docker+['info','--format','{{.ID}}']).decode().strip()==s['docker_daemon_id'],'docker_daemon_identity_changed')
-            from kind_adapter import KindConfig,cluster_identity
-            cluster_identity(KindConfig(source['kind']))
+            from kind_adapter import KindConfig,cluster_identity,Runner
+            cluster_identity(KindConfig(source['kind']),Runner())
         if r['check']:
             state.update(status='check_passed',backupRunId=bundle['runId'],clusterMutation=False);save(work/'journal.json',state);print(json.dumps(state));return 0
         progress('verify-selected-archive','Retrieve and verify the encrypted native set from the same completed backup generation.')
