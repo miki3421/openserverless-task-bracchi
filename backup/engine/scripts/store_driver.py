@@ -10,7 +10,7 @@ import sys
 import traceback
 import uuid
 
-from store_common import require,profile,read,save,mount_ready,fingerprint,TOOLS
+from store_common import require,profile,read,save,mount_ready,fingerprint,TOOLS,acquire_operation
 from store_remote import Destination,RemoteRestic
 from store_velero import Velero
 
@@ -43,8 +43,7 @@ def discard_new_plaintext(run):
 def backup(c,path,bun,check=False,quiet=False):
     from ops_backup import run_backup,selection
     d=Destination(c);state_root=Path(c['paths']['state']);state_root.mkdir(mode=0o700,parents=True,exist_ok=True)
-    lock=state_root/'operation.lock';fd=os.open(lock,os.O_RDWR|os.O_CREAT|os.O_NOFOLLOW,0o600)
-    fcntl.flock(fd,fcntl.LOCK_EX|fcntl.LOCK_NB)
+    fd=acquire_operation(c)
     run_id=uuid.uuid4().hex;run=state_root/'runs'/run_id;run.mkdir(mode=0o700,parents=True)
     state={'status':'running','runId':run_id,'driver':'versity-velero','phase':'preflight',
            'encryptedFileRestoreVerified':False,'dockerCheckpointVerified':False,'applicationRestoreVerified':False}

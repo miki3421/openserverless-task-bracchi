@@ -28,7 +28,7 @@ import uuid
 
 TASK=Path(__file__).resolve().parents[1]
 sys.path.insert(0,str(TASK/'backup/engine/scripts'))
-from store_common import require,read,save,digest,regular,hardware_uuid
+from store_common import require,read,save,digest,regular,hardware_uuid,acquire_operation
 from store_driver import verified_store,selected,hydrate_native
 from assets import download
 from images import availability
@@ -41,7 +41,7 @@ def execute(r):
     root=home/'migrate';root.mkdir(mode=0o700,exist_ok=True)
     fd=os.open(root/'run.lock',os.O_RDWR|os.O_CREAT|os.O_NOFOLLOW,0o600);fcntl.flock(fd,fcntl.LOCK_EX|fcntl.LOCK_NB)
     run_id=uuid.uuid4().hex;work=root/('run-'+run_id);work.mkdir(mode=0o700)
-    state={'status':'running','runId':run_id,'phase':'preflight','applicationRestoreVerified':False}
+    state={'status':'running','runId':run_id,'phase':'preflight','applicationRestoreVerified':False};store_lock=None
     def progress(phase,why):
         state['phase']=phase;save(work/'journal.json',state);save(root/'current.json',{'runId':run_id})
         if not r['json']:print('OPS migrate: '+phase+' — '+why,flush=True)
@@ -54,6 +54,7 @@ def execute(r):
     try:
         progress('preflight','Verify the exact completed backup, physical host, source and immutable software inputs.')
         c=verified_store(home/'backup-store.json');destination,bundle=selected(c)
+        store_lock=acquire_operation(c)
         require(bundle['source']['hostUuid']==hardware_uuid(),'migration_host_changed')
         require(bundle['docker']['archiveCount']>0 and bundle['docker']['sourceRecovered'] is True,'verified_docker_checkpoint_required')
         source=read(c['sourceConfig'],uid);s=source['kind']['source']
@@ -126,6 +127,8 @@ def execute(r):
     except Exception:
         state['status']='failed';save(work/'journal.json',state);save(work/'failure.private.json',{'traceback':traceback.format_exc()})
         print('OPS migrate stopped at '+state['phase']+'. Protected journal retained; subsequent phases were not executed.',file=sys.stderr);return 1
-    finally:os.close(fd)
+    finally:
+        if store_lock is not None:os.close(store_lock)
+        os.close(fd)
 
 if __name__=='__main__':sys.exit(execute(read(sys.argv[1],os.getuid())))

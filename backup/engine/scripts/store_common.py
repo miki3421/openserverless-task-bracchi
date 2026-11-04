@@ -1,5 +1,6 @@
 """Protected contracts for the opt-in host S3 / Velero rehearsal adapter."""
 import hashlib
+import fcntl
 import json
 import os
 from pathlib import Path
@@ -17,6 +18,16 @@ LABEL='ops-backup-store'
 
 def require(condition,message):
     if not condition:raise ValueError(message)
+
+def acquire_operation(c):
+    """One store writer across backup, Docker recovery and migration."""
+    root=Path(c['paths']['state']);root.mkdir(mode=0o700,parents=True,exist_ok=True)
+    require(not root.is_symlink() and root.stat().st_uid==os.getuid() and root.stat().st_mode&0o777==0o700,'protected_operation_directory_required')
+    fd=os.open(root/'operation.lock',os.O_RDWR|os.O_CREAT|os.O_NOFOLLOW,0o600)
+    try:
+        info=os.fstat(fd);require(info.st_uid==os.getuid() and info.st_nlink==1 and stat.S_ISREG(info.st_mode) and info.st_mode&0o777==0o600,'protected_operation_lock_required')
+        fcntl.flock(fd,fcntl.LOCK_EX|fcntl.LOCK_NB);return fd
+    except BaseException:os.close(fd);raise
 
 def unique(pairs):
     out={}

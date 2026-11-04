@@ -10,7 +10,7 @@ import threading
 import time
 import uuid
 
-from store_common import require,read,save,command
+from store_common import require,read,save,command,acquire_operation
 from store_remote import RemoteRestic
 from store_cold import verify_stream,shutdown_proof
 
@@ -76,6 +76,11 @@ def status(c):
     return {k:s[k]for k in ['status','runId','phase','sourceRetained','applicationAcceptanceRequired']if k in s}
 
 def restore(c,bun,check=False):
+    fd=acquire_operation(c)
+    try:return restore_locked(c,bun,check)
+    finally:os.close(fd)
+
+def restore_locked(c,bun,check=False):
     from store_driver import selected
     d,b=selected(c);source_cfg=read(c['sourceConfig'],os.getuid())
     require(not Path('/usr/local/bin/k3s').exists(),'remove_k3s_before_kind_recovery')

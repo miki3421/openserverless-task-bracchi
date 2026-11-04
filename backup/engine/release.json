@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
   "repository": "https://github.com/miki3421/ops-k3s-backup",
-  "revision": "7ad8449a88a08ff2b505ee1deb937a8dcc453cb5",
+  "revision": "387e6182bfc3580256cc629d5ab31cccb3aaef9c",
   "files": [
     {
       "path": "adapters/ops-native/LICENSE",
@@ -445,18 +445,18 @@
     },
     {
       "path": "scripts/store_common.py",
-      "bytes": 6019,
-      "sha256": "a0ab759cb1b83ee0e71938a0b6c68e4e36ee6212e6a967f7bb5a0104e9bd340d"
+      "bytes": 6738,
+      "sha256": "4b7c392f8cb45653eaf5c09854f876501a98cd55cefaba75b1be81cca21da9f5"
     },
     {
       "path": "scripts/store_docker.py",
-      "bytes": 13231,
-      "sha256": "d8ead139e0663d8c7dcf5d298d8b40eee3dcea9fb376359df77bf15ee92d3010"
+      "bytes": 13385,
+      "sha256": "828735f20cd130ec0b713a51e4f1106caf6af3f852d021ae555ab07c8f0036c9"
     },
     {
       "path": "scripts/store_driver.py",
-      "bytes": 9501,
-      "sha256": "d57907a2c2f8979a38a82f8c859a1dd115440fd6e8abf0a457455aa77185e309"
+      "bytes": 9404,
+      "sha256": "362254253bb46db7b8f54ee3c532726578a33e1047119796fde3566e08cdd2f8"
     },
     {
       "path": "scripts/store_host.py",
