@@ -19,7 +19,7 @@ import { expect, test } from "bun:test";
 import { options } from "./main";
 
 test("simple prepare discovers inputs and supports explicit immutable selection",()=>{
-  expect(options({})).toEqual({to:"k3s",check:false,json:false,repository:"",key:"",snapshot:""});
+  expect(options({})).toEqual({prepare:false,to:"k3s",check:false,json:false,repository:"",key:"",snapshot:""});
   expect(options({to:"k3s",check:"true"}).check).toBe(true);
   expect(options({repository:"/path with spaces/repo",key:"/outside/key",snapshot:"a".repeat(64)}).repository).toBe("/path with spaces/repo");
 });

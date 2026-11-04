@@ -1,9 +1,25 @@
-# Migration preparation candidate
+# Migration candidate
+
+`ops migrate --to=k3s` orchestrates the opt-in host-store rehearsal from a
+completed `ops backup` generation: verify the exact selection, hydrate its
+encrypted native set, download pinned inputs, stop and disable the selected
+Docker source, install fresh local K3s and cert-manager, prepare target CRDs and
+RBAC, and run the existing restore checks and restore. It does not require SSH
+to the local server. `--check` does not stop Docker or install a target. An
+already stopped and disabled Docker daemon is also supported; neither mode
+starts Docker for migration. An existing K3s target requires separate review.
+
+This route is a Linux AMD64, single-host candidate. It requires the protected
+profile created by `ops backup prepare` and the exact completed store
+generation; source applications and native backends still need acceptance
+after restore. Failed phases retain private journals and stop subsequent work.
+It is not certified for production or other layouts by synthetic tests.
 
 `ops migrate prepare --to=k3s` is the preparatory step for the qualified
 same-host kind0.1.0 to K3s0.9.0 rehearsal. It runs after installing the target
 K3s with `ops cloud k3s`, before `ops setup kubernetes prepare` and
-`ops restore`. The final `ops migrate --to=k3s` wrapper is not implemented yet.
+`ops restore`. It also remains available as the explicit preparation interface
+used internally by the wrapper.
 
 The operator needs no per-application names, `.env` files, manually edited
 restore JSON, root target marker or Codex helper directory. Application

@@ -75,6 +75,20 @@ class Destination:
             require(p.stat().st_size==r['bytes'] and digest(p)==r['sha256'],'repository_download_mismatch')
         return target
 
+    @staticmethod
+    def verify_repository(records,target):
+        target=Path(target);require(target.is_dir() and not target.is_symlink(),'hydrated_repository_directory_required')
+        expected=set()
+        for r in records:
+            name=r['file'];require(name and not name.startswith('/') and '..'not in name.split('/') and '\\'not in name and name not in expected,'unsafe_repository_receipt')
+            expected.add(name);p=regular(target/name,os.getuid())
+            require(p.stat().st_size==r['bytes'] and digest(p)==r['sha256'],'hydrated_repository_changed')
+        actual=set()
+        for p in target.rglob('*'):
+            require(not p.is_symlink(),'hydrated_repository_link_rejected')
+            if p.is_file():actual.add(str(p.relative_to(target)))
+        require(expected and actual==expected,'hydrated_repository_file_set_changed')
+
 class RemoteRestic:
     def __init__(self,destination,source_cfg,prefix,logs):
         self.d=destination;self.cfg=source_cfg;self.logs=Path(logs);self.logs.mkdir(mode=0o700,parents=True,exist_ok=True)

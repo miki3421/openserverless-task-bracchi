@@ -22,8 +22,8 @@ import { randomUUID } from "node:crypto";
 import { flag, verifyEngine } from "../backup/main";
 
 export function options(value:any) {
-  if(!value||typeof value!=="object"||Array.isArray(value)||Object.keys(value).some(k=>!["to","check","json","repository","key","snapshot"].includes(k)))throw Error("invalid_migrate_options");
-  const result={to:value.to||"k3s",check:flag(value.check),json:flag(value.json),repository:value.repository||"",key:value.key||"",snapshot:value.snapshot||""};
+  if(!value||typeof value!=="object"||Array.isArray(value)||Object.keys(value).some(k=>!["prepare","to","check","json","repository","key","snapshot"].includes(k)))throw Error("invalid_migrate_options");
+  const result={prepare:flag(value.prepare),to:value.to||"k3s",check:flag(value.check),json:flag(value.json),repository:value.repository||"",key:value.key||"",snapshot:value.snapshot||""};
   if(result.to!=="k3s"||[result.repository,result.key,result.snapshot].some(v=>typeof v!=="string"||/[\r\n\0]/.test(v)))throw Error("unsupported_migrate_target_or_input");
   if(Boolean(result.repository)!==Boolean(result.key)||(!result.repository&&result.snapshot)||
      [result.repository,result.key].some(v=>v&&!isAbsolute(v))||(result.snapshot&&!/^[a-f0-9]{64}$/.test(result.snapshot)))throw Error("explicit_archive_selection_required");
@@ -31,14 +31,15 @@ export function options(value:any) {
 }
 export async function main() {
   process.umask(0o077);
-  if(process.argv.includes("--help")){console.log("Usage: ops migrate prepare --to=k3s [--check] [--json]\n       ops migrate prepare --to=k3s --from=<repository> --key-file=<file> [--snapshot=<id>] [--check] [--json]");return;}
-  const selected=options(JSON.parse(process.env.OPS_MIGRATE_REQUEST||"{}"));verifyEngine();
+  if(process.argv.includes("--help")){console.log("Usage: ops migrate --to=k3s [--check] [--json]\n       ops migrate prepare --to=k3s [--check] [--json]\n       ops migrate prepare --to=k3s --from=<repository> --key-file=<file> [--snapshot=<id>] [--check] [--json]");return;}
+  const {prepare,...selected}=options(JSON.parse(process.env.OPS_MIGRATE_REQUEST||"{}"));verifyEngine();
+  if(!prepare&&(selected.repository||selected.key||selected.snapshot))throw Error("migrate_uses_selected_host_store_generation");
   const home=process.env.OPS_HOME||join(homedir(),".ops"),tmp=join(home,"tmp");mkdirSync(tmp,{recursive:true,mode:0o700});
   const file=join(tmp,"migrate-request-"+randomUUID()+".json");
   writeFileSync(file,JSON.stringify({...selected,opsHome:home,ops:process.env.OPS_CMD||process.env.OPS||join(homedir(),".local/bin/ops"),
     bun:process.execPath,bin:process.env.OPS_BIN||join(homedir(),".ops/linux-amd64/bin")}),{flag:"wx",mode:0o600});
   try {
-    const child=Bun.spawn(["python3","-B",join(import.meta.dir,"prepare.py"),file],{stdin:"inherit",stdout:"inherit",stderr:"inherit",
+    const child=Bun.spawn(["python3","-B",join(import.meta.dir,prepare?"prepare.py":"run.py"),file],{stdin:"inherit",stdout:"inherit",stderr:"inherit",
       env:{...process.env,PYTHONDONTWRITEBYTECODE:"1",GIT_OPTIONAL_LOCKS:"0"}});process.exitCode=await child.exited;
   } finally {unlinkSync(file);}
 }

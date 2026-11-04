@@ -30,6 +30,7 @@ Usage:
   ops restore [--check] [--json]
   ops restore status [--json]
   ops restore reset [--check] [--json]
+  ops migrate --to=k3s [--check] [--json]
   ops migrate prepare --to=k3s [--check] [--json]
   ops migrate prepare --to=k3s --from=<repository> --key-file=<file> [--snapshot=<id>] [--check] [--json]
   ops upgrade [--check] [--json]

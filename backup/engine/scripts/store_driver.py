@@ -104,11 +104,13 @@ def hydrate_native(c):
     d,b=selected(c);state=Path(c['paths']['state']);run=state/'hydrate'/b['runId'];run.mkdir(mode=0o700,parents=True,exist_ok=True)
     target=run/'repository';receipt=run/'verified.json'
     if target.exists():
-        require(read(receipt,os.getuid())['runId']==b['runId'],'partial_hydration_requires_review')
+        proof=read(receipt,os.getuid())
+        require(proof['runId']==b['runId'] and proof['snapshot']==b['native']['snapshot'],'partial_hydration_requires_review')
     else:
         d.download_repository(b['native']['prefix'],b['native']['files'],target)
         source=read(c['sourceConfig'],os.getuid());repo=RemoteRestic(d,source,b['native']['prefix'],run/'logs');repo.check()
         save(receipt,{'runId':b['runId'],'snapshot':b['native']['snapshot']})
+    d.verify_repository(b['native']['files'],target)
     return {'repository':str(target),'snapshot':b['native']['snapshot'],'passwordFile':b['native']['passwordFile'],
             'restic':b['native']['restic'],'resticSha256':b['native']['resticSha256'],'runId':b['runId']}
 

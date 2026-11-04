@@ -1,0 +1,16 @@
+{
+  "schemaVersion": 1,
+  "version": "v1.36.4+k3s1",
+  "installer": {
+    "url": "https://raw.githubusercontent.com/k3s-io/k3s/v1.36.4%2Bk3s1/install.sh",
+    "sha256": "46177d4c99440b4c0311b67233823a8e8a2fc09693f6c89af1a7161e152fbfad"
+  },
+  "binary": {
+    "url": "https://github.com/k3s-io/k3s/releases/download/v1.36.4%2Bk3s1/k3s",
+    "sha256": "835873f37245fc615f547a2fe2af9402a347875f13fa64a1f136de644955ea3f"
+  },
+  "certManager": {
+    "url": "https://github.com/cert-manager/cert-manager/releases/download/v1.21.3/cert-manager.yaml",
+    "sha256": "c04a51295adda2b1a775146751f973e787190778c7f35180861d9678876e5c74"
+  }
+}
