@@ -38,7 +38,9 @@ class NamespaceIsolation(unittest.TestCase):
                     ns=args[-2];state.update(namespace=ns,label=args[-1]);spaces[ns]={}
                 elif label=='image-namespace-owner':
                     owner='invalid=owner'if wrong_owner else state['label']
-                    return ('NAME LABELS\nk8s.io\n'+state['namespace']+' '+owner+'\n').encode()
+                    # ctr uses tabwriter: both the name and final label columns
+                    # include alignment padding in the real K3s output.
+                    return ('NAME    LABELS    \nk8s.io          \n'+state['namespace']+'   '+owner+'   \n').encode()
                 elif label=='image-namespace-remove':spaces.pop(args[-1])
                 elif '--namespace'in args:
                     ns=args[args.index('--namespace')+1]

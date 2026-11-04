@@ -48,7 +48,8 @@ def release(root, receipt, references, command):
         raise ValueError('owned_image_namespace_required')
     listing = command('image-namespace-owner', CTR + ['namespaces', 'list']).decode()
     rows = [row.split(maxsplit=1) for row in listing.splitlines()[1:] if row.split()]
-    labels = [row[1].split(',') for row in rows if row[0] == namespace and len(row) == 2]
+    labels = [[label.strip() for label in row[1].split(',')]
+              for row in rows if row[0] == namespace and len(row) == 2]
     if labels != [[OWNER_LABEL + '=' + owner]]:
         raise ValueError('owned_image_namespace_required')
     prefix = CTR + ['--namespace', namespace]
