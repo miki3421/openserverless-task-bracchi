@@ -45,5 +45,19 @@ for old,new in [('controller','controller'),('nuvolaris-streamer-api','openserve
     if old!=new:
         aliases.append({'apiVersion':'v1','kind':'Service','metadata':{'namespace':'openserverless','name':old},
                         'spec':{'type':'ExternalName','externalName':new+'.openserverless.svc.cluster.local'}})
-p.apply('platform-service-compatibility',aliases)
+# Headless streamer aliases are captured platform connectivity, not application
+# code. Keep their original DNS identity while selecting the new platform Pod.
+payload=ROOT/'unpack/payload';receipt=json.loads((payload/'receipt.json').read_text())
+item=next(c['files'][0] for c in receipt['components'] if c['id']=='platform-configuration')
+raw=(payload/'artifacts'/item['path']).read_bytes()
+if len(raw)!=item['bytes'] or hashlib.sha256(raw).hexdigest()!=item['sha256']:
+    raise ValueError('Saved platform configuration binding differs')
+helper={};exec(compile(source('streamer_aliases.py'),'streamer_aliases.py','exec'),helper)
+target=p.get('headless-streamer-target','service/openserverless-streamer-api','openserverless')
+occupied={(ns,svc['metadata']['name']) for ns in ('nuvolaris','openserverless')
+          for svc in p.get('headless-existing-'+ns,'services',ns)['items']}
+occupied.update((obj['metadata']['namespace'],obj['metadata']['name']) for obj in aliases)
+headless=helper['headless_streamer_aliases'](json.loads(raw)['resources'],target,occupied)
+p.apply('platform-service-compatibility',aliases+headless)
+p.state['capturedHeadlessStreamerAliasesRestored']=len(headless)//2;p.save()
 print(json.dumps({'realOpsDeployCommandsPassed':2,'streamerReady':True,'adminApiReady':True,'legacyPlatformDnsAliasesPrepared':True,'originalApplicationCodeRewritten':False}))

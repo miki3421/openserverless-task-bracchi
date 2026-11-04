@@ -66,6 +66,11 @@ Every original application definition, credential and attachment is verified.
 The engine never rewrites application code. Synthetic Alpha/Beta streaming
 fixtures may be prepared separately with backward-compatible client code before
 the fresh backup. Application acceptance remains a separate step after migration.
+Captured headless Service aliases selecting the legacy platform streamer are
+recreated against the destination streamer Pods, retaining the original DNS name.
+Their selector, namespace and ports are qualified; existing target names and
+unsupported exposure stop the operation. This does not import arbitrary
+application Services or rewrite the action code.
 Missed scheduled executions are not automatically replayed.
 
 The first failure stops subsequent phases and retains private diagnostics. A
