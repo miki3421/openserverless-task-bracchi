@@ -33,6 +33,19 @@ from store_driver import verified_store,selected,hydrate_native
 from assets import download
 from images import availability
 
+def await_nodes(k,work,timeout=240):
+    """systemd readiness can precede first Node registration."""
+    deadline=time.monotonic()+timeout;last={}
+    while time.monotonic()<deadline:
+        p=subprocess.run([*k,'get','nodes','-o','json','--request-timeout=5s'],capture_output=True,timeout=15)
+        if p.returncode==0:
+            try:
+                value=json.loads(p.stdout)
+                if len(value.get('items',[]))==1:return
+            except ValueError:pass
+        last={'stdout':p.stdout.decode(errors='replace'),'stderr':p.stderr.decode(errors='replace')};time.sleep(2)
+    save(Path(work)/'node-registration-failure.private.json',last);raise ValueError('target_node_registration_timeout')
+
 def execute(r):
     os.umask(0o077);uid=os.getuid();home=Path(r['opsHome']);require(uid>0,'local_ops_owner_required')
     require(set(r)=={'to','check','json','repository','key','snapshot','ops','bun','bin','opsHome'} and type(r['check'])is bool and type(r['json'])is bool,'closed_migrate_request_required')
@@ -99,6 +112,7 @@ def execute(r):
         progress('install-k3s','Create the fresh pinned K3s control plane on this host; the encrypted backup remains outside it.')
         command('install-k3s',['sudo','-n','python3','-B',TASK/'migrate/install.py',request],timeout=900)
         k=['sudo','-n','/usr/local/bin/k3s','kubectl','--kubeconfig=/etc/rancher/k3s/k3s.yaml']
+        await_nodes(k,work)
         command('wait-node',k+['wait','nodes','--all','--for=condition=Ready','--timeout=240s'],timeout=270)
         progress('bootstrap-target','Install the pinned certificate controller and wait for all standard K3s controllers.')
         command('install-cert-manager',k+['apply','-f',str(work/'cert-manager.yaml')])
