@@ -30,6 +30,11 @@ from store_common import require,read,save,digest,regular
 
 MARKER=Path('/etc/ops-migrate-install.private.json')
 
+def fresh_target():
+    require(os.geteuid()==0,'administrator_required')
+    for path in ['/usr/local/bin/k3s','/etc/rancher/k3s','/var/lib/rancher/k3s','/var/lib/ops-restore/current.json','/etc/ops-restore-target.private.json',str(MARKER)]:
+        p=Path(path);require(not p.exists() and not p.is_symlink(),'existing_k3s_or_restore_requires_review')
+
 def install(path):
     require(os.geteuid()==0,'administrator_required')
     uid=int(os.environ.get('SUDO_UID','0'));r=read(path,uid)
@@ -50,8 +55,7 @@ def install(path):
         require(read(MARKER,0)==identity,'foreign_install_marker')
         require(digest(regular('/usr/local/bin/k3s',0,False))==release['binary']['sha256'],'installed_k3s_checksum_mismatch')
         print(json.dumps({'status':'already_installed'}));return
-    for path in ['/usr/local/bin/k3s','/etc/rancher/k3s','/var/lib/rancher/k3s','/var/lib/ops-restore/current.json','/etc/ops-restore-target.private.json']:
-        require(not Path(path).exists(),'existing_k3s_or_restore_requires_review')
+    fresh_target()
     addresses=json.loads(subprocess.check_output(['ip','-j','address','show','dev',r['interface']]))
     require(any(a.get('local')==r['address'] for i in addresses for a in i['addr_info']),'target_network_changed')
     shutil.copyfile(work/'k3s','/usr/local/bin/k3s');Path('/usr/local/bin/k3s').chmod(0o755)
@@ -67,7 +71,10 @@ def install(path):
     print(json.dumps({'status':'installed','k3sVersion':release['version']}))
 
 if __name__=='__main__':
-    try:os.umask(0o077);install(sys.argv[1])
+    try:
+        os.umask(0o077)
+        if sys.argv[1:] == ['check']:fresh_target();print(json.dumps({'status':'fresh_target_available','mutation':False}))
+        else:install(sys.argv[1])
     except Exception:
         import traceback
         if len(sys.argv)>1:

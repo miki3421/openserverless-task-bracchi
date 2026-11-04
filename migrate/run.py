@@ -61,6 +61,7 @@ def execute(r):
         require(s['cluster_uid']==bundle['source']['clusterUid'],'source_backup_changed')
         require(not subprocess.check_output(['git','-C',str(TASK),'status','--porcelain','--untracked-files=no']).strip(),'committed_task_code_required')
         require(not Path('/usr/local/bin/k3s').exists() and not (root/'prepared.json').exists(),'existing_target_requires_review')
+        command('inspect-fresh-target',['sudo','-n','python3','-B',TASK/'migrate/install.py','check'])
         release=json.loads((TASK/'migrate/releases/local-k3s-installer.json').read_text())
         target_release=json.loads((TASK/'migrate/releases/k3s-0.9.0.json').read_text())
         for key,path in [('ops',r['ops']),('bun',r['bun'])]:

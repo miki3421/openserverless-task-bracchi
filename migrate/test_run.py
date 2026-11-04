@@ -56,7 +56,7 @@ class MigrationBoundary(unittest.TestCase):
                     return original(path,*a,**kw)
                 with mock.patch.object(Path,'read_text',release_read):result=run.execute(r)
                 hydrate.assert_not_called();download.assert_not_called()
-                self.assertTrue(all('stop'not in x and 'disable'not in x and 'install.py'not in str(x)for x in calls))
+                self.assertTrue(all('stop'not in x and 'disable'not in x and ('install.py'not in str(x)or x[-1]=='check')for x in calls))
                 if offline:self.assertTrue(all(x[0]!='docker'for x in calls))
                 return result
     def test_check_leaves_source_and_target_untouched(self):self.assertEqual(self.exercise(),0)
