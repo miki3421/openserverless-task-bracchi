@@ -46,6 +46,9 @@ class Lab:
         return file
     def target(self,component):
         target=copy.deepcopy(next(b['targets'][0] for b in self.plan['bindings'] if b['artifactId']==component))
+        key={'mongodb-data':'ferretdb','milvus-data':'milvus'}.get(component)
+        if key is None:raise ValueError('Unsupported target data qualification component')
+        target['qualificationImage']=promotion.plan['finalWhiskSpec']['images'][key]
         target['pod']=target['pod'].replace('nuvolaris','openserverless')
         target['container']=target['container'].replace('nuvolaris','openserverless')
         if component=='milvus-data':
@@ -56,7 +59,7 @@ class Lab:
         return target
     def ready(self,target):
         pod=promotion.wait_pod(target['pod'])
-        expected=(promotion.plan['finalWhiskSpec']['images']['milvus'] if target['container']=='standalone' else target['image'])
+        expected=target['qualificationImage']
         container=next(c for c in pod['spec']['containers'] if c['name']==target['container'])
         if container['image']!=expected:raise ValueError('Unexpected data qualification image')
         return pod
