@@ -90,7 +90,7 @@ export function reader(options: ReadOptions): KubeRead {
 }
 export function localClient(root: string): Client {
   const gitRead = (args: string[]) => {
-    try { return Bun.spawnSync(["git", "-C", root, ...args], { stdout: "pipe", stderr: "pipe", timeout: 10000 }); }
+    try { return Bun.spawnSync(["git", "--no-optional-locks", "-C", root, ...args], { stdout: "pipe", stderr: "pipe", timeout: 10000 }); }
     catch { return { exitCode: 1, stdout: Buffer.from("") }; }
   };
   const git = gitRead(["rev-parse", "HEAD"]);
