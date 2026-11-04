@@ -64,9 +64,10 @@ def inspect_tar(stream):
                 parts=p.parts
                 if parts[:1]==('var',):parts=parts[1:]
                 whiteout=(member.ischr() and member.devmajor==0 and member.devminor==0 and
-                    len(parts)>6 and parts[:4]==('lib','containerd','io.containerd.snapshotter.v1.overlayfs','snapshots') and
-                    parts[4].isdigit() and parts[5]=='fs')
-                require(member.isfile() or member.isdir() or member.issym() or member.islnk() or whiteout,'unsupported_cold_archive_type')
+                    len(parts)>6 and parts[:4]==('lib','containerd','io.containerd.snapshotter.v1.overlayfs','snapshots') and parts[4].isdigit() and
+                    (parts[5]=='fs' or len(parts)==8 and parts[5:7]==('work','work') and re.fullmatch(r'#[a-f0-9]+',parts[7])))
+                if not(member.isfile() or member.isdir() or member.issym() or member.islnk() or whiteout):
+                    error=ValueError('unsupported_cold_archive_type');error.archive_member={'name':member.name,'type':member.type.hex(),'major':member.devmajor,'minor':member.devminor};raise error
                 if member.islnk():require(not member.linkname.startswith('/') and '..' not in PurePosixPath(member.linkname).parts,'unsafe_cold_hardlink')
                 if member.isfile():
                     with archive.extractfile(member)as src:
@@ -96,6 +97,9 @@ def backup_stream(repo,producer,name,maximum):
         rows=[json.loads(x)for x in output.splitlines()];summary=[x for x in rows if x.get('message_type')=='summary']
         require(len(summary)==1 and len(summary[0].get('snapshot_id',''))==64,'cold_snapshot_missing')
         return {'file':name,'snapshot':summary[0]['snapshot_id'],**proof}
+    except Exception as failure:
+        if hasattr(failure,'archive_member'):save(repo.logs/('archive-rejection-'+uuid.uuid4().hex+'.private.json'),failure.archive_member)
+        raise
     finally:
         timer.cancel();error.close();source_error.close()
         for p in [src,process]:
