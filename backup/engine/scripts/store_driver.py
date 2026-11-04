@@ -119,9 +119,13 @@ def main():
     args=parser.parse_args();os.umask(0o077);path=args.ops_home/'backup-store.json'
     if args.action=='prepare':
         from store_prepare import prepare
-        result=prepare(args.ops_home,args.check)
-        if not args.check:
-            c=verified_store(path);v=Velero(c,Destination(c),args.bun,Path(c['paths']['state'])/('prepare-logs-'+uuid.uuid4().hex));v.install()
+        try:
+            result=prepare(args.ops_home,args.check)
+            if not args.check:
+                c=verified_store(path);v=Velero(c,Destination(c),args.bun,Path(c['paths']['state'])/('prepare-logs-'+uuid.uuid4().hex));v.install()
+        except Exception:
+            save(args.ops_home/'tmp'/('backup-prepare-failure-'+uuid.uuid4().hex+'.private.json'),{'traceback':traceback.format_exc()})
+            raise
     else:
         c=verified_store(path)
         if args.action=='backup':result=backup(c,path,args.bun,args.check,args.json)

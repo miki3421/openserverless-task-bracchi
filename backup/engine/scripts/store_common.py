@@ -27,6 +27,12 @@ def unique(pairs):
 def fingerprint(value):
     return hashlib.sha256(json.dumps(value,sort_keys=True,separators=(',',':'),allow_nan=False).encode()).hexdigest()
 
+def hardware_uuid():
+    path='/sys/class/dmi/id/product_uuid'
+    try:value=Path(path).read_text()
+    except PermissionError:value=subprocess.check_output(['sudo','-n','cat',path],text=True,timeout=10)
+    value=value.strip().lower();require(str(uuid.UUID(value))==value,'invalid_host_uuid');return value
+
 def digest(path):
     h=hashlib.sha256()
     with Path(path).open('rb') as f:
@@ -64,7 +70,7 @@ def profile(path,uid=None):
     require(c['schemaVersion']==1 and c['kind']=='ops-backup-store' and c['mode']=='rehearsal' and c['dockerCheckpoint'] is True,'unsupported_store_profile')
     h=c['host'];require(set(h)=={'uuid','hostname','uid','address'} and h['uid']==uid,'store_host_contract')
     require(str(uuid.UUID(h['uuid']))==h['uuid'] and h['hostname']==socket.gethostname(),'store_host_mismatch')
-    require(Path('/sys/class/dmi/id/product_uuid').read_text().strip().lower()==h['uuid'],'store_hardware_mismatch')
+    require(hardware_uuid()==h['uuid'],'store_hardware_mismatch')
     require(c['namespace']=='ops-backup','qualified_backup_namespace_required')
     require(set(c['limits'])=={'maxCheckpointBytes','reserveFreeBytes'} and
             all(type(x)is int and 1024**3<=x<=128*1024**3 for x in c['limits'].values()),'bounded_store_limits_required')

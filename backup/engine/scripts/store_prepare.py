@@ -10,7 +10,7 @@ import tarfile
 import urllib.request
 import uuid
 
-from store_common import require,read,save,digest,profile,STORE,TOOLS
+from store_common import require,read,save,digest,profile,STORE,TOOLS,hardware_uuid
 
 RELEASES={
  'versity':{'url':'https://github.com/versity/versitygw/releases/download/v1.10.0/versitygw_v1.10.0_Linux_x86_64.tar.gz','sha256':'8f9869752939d4dc9cfe1bddb935a02cc6610e95319a3a9fc2947d2a6ebd2c91','member':'versitygw'},
@@ -53,6 +53,6 @@ def prepare(ops_home,check=False):
             target.chmod(0o755);binaries[name]=str(target)
     request=stage/'request.json'
     save(request,{'uid':os.getuid(),'home':str(Path.home()),'sourceConfig':str(home/'backup.json'),'opsHome':str(home),'binaries':binaries,
-                  'hostUuid':Path('/sys/class/dmi/id/product_uuid').read_text().strip().lower(),'address':ips[0]})
+                  'hostUuid':hardware_uuid(),'address':ips[0]})
     subprocess.run(['sudo','-n','python3','-B',str(Path(__file__).with_name('store_host.py')),'prepare',str(request)],check=True)
     return {'status':'prepared','driver':'versity-velero','encryptedDestination':True,'recoveryKeyExportRequired':True}
