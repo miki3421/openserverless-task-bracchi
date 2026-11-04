@@ -12,7 +12,7 @@ import uuid
 
 from store_common import require,read,save,command
 from store_remote import RemoteRestic
-from store_cold import verify_stream
+from store_cold import verify_stream,shutdown_proof
 
 class UnixHTTP(http.client.HTTPConnection):
     def __init__(self,path):super().__init__('localhost',timeout=120);self.path=path
@@ -124,8 +124,8 @@ def restore(c,bun,check=False):
         save(run/'created-volumes.json',{'names':created})
         spec=create_spec(original,image,mounts);spec['Labels']['ops-backup-restore']=run_id
         progress('switch-node','Stop and retain the original node and storage; reuse its private address for certificate compatibility.')
-        provider.command('stop','--time','300',identity,timeout=330)
-        require(provider.inspect(identity)['State']['ExitCode']==0,'clean_original_stop_required')
+        since=str(time.time());provider.command('stop','--time','300',identity,timeout=330)
+        shutdown_proof(provider.cli,current,provider.inspect(identity),run,since)
         provider.command('rename',identity,preserved);renamed=True
         provider.api('POST','networks/kind/disconnect',{'Container':identity,'Force':False});detached=True
         fresh=provider.api('POST','containers/create?name='+old_name,spec)['Id'];save(run/'target.json',{'containerId':fresh,'originalContainerId':identity,'preservedName':preserved,'volumes':created})

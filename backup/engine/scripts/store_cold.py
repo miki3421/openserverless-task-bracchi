@@ -4,6 +4,7 @@ import hashlib
 import io
 import json
 import os
+import re
 from pathlib import Path,PurePosixPath
 import subprocess
 import tarfile
@@ -14,6 +15,32 @@ import uuid
 from store_common import require,save
 from kind_adapter import KindConfig,inventory,inspect_node,docker,cluster_identity,Runner
 from kind_adapter.collection import SourceLock
+
+def validate_shutdown(original,stopped,console,events):
+    state=stopped['State']
+    require(not state['Running'] and not state['OOMKilled'] and not state.get('Error') and state.get('StartedAt')==original['State'].get('StartedAt'),'clean_kind_stop_required')
+    require(not any(x.get('Action')=='kill' and x.get('Actor',{}).get('Attributes',{}).get('signal')in ['9','SIGKILL','2','SIGINT']for x in events),'forced_kind_stop_rejected')
+    if state['ExitCode']==0:return 'exit-zero'
+    # Linux reboot(2) reports SIGINT to the parent for HALT/POWER_OFF in a
+    # nested PID namespace. Do not accept that exit code without systemd's
+    # final halt message and the expected Docker stop event sequence.
+    clean=re.sub(r'\x1b\[[0-9;]*[a-zA-Z]','',console)
+    require(state['ExitCode']==130 and original['Config'].get('StopSignal')=='SIGRTMIN+3' and
+            original['Config'].get('Entrypoint')==['/usr/local/bin/entrypoint','/sbin/init'] and
+            'Halting system.'in clean and any(x.get('Action')=='kill' and x.get('Actor',{}).get('Attributes',{}).get('signal')=='37'for x in events) and
+            any(x.get('Action')=='die' and x.get('Actor',{}).get('Attributes',{}).get('exitCode')=='130'for x in events),'verified_namespace_halt_required')
+    return 'systemd-namespace-halt'
+
+def shutdown_proof(prefix,original,stopped,run,since):
+    until=str(time.time()+1)
+    logs=subprocess.run([*prefix,'logs','--since',since,'--until',until,'--tail','300',original['Id']],capture_output=True,timeout=30)
+    require(logs.returncode==0 and len(logs.stdout)+len(logs.stderr)<=1024**2,'shutdown_console_unavailable')
+    raw=subprocess.check_output([*prefix,'events','--since',since,'--until',until,'--filter','container='+original['Id'],
+          '--filter','event=kill','--filter','event=die','--filter','event=stop','--format','{{json .}}'],timeout=30)
+    require(len(raw)<=1024**2,'shutdown_event_budget');events=[json.loads(x)for x in raw.splitlines()]
+    console=(logs.stdout+logs.stderr).decode(errors='replace');method=validate_shutdown(original,stopped,console,events)
+    save(Path(run)/'source-shutdown-proof.private.json',{'method':method,'state':stopped['State'],'events':events,'console':console})
+    return method
 
 class Tee(io.RawIOBase):
     def __init__(self,source,sink=None,maximum=64*1024**3):
@@ -95,9 +122,9 @@ def collect(repo,source_cfg,run,progress,maximum):
     with SourceLock(cfg):
         try:
             attempted=True;progress('checkpoint-stop','Stop the exact kind node for a consistent Docker recovery checkpoint; the host gateway stays available.')
-            subprocess.run(docker(cfg,'stop','--time','300',cfg.source['container_id']),check=True,capture_output=True,timeout=330)
+            since=str(time.time());subprocess.run(docker(cfg,'stop','--time','300',cfg.source['container_id']),check=True,capture_output=True,timeout=330)
             stopped=inspect_node(cfg,runner);save(Path(run)/'source-stop.private.json',{'state':stopped['State']})
-            require(not stopped['State']['Running'] and stopped['State']['ExitCode']==0 and not stopped['State']['OOMKilled'],'clean_kind_stop_required')
+            shutdown_proof(docker(cfg),source,stopped,run,since)
             maximum=cfg.data['storage']['max_capture_bytes']
             commands=[('rootfs.tar',docker(cfg,'export',cfg.source['container_id']))]
             commands += [(f'mount-{i:03d}.tar',docker(cfg,'cp','--archive',cfg.source['container_id']+':'+m['destination']+'/.','-'))for i,m in enumerate(cfg.mounts)if m['include']]
