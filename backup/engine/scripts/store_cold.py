@@ -58,7 +58,9 @@ def inspect_tar(stream):
         with tarfile.open(fileobj=stream,mode='r|*')as archive:
             for member in archive:
                 count+=1;p=PurePosixPath(member.name)
-                require(count<=2000000 and not member.name.startswith('/') and '..' not in p.parts and '\\' not in member.name,'unsafe_cold_archive_member')
+                # This is a qualified Linux/POSIX archive. Backslash is a
+                # literal filename character (including systemd's \xNN units).
+                require(count<=2000000 and not member.name.startswith('/') and '..' not in p.parts,'unsafe_cold_archive_member')
                 parts=p.parts
                 if parts[:1]==('var',):parts=parts[1:]
                 whiteout=(member.ischr() and member.devmajor==0 and member.devminor==0 and
