@@ -23,7 +23,8 @@ from archive import unpack
 from service_dns import enable_dns,verify_dns
 from offline_runtimes import verify_runtime_cache
 import same_host
-from storage import inspect_storage, require_headroom
+from storage import inspect_storage, require_headroom, add_image_allowance
+from image_storage import image_storage
 
 BASE=Path('/var/lib/ops-restore');TASK=Path(__file__).resolve().parents[1]
 PHASES=['native-restore','prepare-mappings','native-checkpoint','prepare-fresh-target','bootstrap-target','prepare-target-tasks','start-target-backends','final-iam','start-platform','wait-platform','legacy-dns','verify-target-data','restore-routes','deploy-apis','verify-original-definitions','resume-schedules','complete']
@@ -118,6 +119,12 @@ def main(request_path):
             src=regular(assets/name,caller);require(src.stat().st_size==row['bytes']and digest(src)==row['sha256'],'offline_asset_changed')
             dest=inputs/name;dest.parent.mkdir(mode=0o700,parents=True,exist_ok=True);shutil.copyfile(src,dest);dest.chmod(0o700 if name.startswith('tools/')else 0o600)
         save(inputs/'manifest.json',manifest)
+        progress('verify-image-storage')
+        images=[root/'source-cache.tar',inputs/'images/baseline.tar',inputs/'images/operator-candidate.tar']
+        if 'images/catalog-runtimes.tar'in manifest['files']:images.append(inputs/'images/catalog-runtimes.tar')
+        image_plan=image_storage(images);save(root/'image-storage-plan.json',image_plan)
+        storage=add_image_allowance(storage,image_plan);save(root/'storage-plan.json',storage)
+        require_headroom(storage)
         # The fresh K3s sandbox image must exist before the first native restore
         # pod. Import the pinned target system images first, then restore the
         # exact source image aliases used by backend identity verification.

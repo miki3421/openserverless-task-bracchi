@@ -177,6 +177,28 @@ class KubeconfigSyncTests(unittest.TestCase):
         self.assertFalse(marker['upgradeCompleted'])
         self.assertFalse(json.loads(marker_file.read_text())['upgradeCompleted'])
 
+    def test_same_host_completion_passes_an_explicit_selected_client_to_the_actual_user(self):
+        root = self.root / 'selected-target'; (root / 'iam-090').mkdir(parents=True)
+        (root / 'iam-090/journal.json').write_text(json.dumps({'restoredIamReconciled': True}))
+        marker_file=root/'marker.json';marker_file.write_text('{}');calls=[]
+        target=self.home/'.ops/profiles/target'
+        class Promotion:
+            def __init__(self, phase):
+                self.root=root;self.marker={};self.marker_path=marker_file;self.state={};self.cluster_uid='expected'
+            def get(self,*args): return {'items':[]}
+            def run(self,label,args,**kwargs):
+                calls.append(args)
+                return type('Result',(),{'stdout':b'{"metadata":{"uid":"expected"}}'})()
+            def save(self): pass
+        scope={'Promotion':Promotion,'json':json,'Path':Path,'ADAPTERS':Path(__file__).parent,
+               'PLAN':{'user':'synthetic-user'},'SAME_HOST_RESTORE':True,'CONFIG':{'targetOpsHome':str(target)}}
+        with patch('pwd.getpwnam')as user:
+            user.return_value.pw_dir=str(self.home)
+            exec(compile((Path(__file__).parent/'complete.py').read_text(),'complete.py','exec'),scope)
+        self.assertIn('KUBECONFIG='+str(target/'tmp/kubeconfig'),calls[0])
+        self.assertIn('OPS_TMP='+str(target/'tmp'),calls[0])
+        self.assertTrue(json.loads(marker_file.read_text())['upgradeCompleted'])
+
 
 if __name__ == '__main__':
     unittest.main()

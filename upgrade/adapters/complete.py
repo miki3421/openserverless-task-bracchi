@@ -26,7 +26,8 @@ environment={'OPS_ROOT':str(task),'OPS_BRANCH':'feature/same-host-upgrade-0.9.0'
     'OPS_REPO':'https://github.com/miki3421/openserverless-task-custom',
     'PATH':str(home/'.local/bin')+':'+str(home/'.ops/linux-amd64/bin')+':/usr/local/bin:/usr/bin:/bin'}
 if globals().get('SAME_HOST_RESTORE',False):
-    environment.update(OPS_HOME=CONFIG['targetOpsHome'],OPS_TMP=str(Path(CONFIG['targetOpsHome'])/'tmp'))
+    environment.update(OPS_HOME=CONFIG['targetOpsHome'],OPS_TMP=str(Path(CONFIG['targetOpsHome'])/'tmp'),
+                       KUBECONFIG=str(Path(CONFIG['targetOpsHome'])/'tmp/kubeconfig'))
 user_command=['sudo','-u',PLAN['user'],'env']+[key+'='+value for key,value in environment.items()]
 p.run('actual-user-ops-setup-status',user_command+[str(home/'.local/bin/ops'),'setup','status'],cwd=str(home),timeout=180)
 observed=json.loads(p.run('actual-user-kubeconfig-cluster',user_command+[

@@ -151,7 +151,7 @@ Preflight checks the actual selected snapshot size, software manifest size and
 filesystem capacity/free space. The working estimate includes the full decrypted
 snapshot, the protected software capsule, the profile's additional expansion
 allowance and4GiB for import transient files. The expansion allowance covers native
-recovery and additional containerd content/snapshots; it does not absorb or
+recovery; it does not absorb or
 double-count already required decrypted-source space. A separate reserve is at least20% of filesystem capacity or4GiB,
 and increases with the actual kubelet eviction and image-GC thresholds. Source,
 software, data and image-cache staging are never treated as free just because
@@ -159,6 +159,16 @@ they are temporary. Split data/image filesystems require separate qualification.
 The JSON preflight result reports required and available bytes. The command also
 checks aggregate working-set growth and remaining reserve between recovery
 phases; insufficient space or active DiskPressure stops recovery.
+
+The initial `--check` validates this minimum from encrypted snapshot metadata.
+After decrypting and verifying the archives, `verify-image-storage` refines the
+plan before any image import: it counts unique OCI content and each distinct
+overlay snapshot chain, streaming and hashing compressed and plain layers.
+Filesystem blocks, per-entry metadata and binary extended attributes are
+included. Shared aliases do not duplicate a chain; the same layer above different
+parents does. No cache reuse is assumed. Insufficient expanded-image space stops
+before import, with the private image-storage plan retained. This second check
+is required even when the initial metadata-only preflight passes.
 
 After byte validation the private source image archive moves out of decrypted
 staging. At the checkpoint, the three image archives move into promotion inputs.

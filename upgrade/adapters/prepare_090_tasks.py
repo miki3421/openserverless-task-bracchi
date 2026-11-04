@@ -50,7 +50,8 @@ env={'OPS_ROOT':str(task),'OPS_BRANCH':'feature/migration-recovery-0.9.0',
      'OPS_REPO':'https://github.com/miki3421/openserverless-task-custom',
      'KUBECONFIG':str(home/'.kube/config'),'PATH':str(home/'.local/bin')+':'+str(binary)+':/usr/local/bin:/usr/bin:/bin'}
 if globals().get('SAME_HOST_RESTORE',False):
-    env.update(OPS_HOME=CONFIG['targetOpsHome'],OPS_TMP=str(Path(CONFIG['targetOpsHome'])/'tmp'))
+    env.update(OPS_HOME=CONFIG['targetOpsHome'],OPS_TMP=str(Path(CONFIG['targetOpsHome'])/'tmp'),
+               KUBECONFIG=str(Path(CONFIG['targetOpsHome'])/'tmp/kubeconfig'))
 if not p.state.get('opsPrepareExecuted'):
     p.run('real-ops-kubernetes-prepare',['sudo','-u',PLAN['user'],'env']+[k+'='+v for k,v in env.items()]+[str(ops),'setup','kubernetes','prepare'],timeout=300,cwd=str(home))
     # The existing prepare task ignores individual apply errors: independently

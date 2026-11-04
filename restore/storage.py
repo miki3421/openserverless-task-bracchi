@@ -62,6 +62,7 @@ def inspect_storage(profile, manifest, snapshot, read):
     roots = [existing(path) for path in paths]
     require(len({p.stat().st_dev for p in roots}) == 1, 'split_restore_filesystems_require_qualification')
     stat = os.statvfs(roots[0])
+    require(stat.f_frsize <= 4096, 'image_storage_block_size_requires_qualification')
     require(stat.f_favail >= max(1024, math.ceil(stat.f_files * .1)), 'insufficient_restore_inodes')
     node = read(['get', 'node/' + profile['target']['hostname']])
     require(not any(c['type'] == 'DiskPressure' and c['status'] != 'False' for c in node['status']['conditions']) and
@@ -86,3 +87,15 @@ def require_headroom(plan):
     require(plan['availableBytes'] - available <= plan['workingBytes'], 'restore_working_set_budget_exceeded')
     require(available >= plan['kubernetesReserveBytes'],
             'restore_kubernetes_disk_reserve_exhausted')
+
+
+def add_image_allowance(plan, image):
+    """Refine the bound from verified archives before importing any image."""
+    result = dict(plan)
+    allowance = image['imageImportAllowanceBytes']
+    require(type(allowance) is int and allowance > 0, 'image_storage_allowance_required')
+    result.update(imageStorage=image, workingBytes=plan['workingBytes'] + allowance,
+                  requiredFreeBytes=plan['requiredFreeBytes'] + allowance)
+    result['sufficient'] = result['availableBytes'] >= result['requiredFreeBytes']
+    require(result['sufficient'], 'insufficient_expanded_image_restore_storage')
+    return result

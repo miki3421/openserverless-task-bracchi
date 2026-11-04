@@ -69,4 +69,3 @@ onto fresh storage and retains the original node. Its result still requires
 application acceptance. The existing native archive format and old readers are
 preserved; this candidate does not remove Restic's file-level encryption layer.
 Full product/remote-filesystem qualification is not implied by implementation.
-
