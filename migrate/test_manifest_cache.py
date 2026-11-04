@@ -106,11 +106,16 @@ class RegistryRetry(unittest.TestCase):
 
 class MetadataSeed(unittest.TestCase):
     def test_verified_bytes_go_only_to_owned_namespace_without_fetch_or_unpack(self):
-        run=mock.Mock(return_value=mock.Mock(returncode=0))
+        seen=[]
+        def invoke(args,**kwargs):
+            if'stdin'in kwargs:
+                self.assertTrue(kwargs['stdin'].seekable());seen.append(kwargs['stdin'].read())
+            return mock.Mock(returncode=0)
+        run=mock.Mock(side_effect=invoke)
         seed_metadata.seed('ops-migrate-inputs-'+'a'*32,DIGEST,RAW,run)
         self.assertEqual(run.call_count,2)
         first=run.call_args_list[0]
-        self.assertEqual(first.kwargs['input'],RAW)
+        self.assertEqual(seen,[RAW])
         self.assertIn(DIGEST,first.args[0]);self.assertIn('ingest',first.args[0])
         self.assertTrue(any(x.startswith('containerd.io/gc.root=')for x in run.call_args_list[1].args[0]))
         self.assertFalse(any(word in args.args[0]for args in run.call_args_list for word in ('fetch','pull','unpack','images')))
@@ -123,9 +128,13 @@ class MetadataSeed(unittest.TestCase):
 
     def test_content_gc_race_retries_only_same_original_bytes_and_is_bounded(self):
         good=mock.Mock(returncode=0);missing=mock.Mock(returncode=1,stderr=b'not found')
-        run=mock.Mock(side_effect=[good,missing,good,good])
+        sequence=iter([good,missing,good,good]);seen=[]
+        def invoke(args,**kwargs):
+            if'stdin'in kwargs:seen.append(kwargs['stdin'].read())
+            return next(sequence)
+        run=mock.Mock(side_effect=invoke)
         seed_metadata.seed('ops-migrate-inputs-'+'a'*32,DIGEST,RAW,run)
-        self.assertEqual([x.kwargs['input']for x in run.call_args_list if'input'in x.kwargs],[RAW,RAW])
+        self.assertEqual(seen,[RAW,RAW])
         run=mock.Mock(side_effect=[good,missing]*3)
         with self.assertRaisesRegex(ValueError,'protection_failed'):seed_metadata.seed('ops-migrate-inputs-'+'a'*32,DIGEST,RAW,run)
         self.assertEqual(run.call_count,6)
