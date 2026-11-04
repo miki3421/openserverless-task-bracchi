@@ -62,6 +62,20 @@ def tar_files(path, rows):
     Path(path).chmod(0o600)
 
 
+def assemble_target_tasks(release,root,command):
+    """Assemble the pinned task source without sharing caller log identities."""
+    root=Path(root)
+    checkout = root / 'downloads/target-tasks'
+    command('target-task-clone', ['git', 'clone', '--quiet', '--no-checkout', release['taskRepository'], str(checkout)])
+    commit = release['target']['taskCommit']; branch = release['taskBranch']
+    command('target-task-checkout', ['git', '-C', str(checkout), 'checkout', '-q', '-B', branch, commit])
+    if command('target-task-revision', ['git', '-C', str(checkout), 'rev-parse', 'HEAD']).decode().strip() != commit:
+        raise ValueError('target_task_revision_mismatch')
+    command('target-task-bundle', ['git', '-C', str(checkout), 'bundle', 'create', str(root / 'tasks/target.bundle'), branch])
+    (root / 'tasks/target.bundle').chmod(0o600)
+    return root / 'tasks/target.bundle'
+
+
 def assemble(release, root, ops, bun, bin_dir, command, progress, *, k3s_binary='/usr/local/bin/k3s'):
     root = Path(root); root.mkdir(mode=0o700)
     for name in ('tools', 'clients', 'tasks', 'images', 'downloads'): (root / name).mkdir(mode=0o700)
@@ -109,14 +123,7 @@ def assemble(release, root, ops, bun, bin_dir, command, progress, *, k3s_binary=
             with path.open('rb') as source: out.addfile(info, source)
     (root / 'clients/cli.tar').chmod(0o600)
     progress('target-tasks')
-    checkout = root / 'downloads/target-tasks'
-    command('task-clone', ['git', 'clone', '--quiet', '--no-checkout', release['taskRepository'], str(checkout)])
-    commit = release['target']['taskCommit']; branch = release['taskBranch']
-    command('task-checkout', ['git', '-C', str(checkout), 'checkout', '-q', '-B', branch, commit])
-    if command('task-revision', ['git', '-C', str(checkout), 'rev-parse', 'HEAD']).decode().strip() != commit:
-        raise ValueError('target_task_revision_mismatch')
-    command('task-bundle', ['git', '-C', str(checkout), 'bundle', 'create', str(root / 'tasks/target.bundle'), branch])
-    (root / 'tasks/target.bundle').chmod(0o600)
+    assemble_target_tasks(release,root,command)
     acquire_images(release,root,command,progress,acquisition)
     manifest = {'schemaVersion': 1, 'files': {}}
     for directory in ('tools', 'clients', 'tasks', 'images'):
