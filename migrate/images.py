@@ -19,6 +19,9 @@
 import hashlib
 import json
 import re
+import time
+from datetime import datetime, timezone
+from email.utils import parsedate_to_datetime
 import urllib.error
 import urllib.parse
 import urllib.request
@@ -39,9 +42,23 @@ def location(reference):
 
 def request_bytes(url, headers, limit, opener=urllib.request.urlopen):
     if urllib.parse.urlsplit(url).scheme != 'https': raise ValueError('registry_https_required')
-    with opener(urllib.request.Request(url, headers=headers), timeout=30) as response:
-        if urllib.parse.urlsplit(response.url).scheme != 'https': raise ValueError('registry_https_required')
-        raw = response.read(limit + 1)
+    waited=0
+    for attempt in range(3):
+        try:
+            with opener(urllib.request.Request(url, headers=headers), timeout=30) as response:
+                if urllib.parse.urlsplit(response.url).scheme != 'https': raise ValueError('registry_https_required')
+                raw = response.read(limit + 1)
+            break
+        except urllib.error.HTTPError as error:
+            if error.code!=429 or attempt==2:raise
+            retry=error.headers.get('Retry-After')
+            try:
+                delay=float(retry) if retry and retry.isdigit() else max(0,(parsedate_to_datetime(retry)-datetime.now(timezone.utc)).total_seconds()) if retry else 2**(attempt+1)
+            except (TypeError,ValueError,OverflowError):raise error
+            # Respect long server cooldowns by stopping, never by shortening them.
+            if delay>60-waited:raise
+            error.close()
+            time.sleep(delay);waited+=delay
     if len(raw) > limit: raise ValueError('registry_metadata_too_large')
     return raw
 
@@ -72,6 +89,11 @@ def manifest_bytes(reference, selector, opener=urllib.request.urlopen):
 def manifest(reference, digest, opener=urllib.request.urlopen):
     if not re.fullmatch(r'sha256:[a-f0-9]{64}', digest): raise ValueError('immutable_image_digest_required')
     raw = manifest_bytes(reference, digest, opener)
+    return decode_manifest(raw,digest)
+
+
+def decode_manifest(raw,digest):
+    if len(raw)>4*1024**2:raise ValueError('registry_metadata_too_large')
     if 'sha256:' + hashlib.sha256(raw).hexdigest() != digest: raise ValueError('registry_manifest_digest_mismatch')
     data = json.loads(raw)
     if data.get('schemaVersion') != 2: raise ValueError('unsupported_registry_manifest')

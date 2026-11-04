@@ -110,7 +110,7 @@ class ProfilePreparation(unittest.TestCase):
                 self.assertEqual(value['hostUuid'], 'host')
                 return value,cache
 
-            def assembled(spec, assets, ops, bun, binaries, run, progress, *, k3s_binary):
+            def assembled(spec, assets, ops, bun, binaries, run, progress, *, k3s_binary,manifest_fetch):
                 self.assertEqual(Path(k3s_binary), work / 'target-k3s')
                 self.assertNotEqual(k3s_binary, '/usr/local/bin/k3s')
                 if fail:
@@ -134,6 +134,7 @@ class ProfilePreparation(unittest.TestCase):
             with mock.patch.object(Path, 'read_text', reading), mock.patch.object(k3s, 'regular', side_effect=lambda p, *a: Path(p)), \
                  mock.patch.object(k3s, 'digest', side_effect=digest), mock.patch.object(k3s, 'inspect_source', side_effect=inspection) as inspect, \
                  mock.patch.object(k3s, 'availability', return_value={'missing': []}) as available, \
+                 mock.patch.object(k3s,'ManifestSource')as manifests, \
                  mock.patch.object(k3s,'recover_missing',return_value='sha256:'+'c'*64)as recover, \
                  mock.patch.object(k3s.shutil, 'disk_usage', return_value=SimpleNamespace(free=100 * 1024**3)), \
                  mock.patch.object(k3s, 'download', return_value=work / 'target-k3s') as download, \

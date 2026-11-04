@@ -48,6 +48,18 @@ wrap that task exit as process exit1. Inspect the structured state: it is not a
 complete preflight PASS. The normal migration command performs preparation
 automatically before its existing full preflight and maintenance phases.
 
+Normal K3s preparation reuses manifest bytes from its protected bounded metadata
+cache, then from existing source containerd content, and finally from the original
+registry when the exact digest is absent locally. Every origin is checked against
+the pinned hash and manifest schema. Cache corruption and a failed local read
+remain errors; neither causes digest substitution. Metadata reads are bounded in
+size/time and do not pull, retag or mutate source content. Availability checks and
+the complete acquisition graph share the same verified cache. This reduces repeat
+registry requests without assuming layer/cache reuse in capacity calculations.
+HTTP429 retries are limited and honor `Retry-After`; an excessive cooldown stops
+preparation. No alternate identity, registry or image is selected to bypass a limit.
+These caches and network retries are not used by read-only `--check`/`status`.
+
 During normal preparation the pinned target image content is fetched without
 unpacking into a dedicated, uniquely owned containerd namespace and exported for
 offline recovery. It never retags the running source's `k8s.io` namespace. A

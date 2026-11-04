@@ -37,6 +37,7 @@ from assets import assemble, download
 from images import availability
 from source_cache import recover_missing,recovery_image
 from image_references import pinned_workloads
+from manifest_cache import ManifestSource
 
 REQUEST_FIELDS = {'to', 'source', 'status', 'check', 'json', 'repository', 'key',
                   'snapshot', 'ops', 'bun', 'bin', 'opsHome'}
@@ -167,7 +168,10 @@ def prepare_profile(request, profile_path, work, uid, account, run, progress):
                 'original_source_image_alias_changed_or_disappeared')
         save(work/('source-cache-readiness-'+str(len(repaired))+'.json'),cache)
     progress('prepare-inputs', 'Download and verify the pinned target tools and images while the original applications remain running.')
-    result = availability(release['images'])
+    manifests=ManifestSource(protected_directory(profile_path.parent/'manifest-cache',uid),run,
+        lambda count,origins:progress('prepare-image-metadata',
+            f"Verify pinned metadata: {count} objects; {origins['file']+origins['source']} local, {origins['registry']} registry. Keep the original image identities."))
+    result = availability(release['images'],fetch=manifests)
     save(work / 'image-availability.json', result)
     require(not result['missing'], 'target_images_not_published')
     require(shutil.disk_usage(work).free >= 55 * 1024**3, 'insufficient_upgrade_preparation_storage')
@@ -176,9 +180,15 @@ def prepare_profile(request, profile_path, work, uid, account, run, progress):
             installer['binary']['sha256'] == release['installedTools']['k3s'], 'target_k3s_pin_mismatch')
     target_k3s = download(installer['binary']['url'], work / 'target-k3s',
                           installer['binary']['sha256'], limit=256 * 1024**2)
+    def asset_progress(phase,*counts):
+        if phase=='target-images':
+            message=(f"Stage pinned target image {counts[0]}/{counts[1]} without unpacking; preserve running source aliases."if counts else
+                     'Stage pinned target images in a separate namespace; keep source applications running.')
+        else:message='Stage and verify the pinned target '+phase.replace('-',' ')+'.'
+        progress('prepare-'+phase,message)
     manifest = assemble(release, assets, request['ops'], request['bun'], request['bin'], run,
-                        lambda phase, *counts: progress('prepare-' + phase, 'Verify the pinned target input set.'),
-                        k3s_binary=str(target_k3s))
+                        asset_progress,
+                        k3s_binary=str(target_k3s),manifest_fetch=manifests)
     require(manifest['files']['tools/k3s']['sha256'] == release['installedTools']['k3s'],
             'target_capsule_contains_wrong_k3s')
     profile = bind_assets(profile, assets, manifest)

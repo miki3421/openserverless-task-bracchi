@@ -78,10 +78,10 @@ def assemble_target_tasks(release,root,command):
     return root / 'tasks/target.bundle'
 
 
-def assemble(release, root, ops, bun, bin_dir, command, progress, *, k3s_binary='/usr/local/bin/k3s'):
+def assemble(release, root, ops, bun, bin_dir, command, progress, *, k3s_binary='/usr/local/bin/k3s',manifest_fetch=None):
     root = Path(root); root.mkdir(mode=0o700)
     for name in ('tools', 'clients', 'tasks', 'images', 'downloads'): (root / name).mkdir(mode=0o700)
-    acquisition=acquisition_preflight(release['images'],root,command)
+    acquisition=acquisition_preflight(release['images'],root,command,**({'fetch':manifest_fetch}if manifest_fetch else{}))
     for name, source in [('ops', ops), ('bun', bun), ('k3s', k3s_binary)]:
         shutil.copyfile(source, root / 'tools' / name); (root / 'tools' / name).chmod(0o700)
     progress('tools')
