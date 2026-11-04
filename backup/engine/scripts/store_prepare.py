@@ -34,7 +34,6 @@ def prepare(ops_home,check=False):
         subprocess.run(['sudo','-n','python3','-B',str(TOOLS/'store_host.py'),'verify',str(selected)],check=True)
         return {'status':'check_passed' if check else 'already_prepared','driver':'versity-velero','encryptedDestination':True}
     if check:return {'status':'check_passed','driver':'versity-velero','preparationRequired':True,'clusterMutation':False}
-    require(not STORE.exists(),'partial_store_requires_review')
     stage=home/'tmp'/('backup-store-prepare-'+uuid.uuid4().hex);stage.mkdir(mode=0o700,parents=True)
     binaries={}
     for name,item in RELEASES.items():

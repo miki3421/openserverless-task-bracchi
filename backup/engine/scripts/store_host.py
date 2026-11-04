@@ -32,6 +32,38 @@ def text(path,value,mode=0o600,uid=0,gid=0):
 
 def hardware():return Path('/sys/class/dmi/id/product_uuid').read_text().strip().lower()
 
+def document(r,source):
+    caller=r['uid'];mount=STORE/'data';user_dir=Path(r['opsHome'])/'backup-store'
+    return {'schemaVersion':1,'kind':'ops-backup-store','mode':'rehearsal','host':{'uuid':hardware(),'hostname':socket.gethostname(),'uid':caller,'address':r['address']},
+       'sourceConfig':r['sourceConfig'],'paths':{'data':str(mount),'staging':str(mount/'staging'/str(caller)),'state':str(mount/'state'/str(caller)),
+       'ca':str(user_dir/'ca.pem'),'credentials':str(user_dir/'s3.credential'),'volumeConfig':str(SYSTEM/'volume.json'),'kubeconfig':str(Path(r['opsHome'])/'tmp/kubeconfig')},
+       's3':{'endpoint':'https://'+r['address']+':18443','bucket':'ops-backup-'+source['kind']['source']['cluster_uid'].replace('-','')[:12],'prefix':source['kind']['source']['cluster_uid']},
+       'tools':{'versity':str(TOOLS/'versity'),'versitySha256':PINS['versity'],'velero':str(TOOLS/'velero'),'veleroSha256':PINS['velero']},
+       'images':IMAGES,'namespace':'ops-backup','dockerCheckpoint':True,'limits':{'maxCheckpointBytes':64*1024**3,'reserveFreeBytes':16*1024**3}}
+
+def finish(r,source):
+    """Complete only a fully identified mounted destination; never format on retry."""
+    guard();c=document(r,source);caller=r['uid'];binding=read(SYSTEM/'volume.json',0)
+    require(binding['profileSha256']==fingerprint(c),'partial_destination_binding_mismatch')
+    for name in PINS:require(digest(regular(TOOLS/name,0,False))==PINS[name],'installed_tool_checksum_mismatch')
+    credentials=read(c['paths']['credentials'],caller)
+    import boto3
+    from botocore.config import Config
+    s3=boto3.client('s3',endpoint_url='https://127.0.0.1:18443',region_name='us-east-1',aws_access_key_id=credentials['accessKey'],
+        aws_secret_access_key=credentials['secretKey'],verify=c['paths']['ca'],config=Config(signature_version='s3v4'))
+    require(s3.head_bucket(Bucket=c['s3']['bucket'])['ResponseMetadata']['HTTPStatusCode']==200,'prepared_bucket_identity_failed')
+    original=Path(r['opsHome'])/'backup-store/source-original.private.json'
+    if original.exists():
+        captured=read(original,caller);updated=json.loads(json.dumps(captured));updated['kind']['storage']['root']=str(STORE/'data/staging'/str(caller)/'native')
+        require(source in [captured,updated],'source_changed_during_prepare')
+    else:captured=source;save(original,captured,caller);updated=json.loads(json.dumps(captured));updated['kind']['storage']['root']=str(STORE/'data/staging'/str(caller)/'native')
+    native=Path(updated['kind']['storage']['root'])
+    if not native.exists():native.mkdir(mode=0o700);os.chown(native,caller,pwd.getpwuid(caller).pw_gid)
+    require(native.is_dir() and not native.is_symlink() and native.stat().st_uid==caller and native.stat().st_mode&0o777==0o700,'native_staging_owner_mismatch')
+    save(r['sourceConfig'],updated,caller);save(Path(r['opsHome'])/'backup-store.json',c,caller)
+    save(SYSTEM/'prepare-state.json',{'status':'complete','hostUuid':hardware(),'profileSha256':fingerprint(c)})
+    print(json.dumps({'status':'prepared','driver':'versity-velero','encryptedDestination':True,'recoveryKeyExportRequired':True}))
+
 def open_volume():
     c=read(SYSTEM/'volume.json',0)
     require(c['hostUuid']==hardware(),'wrong_storage_host')
@@ -68,7 +100,10 @@ def prepare(request_path):
     for row in source['kind']['mounts']:
         if row['type']=='bind' and row['include']:
             require(not STORE.is_relative_to(Path(row['source'])),'backup_destination_inside_source_mount')
-    require(not STORE.exists() and not SYSTEM.exists() and not Path('/dev/mapper/ops-backup-store').exists(),'existing_store_requires_review')
+    if STORE.exists():
+        require(SYSTEM.exists() and (SYSTEM/'volume.json').exists(),'partial_store_requires_review')
+        finish(r,source);return
+    require(not SYSTEM.exists() and not Path('/dev/mapper/ops-backup-store').exists(),'existing_store_requires_review')
     require(ipaddress.ip_address(r['address']).is_private,'private_host_endpoint_required')
     addresses=json.loads(run('ip','-j','address'));require(any(x.get('scope')=='global' and x.get('local')==r['address']for a in addresses for x in a['addr_info']),'host_endpoint_not_local')
     d=['docker','--context',s['docker_context']]
@@ -119,12 +154,7 @@ def prepare(request_path):
          'VGW_IAM_DIR='+str(mount/'iam'),'VGW_CERT='+str(server),'VGW_KEY='+str(server_key),
          'VGW_ADMIN_PORT=127.0.0.1:18444','VGW_ADMIN_CERT='+str(server),'VGW_ADMIN_CERT_KEY='+str(server_key),'VGW_REGION=us-east-1','']))
     bucket='ops-backup-'+s['cluster_uid'].replace('-','')[:12]
-    c={'schemaVersion':1,'kind':'ops-backup-store','mode':'rehearsal','host':{'uuid':hardware(),'hostname':socket.gethostname(),'uid':caller,'address':r['address']},
-       'sourceConfig':r['sourceConfig'],'paths':{'data':str(mount),'staging':str(mount/'staging'/str(caller)),'state':str(mount/'state'/str(caller)),
-       'ca':str(user_ca),'credentials':str(credentials),'volumeConfig':str(SYSTEM/'volume.json'),'kubeconfig':str(Path(r['opsHome'])/'tmp/kubeconfig')},
-       's3':{'endpoint':'https://'+r['address']+':18443','bucket':bucket,'prefix':s['cluster_uid']},
-       'tools':{'versity':str(TOOLS/'versity'),'versitySha256':PINS['versity'],'velero':str(TOOLS/'velero'),'veleroSha256':PINS['velero']},
-       'images':IMAGES,'namespace':'ops-backup','dockerCheckpoint':True,'limits':{'maxCheckpointBytes':64*1024**3,'reserveFreeBytes':16*1024**3}}
+    c=document(r,source)
     save(SYSTEM/'volume.json',{'hostUuid':hardware(),'luksUuid':luks,'dataUuid':fs_uuid,'backingFile':str(backing),'keyFile':str(key),'profileSha256':fingerprint(c)})
     mount_unit=run('systemd-escape','--path','--suffix=mount',mount)
     text('/etc/systemd/system/ops-backup-store-volume.service',f'''[Unit]
@@ -190,17 +220,12 @@ WantedBy=multi-user.target
     SigV4Auth(Credentials(root_access,root_secret),'s3','us-east-1').add_auth(request)
     for attempt in range(50):
         try:
-            with urllib.request.urlopen(urllib.request.Request(url,data=b'',headers=dict(request.headers),method='PATCH'),context=ssl.create_default_context(cafile=str(ca)),timeout=5) as response:require(response.status==200,'bucket_bootstrap_failed')
+            with urllib.request.urlopen(urllib.request.Request(url,data=b'',headers=dict(request.headers),method='PATCH'),context=ssl.create_default_context(cafile=str(ca)),timeout=5) as response:require(response.status in (200,201,204),'bucket_bootstrap_failed')
             break
         except (ConnectionError,urllib.error.URLError):
             if attempt==49:raise
             time.sleep(.2)
-    # Fresh captures and plaintext validation stay on the encrypted destination.
-    original=user_dir/'source-original.private.json';save(original,source,caller)
-    source['kind']['storage']['root']=str(mount/'staging'/str(caller)/'native')
-    native=Path(source['kind']['storage']['root']);native.mkdir(mode=0o700);os.chown(native,caller,pwd.getpwuid(caller).pw_gid)
-    save(r['sourceConfig'],source,caller);save(Path(r['opsHome'])/'backup-store.json',c,caller)
-    print(json.dumps({'status':'prepared','driver':'versity-velero','encryptedDestination':True,'recoveryKeyExportRequired':True}))
+    finish(r,source)
 
 def main():
     require(os.geteuid()==0,'administrator_required')

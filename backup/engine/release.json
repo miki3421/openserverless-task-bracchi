@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
   "repository": "https://github.com/miki3421/ops-k3s-backup",
-  "revision": "53a32d4f3396b7595c2db3a59bd2db62b9358c93",
+  "revision": "5970b6620860e0201dff2c5dbd25e454acb0d69b",
   "files": [
     {
       "path": "adapters/ops-native/LICENSE",
@@ -460,13 +460,13 @@
     },
     {
       "path": "scripts/store_host.py",
-      "bytes": 14641,
-      "sha256": "f64aa76c4c9817c9f459784e40ebe23e40cea7d742e099a6929d5b5b4f174a6f"
+      "bytes": 16535,
+      "sha256": "b0959810c113bd025aa433380ef7d2198f38e6a4c40fe55da798af1a7a021f58"
     },
     {
       "path": "scripts/store_prepare.py",
-      "bytes": 4009,
-      "sha256": "a78e272810a408ca1b5d9d25998ab01d61b9fe7edb4c576ae06091ace5f7bfc9"
+      "bytes": 3945,
+      "sha256": "effb6f31e3ca3c79adcb82b8e1858b83c445ec9fc591d3437e15001e770bc5d1"
     },
     {
       "path": "scripts/store_remote.py",
