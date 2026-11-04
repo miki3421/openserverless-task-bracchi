@@ -125,6 +125,7 @@ def main(request_path):
         image_plan=image_storage(images);save(root/'image-storage-plan.json',image_plan)
         storage=add_image_allowance(storage,image_plan);save(root/'storage-plan.json',storage)
         require_headroom(storage)
+        progress('import-offline-images')
         # The fresh K3s sandbox image must exist before the first native restore
         # pod. Import the pinned target system images first, then restore the
         # exact source image aliases used by backend identity verification.

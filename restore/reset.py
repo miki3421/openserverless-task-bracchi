@@ -30,7 +30,7 @@ from lib import require, private_json, regular, digest, selected_snapshot
 import same_host
 from target_reset import validate_target_objects, remove_volume
 
-PRE_NATIVE_PHASES = {'verify-archive', 'prepare-offline-inputs', 'verify-image-storage', 'verify-offline-runtimes'}
+PRE_NATIVE_PHASES = {'verify-archive', 'prepare-offline-inputs', 'verify-image-storage', 'import-offline-images', 'verify-offline-runtimes'}
 EARLY_COMPLETED = {'verify-archive', 'verify-offline-runtimes', 'prepare-service-dns'}
 BOOTSTRAP_COMPLETED = EARLY_COMPLETED | {'native-restore', 'prepare-mappings', 'native-checkpoint', 'prepare-fresh-target'}
 PRE_PLATFORM_COMPLETED = EARLY_COMPLETED | {'native-restore', 'prepare-mappings', 'native-checkpoint',
