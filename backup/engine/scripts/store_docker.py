@@ -53,8 +53,10 @@ def create_spec(original,image,volumes):
           'Memory','MemorySwap','CpuShares','NanoCpus','ShmSize','PidsLimit','LogConfig','RestartPolicy','Sysctls','Ulimits','PortBindings','PublishAllPorts','NetworkMode','Init','ExtraHosts','Dns','DnsSearch','Tmpfs','MaskedPaths','ReadonlyPaths']
     spec['HostConfig']={k:copy.deepcopy(original['HostConfig'][k])for k in keys if k in original['HostConfig']}
     spec['HostConfig']['Mounts']=volumes
-    ip=original['NetworkSettings']['Networks']['kind']['IPAddress']
-    spec['NetworkingConfig']={'EndpointsConfig':{'kind':{'IPAMConfig':{'IPv4Address':ip},'Aliases':[config['Hostname']]}}}
+    networks=original['NetworkSettings']['Networks'];require(set(networks)=={'kind'},'single_kind_network_required')
+    network=networks['kind'];ipam={'IPv4Address':network['IPAddress']}
+    if network.get('GlobalIPv6Address'):ipam['IPv6Address']=network['GlobalIPv6Address']
+    spec['NetworkingConfig']={'EndpointsConfig':{'kind':{'IPAMConfig':ipam,'Aliases':[config['Hostname']]}}}
     return spec
 
 def pipe_archive(repo,row,provider,args):
@@ -169,7 +171,10 @@ def restore_locked(c,bun,check=False):
             if fresh:
                 require(not provider.inspect(fresh)['State']['Running'],'do_not_rollback_running_target')
                 provider.command('rm',fresh)
-            if detached:provider.api('POST','networks/kind/connect',{'Container':identity,'EndpointConfig':{'IPAMConfig':{'IPv4Address':source['node_ip']}}})
+            if detached:
+                ipam={'IPv4Address':source['node_ip']};v6=original['NetworkSettings']['Networks']['kind'].get('GlobalIPv6Address')
+                if v6:ipam['IPv6Address']=v6
+                provider.api('POST','networks/kind/connect',{'Container':identity,'EndpointConfig':{'IPAMConfig':ipam}})
             if renamed:provider.command('rename',identity,old_name)
             if not provider.inspect(identity)['State']['Running']:provider.command('start',identity,timeout=90)
             state['originalRecovered']=True;save(run/'journal.json',state)
