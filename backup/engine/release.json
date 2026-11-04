@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
   "repository": "https://github.com/miki3421/ops-k3s-backup",
-  "revision": "cafe6cb4687347b1bc12c30f628e5c8aeda56a9c",
+  "revision": "77e636c9c5e261e0bafe7b64437ac929196339f6",
   "files": [
     {
       "path": "adapters/ops-native/LICENSE",
@@ -364,6 +364,16 @@
       "sha256": "53d699ee05bb75445239bcc7fb4e90f3a7c36bc51489f28c80703badfa23cc73"
     },
     {
+      "path": "scripts/oci_acquisition.py",
+      "bytes": 5840,
+      "sha256": "4a79cc04cfe4047e9c8b3e0bdd8ef02641d3f59d4352f3f2fa75fa5dc6d5301e"
+    },
+    {
+      "path": "scripts/oci_image_storage.py",
+      "bytes": 18601,
+      "sha256": "e249101a33a2ee520c7c0ffef660873d4078bbc37d2f4fc46b6528983145b485"
+    },
+    {
       "path": "scripts/offline_images.py",
       "bytes": 1243,
       "sha256": "e24308cd55df0ee00af5009104b020a235eea58796259ae492b6ef6f2dde3cbd"
@@ -439,6 +449,11 @@
       "sha256": "4afb1e93f068e796a625d893f279051afd302616683c98473b29b75e7710fce4"
     },
     {
+      "path": "scripts/store_capacity.py",
+      "bytes": 7673,
+      "sha256": "7a2ad036cb8ab11179297fb5cbf46ec21dcd223f914d58dc0b730e7f15a93e48"
+    },
+    {
       "path": "scripts/store_cold.py",
       "bytes": 10878,
       "sha256": "8e83a0291a4c538bd5f9ca0d3068923a7d89121570ab45473a8b0e26be3d5d9e"
@@ -450,23 +465,23 @@
     },
     {
       "path": "scripts/store_docker.py",
-      "bytes": 13756,
-      "sha256": "4df3ce9e60fa99a8ef30099206498283f9006c3fa813d6470da77306433ee819"
+      "bytes": 13935,
+      "sha256": "bb0cee013617d41144aebea5e2a890aaa42fcc83be760adcf4102dccfd3a981b"
     },
     {
       "path": "scripts/store_driver.py",
-      "bytes": 9404,
-      "sha256": "362254253bb46db7b8f54ee3c532726578a33e1047119796fde3566e08cdd2f8"
+      "bytes": 11343,
+      "sha256": "0be1d9fb62ca0db2b3139e06631bd942ce907a50a95b7c26bbe9c35f5abf281c"
     },
     {
       "path": "scripts/store_host.py",
-      "bytes": 16535,
-      "sha256": "b0959810c113bd025aa433380ef7d2198f38e6a4c40fe55da798af1a7a021f58"
+      "bytes": 17860,
+      "sha256": "f0877183c1ad3a264a7251cf836724250e90499bb8f40016a789d7f8e8ab06f0"
     },
     {
       "path": "scripts/store_prepare.py",
-      "bytes": 3945,
-      "sha256": "effb6f31e3ca3c79adcb82b8e1858b83c445ec9fc591d3437e15001e770bc5d1"
+      "bytes": 3884,
+      "sha256": "482ce6e9c5ac67b81c773708f00a4e5f6d13ca1aba6ff826faccac64a58e32bb"
     },
     {
       "path": "scripts/store_remote.py",
@@ -475,8 +490,8 @@
     },
     {
       "path": "scripts/store_velero.py",
-      "bytes": 6173,
-      "sha256": "819b7d5b0ad5bec6b6a2fc3a18aa6eaee5668c97d0295fd44bf4d0bd71952ce4"
+      "bytes": 9054,
+      "sha256": "71f30dd22174dcdaf1ad588ad9263517aa49cf7513618fdf8484180381d5e30f"
     },
     {
       "path": "scripts/test-ops-native.py",

@@ -32,6 +32,7 @@ from store_common import require,read,save,digest,regular,hardware_uuid,acquire_
 from store_driver import verified_store,selected,hydrate_native
 from assets import download
 from images import availability
+from acquisition import preflight as acquisition_preflight,check_remaining
 
 def await_resource(k,args,predicate,work,label,timeout):
     """Wait for creation as well as readiness during asynchronous bootstrap."""
@@ -82,7 +83,7 @@ def execute(r):
         require(len(data)<=16*1024**2,'command_output_budget');return data
     try:
         progress('preflight','Verify the exact completed backup, physical host, source and immutable software inputs.')
-        c=verified_store(home/'backup-store.json');destination,bundle=selected(c)
+        c=verified_store(home/'backup-store.json');destination,bundle=selected(c,require_metadata=False)
         store_lock=acquire_operation(c)
         require(bundle['source']['hostUuid']==hardware_uuid(),'migration_host_changed')
         require(bundle['docker']['archiveCount']>0 and bundle['docker']['sourceRecovered'] is True,'verified_docker_checkpoint_required')
@@ -106,6 +107,7 @@ def execute(r):
             require(digest(regular(path,uid,False))==target_release['installedTools'][key],'qualified_'+key+'_required')
         images=availability(target_release['images']);save(work/'image-availability.json',images)
         require(not images['missing'],'target_images_not_published')
+        acquisition=acquisition_preflight(target_release['images'],work,command,target_ready=resuming)
         units=['docker.service','docker.socket']
         states=[subprocess.run(['systemctl','is-active',name],capture_output=True,text=True).stdout.strip()for name in units]
         source_online=states==['active','active']
@@ -132,6 +134,10 @@ def execute(r):
             routes=json.loads(subprocess.check_output(['ip','-j','-4','route','show','default']));require(len(routes)==1,'one_primary_interface_required')
             request=work/'install-request.json';save(request,{'uid':uid,'hostUuid':c['host']['uuid'],'address':c['host']['address'],
                   'interface':routes[0]['dev'],'work':str(work),'runId':run_id,'backupRunId':archive['runId']})
+            # Hydration/installer staging and concurrent source writes may have
+            # reduced free space since initial metadata inspection. Revalidate
+            # the full remaining image bound before source downtime begins.
+            check_remaining(acquisition,work,command)
             progress('stop-docker','Stop the verified kind source, then stop and disable Docker service and socket.')
             if source_online:
                 command('stop-source',docker+['stop','--time','300',s['container_id']],timeout=330)

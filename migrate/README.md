@@ -31,9 +31,9 @@ maintenance. A valid retained profile allows `--check` to run the full existing
 engine preflight. `status` can read the retained engine journal after cutover
 without requiring the original source to remain online.
 
-During normal preparation the pinned target images are pulled into source
-containerd and exported for offline recovery; this is explicitly outside
-read-only check mode. The target K3s **binary is downloaded and verified** into
+During normal preparation the pinned target image content is fetched into source
+containerd without unpacking and exported for offline recovery; this is explicitly
+outside read-only check mode. The target K3s **binary is downloaded and verified** into
 the capsule; the running source K3s binary is not substituted for it. Source
 identity, workload readiness and exportable cache are checked again after
 staging and by the engine before freezing applications. The migration lock is
@@ -165,9 +165,40 @@ claim that every individual hunk is mathematically minimal. No new operator
 build is required for this candidate.
 
 `releases/k3s-0.9.0.json` pins tools, target task source and image roots. Downloads
-use HTTPS and verified hashes. Image pulls use K3s containerd; Docker is never
+use HTTPS and verified hashes. Image acquisition uses K3s containerd; Docker is never
 started. A reusable software capsule is assembled locally for the restore
 workers. Operators do not need a separately supplied offline kit.
+
+## Acquisition capacity gates
+
+Before target-image acquisition, a metadata-only walk of every pinned root bounds
+the compressed content, fetch scratch, two retained exports and software staging.
+All catalog references remain required. Shared content does not remove an alias
+or justify assuming cache reuse. The bound includes manifest/configuration
+metadata for unselected platforms, but selects Linux AMD64 layer content only.
+Unsupported descriptors and compression stop preparation.
+
+The bare Kind wrapper performs this check before stopping Docker; preparation
+repeats it against the actual K3s target and its kubelet eviction/image-GC policy.
+Every fetch and export revalidates the same selected filesystem and its remaining
+work plus reserve. Only completed bounded stages reduce remaining work; unrelated
+source growth does not count as progress. Separate software/image/data filesystems
+are rejected until qualified.
+
+The acquisition command is `ctr content fetch --all-metadata --platform linux/amd64`,
+whose client fetch path does not unpack layers. After export, the canonical OCI
+validator checks the original archive bytes and expanded snapshot bound before
+the first image import. Restore retains its additional combined check for source
+images, target images and native recovery. Initial acquisition capacity does not
+certify that this later, more detailed expansion check will pass.
+
+The host-store physical allocation contract is separate. The new local backing
+adapter requires fully allocated local ext4 storage and a qualified physical block
+path on a non-virtualized host. A guest cannot attest free capacity in its host's
+sparse QCOW2 or thin pool. New or previously sparse VM destinations are blocked
+pending separate external reservation qualification; no flag bypasses that gate.
+The earlier successful AMD64 VM rehearsal predates this correction and does not
+qualify this new contract. No new live operation is implied by synthetic tests.
 
 The single required operator artifact is distributed through personal GHCR.
 The maintainer-only publication workflow verifies the exact OCI archive and

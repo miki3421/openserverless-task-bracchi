@@ -160,6 +160,13 @@ The JSON preflight result reports required and available bytes. The command also
 checks aggregate working-set growth and remaining reserve between recovery
 phases; insufficient space or active DiskPressure stops recovery.
 
+The private plan binds the selected mount's anchor, device, filesystem ID and
+capacity. Every later headroom check revalidates that identity and all selected
+restore/data/containerd paths, then reads free space from that same anchor. A
+mount replacement, linked path or split layout stops recovery; free space on a
+parent such as `/var/lib` cannot stand in for the selected mounted filesystem.
+Old unbound plans require review rather than silently selecting a new mount.
+
 The initial `--check` validates this minimum from encrypted snapshot metadata.
 After decrypting and verifying the archives, `verify-image-storage` refines the
 plan before any image import. Each uncompressed OCI archive must have a valid

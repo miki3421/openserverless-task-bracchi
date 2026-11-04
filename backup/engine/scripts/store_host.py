@@ -14,6 +14,7 @@ import time
 import urllib.request
 
 from store_common import STORE,SYSTEM,TOOLS,require,read,save,digest,regular,fingerprint,profile
+from store_capacity import filesystem_witness,capacity_plan,check_backing_space,preallocate_backing,verify_backing,qualify_backing
 
 PINS={'versity':'11a815fbd71386318f556a0f5d735d21f12a4721d3b21a645ffc0c16278efc7d',
       'velero':'22e4ef352ff5098e366a71c1cce2ff8eb64b8741fb3c7e49bcee2de3a5703a42'}
@@ -45,6 +46,7 @@ def finish(r,source):
     """Complete only a fully identified mounted destination; never format on retry."""
     guard();c=document(r,source);caller=r['uid'];binding=read(SYSTEM/'volume.json',0)
     require(binding['profileSha256']==fingerprint(c),'partial_destination_binding_mismatch')
+    verify_backing(binding)
     for name in PINS:require(digest(regular(TOOLS/name,0,False))==PINS[name],'installed_tool_checksum_mismatch')
     credentials=read(c['paths']['credentials'],caller)
     import boto3
@@ -110,17 +112,26 @@ def prepare(request_path):
     inspect=json.loads(run(*d,'inspect',s['container_id']))[0]
     require(inspect['Id']==s['container_id'] and inspect['State']['Running'] and inspect['Config']['Labels'].get('io.x-k8s.kind.cluster')==s['kind_cluster'],'source_kind_identity_mismatch')
     for name in PINS:require(digest(regular(r['binaries'][name],caller,False))==PINS[name],'downloaded_tool_checksum_mismatch')
-    require(shutil.disk_usage('/').free>64*1024**3,'host_space_required')
+    storage=source['kind']['storage'];limits=document(r,source)['limits']
+    capacity=capacity_plan(storage['max_capture_bytes'],limits['maxCheckpointBytes'],
+                           storage['reserve_free_bytes'],limits['reserveFreeBytes'])
+    backing_filesystem=filesystem_witness(STORE.parent)
+    qualify_backing(backing_filesystem['path'])
+    check_backing_space(backing_filesystem,capacity,allocate=True)
     SYSTEM.mkdir(mode=0o700);STORE.mkdir(mode=0o711);TOOLS.mkdir(mode=0o755)
-    for name in ['store_host.py','store_common.py']:
+    # Bind the actual backing-file parent after creating it on the inspected FS.
+    created_filesystem=filesystem_witness(STORE)
+    require(created_filesystem['device']==backing_filesystem['device'] and
+            created_filesystem['filesystemId']==backing_filesystem['filesystemId'],'backing_parent_filesystem_changed')
+    backing_filesystem=created_filesystem
+    for name in ['store_host.py','store_common.py','store_capacity.py']:
         shutil.copyfile(Path(__file__).with_name(name),TOOLS/name);(TOOLS/name).chmod(0o644)
     for name in PINS:
         shutil.copyfile(r['binaries'][name],TOOLS/name);(TOOLS/name).chmod(0o755)
         require(digest(TOOLS/name)==PINS[name],'installed_tool_checksum_mismatch')
     key=SYSTEM/'volume.key';fd=os.open(key,os.O_WRONLY|os.O_CREAT|os.O_EXCL,0o600)
     with os.fdopen(fd,'wb')as f:f.write(secrets.token_bytes(64));f.flush();os.fsync(f.fileno())
-    backing=STORE/'data.luks';fd=os.open(backing,os.O_WRONLY|os.O_CREAT|os.O_EXCL,0o600)
-    with os.fdopen(fd,'wb')as f:f.truncate(160*1024**3)
+    backing=STORE/'data.luks';preallocate_backing(backing,backing_filesystem,capacity)
     loop=run('losetup','--find','--show',backing)
     require(run('losetup','--noheadings','--output','BACK-FILE',loop)==str(backing),'new_loop_binding_required')
     print('OPS backup prepare: creating encrypted local destination',flush=True)
@@ -155,7 +166,8 @@ def prepare(request_path):
          'VGW_ADMIN_PORT=127.0.0.1:18444','VGW_ADMIN_CERT='+str(server),'VGW_ADMIN_CERT_KEY='+str(server_key),'VGW_REGION=us-east-1','']))
     bucket='ops-backup-'+s['cluster_uid'].replace('-','')[:12]
     c=document(r,source)
-    save(SYSTEM/'volume.json',{'hostUuid':hardware(),'luksUuid':luks,'dataUuid':fs_uuid,'backingFile':str(backing),'keyFile':str(key),'profileSha256':fingerprint(c)})
+    save(SYSTEM/'volume.json',{'hostUuid':hardware(),'luksUuid':luks,'dataUuid':fs_uuid,'backingFile':str(backing),'keyFile':str(key),'profileSha256':fingerprint(c),
+                             'capacity':capacity,'backingFilesystem':backing_filesystem})
     mount_unit=run('systemd-escape','--path','--suffix=mount',mount)
     text('/etc/systemd/system/ops-backup-store-volume.service',f'''[Unit]
 Description=OPS encrypted backup volume
@@ -234,8 +246,13 @@ def main():
         open_volume() if sys.argv[1]=='open' else guard()
     elif sys.argv[1]=='verify':
         caller=int(os.environ.get('SUDO_UID','0'));c=profile(sys.argv[2],caller);guard()
-        require(read(SYSTEM/'volume.json',0)['profileSha256']==fingerprint(c),'store_profile_binding_changed')
-        print(json.dumps({'status':'store_verified','encryptedDestination':True}))
+        binding=read(SYSTEM/'volume.json',0)
+        require(binding['profileSha256']==fingerprint(c),'store_profile_binding_changed')
+        native=read(c['sourceConfig'],caller)['kind']['storage']
+        require(binding.get('capacity')==capacity_plan(native['max_capture_bytes'],c['limits']['maxCheckpointBytes'],
+                                                     native['reserve_free_bytes'],c['limits']['reserveFreeBytes']),
+                'source_capacity_configuration_changed')
+        print(json.dumps({'status':'store_verified','encryptedDestination':True,**verify_backing(binding)}))
     elif sys.argv[1]=='prepare':prepare(sys.argv[2])
     else:raise ValueError('unsupported_host_store_command')
 

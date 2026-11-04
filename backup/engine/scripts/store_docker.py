@@ -84,7 +84,9 @@ def restore(c,bun,check=False):
 
 def restore_locked(c,bun,check=False):
     from store_driver import selected
-    d,b=selected(c);source_cfg=read(c['sourceConfig'],os.getuid())
+    # The cold checkpoint carries its own control-plane state. Its recovery
+    # capability does not imply that the separate Velero set is still retained.
+    d,b=selected(c,require_metadata=False);source_cfg=read(c['sourceConfig'],os.getuid())
     require(not Path('/usr/local/bin/k3s').exists(),'remove_k3s_before_kind_recovery')
     source=source_cfg['kind']['source'];require(source['cluster_uid']==b['source']['clusterUid'],'backup_source_cluster_changed')
     provider=Docker(source['docker_context'],source['docker_daemon_id'])

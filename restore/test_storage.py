@@ -23,12 +23,29 @@ import runpy
 import sys
 import tempfile
 import unittest
+from unittest import mock
+from types import SimpleNamespace
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from storage import storage_plan, reserve_percent, GIB
+import storage
 move = runpy.run_path(str(Path(__file__).resolve().parents[1]/'upgrade/adapters/private_transfer.py'))['move_run_artifact']
 
 
 class StorageContract(unittest.TestCase):
+    def test_headroom_rechecks_selected_mount_not_free_parent(self):
+        witness={'path':'/synthetic/selected-mount'}
+        plan={'filesystem':witness,'selectedStoragePaths':['/synthetic/selected-mount/restore'],
+              'availableBytes':20*GIB,'workingBytes':20*GIB,'kubernetesReserveBytes':4*GIB}
+        with mock.patch.object(storage,'revalidate_filesystem',return_value=SimpleNamespace(f_bavail=GIB//4096,f_frsize=4096))as check:
+            with self.assertRaisesRegex(ValueError,'reserve_exhausted'):storage.require_headroom(plan)
+            check.assert_called_once_with(witness,plan['selectedStoragePaths'])
+
+    def test_mount_replacement_and_unbound_old_plans_are_rejected(self):
+        plan={'filesystem':{'path':'/selected'},'selectedStoragePaths':['/selected/data']}
+        with mock.patch.object(storage,'revalidate_filesystem',side_effect=ValueError('selected_capacity_filesystem_changed')):
+            with self.assertRaisesRegex(ValueError,'filesystem_changed'):storage.require_headroom(plan)
+        with self.assertRaisesRegex(ValueError,'bound_storage_filesystem_required'):storage.require_headroom({})
+
     def test_old_free_space_check_is_insufficient_at_observed_peak(self):
         plan = storage_plan(6*GIB, 8*GIB, 32*GIB, 154*GIB, 60*GIB)
         self.assertFalse(plan['sufficient'])

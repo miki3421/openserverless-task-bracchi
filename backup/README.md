@@ -12,7 +12,8 @@ The first command checks installed tools, the pinned source identity, persistent
 data coverage, complete cached image layers, a prepared recovery password and
 storage capacity. It writes a protected local preflight journal; it does not
 collect database contents or initialize an archive. `status` reads only the
-private selection and latest generation journal. Any failure stops the sequence.
+private selection and latest generation journal. With the opt-in host destination,
+it also revalidates retained Velero metadata availability. Any failure stops the sequence.
 
 Configure private owner-controlled mode0600 `OPS_HOME/backup.json` once. Native
 K3s uses the source-only version2 configuration with `storage`; online kind uses
@@ -69,3 +70,20 @@ onto fresh storage and retains the original node. Its result still requires
 application acceptance. The existing native archive format and old readers are
 preserved; this candidate does not remove Restic's file-level encryption layer.
 Full product/remote-filesystem qualification is not implied by implementation.
+
+The corrected host destination requires a fully allocated backing file sized for
+simultaneous native, encrypted, verification and cold-checkpoint copies plus
+separate source reserve. Logical LUKS free space is insufficient evidence of
+physical backing capacity. Existing sparse stores require review and are never
+automatically expanded or reformatted. The local adapter currently rejects
+virtual, thin and unqualified stacked storage; qualification of an external
+physical-capacity reservation remains separate.
+
+Velero metadata expires after 720 hours independently of Restic repository
+retention. New bundles record expiry and metadata-object availability witnesses.
+Selection requiring the complete set rejects expired, missing or changed metadata.
+Status shows that retained capability even when the latest attempt is a preflight
+or failure; capture completion is not a statement of current recoverability.
+Native migration and Docker checkpoint recovery explicitly select their separate
+retained sets without claiming current Velero availability. Application recovery
+still requires a separate test. No pruning or retention extension is automatic.

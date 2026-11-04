@@ -7,8 +7,56 @@ import secrets
 import subprocess
 import time
 import uuid
+from datetime import datetime,timezone,timedelta
 
 from store_common import require,read,save,command,LABEL
+
+METADATA_TTL_SECONDS=720*3600
+
+def timestamp(value):
+    require(isinstance(value,str),'metadata_timestamp_required')
+    date=datetime.fromisoformat(value.replace('Z','+00:00'))
+    require(date.tzinfo is not None,'metadata_timezone_required')
+    return date
+
+def metadata_retention(destination,name,result):
+    created=timestamp(result['metadata']['creationTimestamp'])
+    expires=timestamp(result['status']['expiration'])
+    require(created<expires<=created+timedelta(seconds=METADATA_TTL_SECONDS+300),'metadata_expiration_contract_changed')
+    prefix='velero/backups/'+name+'/'
+    rows=destination.list(prefix);required={name+'.tar.gz',name+'-velero-backup.json'}
+    files=[]
+    for row in rows:
+        key=row['Key'];require(key.startswith(destination.key(prefix)),'foreign_velero_metadata_object')
+        relative=key[len(destination.prefix):]
+        require(type(row['Size']) is int and row['Size']>0 and isinstance(row.get('ETag'),str),'metadata_object_identity_required')
+        files.append({'key':relative,'bytes':row['Size'],'etag':row['ETag']})
+        required.discard(key.rsplit('/',1)[-1])
+    require(not required,'velero_metadata_objects_not_persisted')
+    return {'schemaVersion':1,'policy':'velero-720h-independent-of-restic','ttlSeconds':METADATA_TTL_SECONDS,
+            'createdAt':created.isoformat(),'expiresAt':expires.isoformat(),'objects':files}
+
+def metadata_status(destination,metadata,now=None):
+    """Current metadata availability is separate from sealed capture completion."""
+    retention=metadata.get('retention',{})
+    result={'available':False,'state':'unattested','expiresAt':retention.get('expiresAt')}
+    try:
+        require(retention.get('schemaVersion')==1 and retention.get('policy')=='velero-720h-independent-of-restic' and
+                retention.get('ttlSeconds')==METADATA_TTL_SECONDS,'metadata_retention_unattested')
+        if (now or datetime.now(timezone.utc))>=timestamp(retention['expiresAt']):
+            return {**result,'state':'expired'}
+        expected=retention['objects'];require(isinstance(expected,list) and expected,'metadata_object_witness_required')
+        rows=destination.list('velero/backups/'+metadata['name']+'/')
+        observed={row['Key']:row for row in rows}
+        for row in expected:
+            found=observed.get(destination.key(row['key']))
+            if not found or found.get('Size')!=row['bytes'] or found.get('ETag')!=row['etag']:
+                return {**result,'state':'missing-or-changed'}
+        return {**result,'available':True,'state':'available'}
+    except Exception:
+        # Provider/auth/transport failures must degrade capability, never
+        # turn an unavailable metadata set into a successful retention check.
+        return result
 
 class Velero:
     def __init__(self,c,destination,bun,logs):
@@ -82,4 +130,5 @@ class Velero:
                   '--snapshot-volumes=false','--default-volumes-to-fs-backup=false','--ttl','720h','--wait',timeout=900)
         result=self.get('backup',name,self.ns);save(self.logs.parent/'velero-backup.json',result)
         s=result.get('status',{});require(s.get('phase')=='Completed' and not s.get('errors') and not s.get('warnings'),'velero_metadata_backup_incomplete')
-        return {'name':name,'namespace':self.ns,'phase':'Completed','errors':0,'warnings':0,'pvDataMethod':'native-adapters-and-cold-checkpoint'}
+        return {'name':name,'namespace':self.ns,'phase':'Completed','errors':0,'warnings':0,
+                'pvDataMethod':'native-adapters-and-cold-checkpoint','retention':metadata_retention(self.d,name,result)}

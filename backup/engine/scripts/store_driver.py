@@ -12,23 +12,45 @@ import uuid
 
 from store_common import require,profile,read,save,mount_ready,fingerprint,TOOLS,acquire_operation
 from store_remote import Destination,RemoteRestic
-from store_velero import Velero
+from store_velero import Velero,metadata_status
 
-def selected(c):
+def selected(c,require_metadata=True):
     pointer=read(Path(c['paths']['state'])/'last-complete.json',os.getuid())
     d=Destination(c);bundle=d.get_json('bundles/'+pointer['runId']+'.json',pointer['sha256'])
     require(bundle['schemaVersion']==1 and bundle['kind']=='ops-store-backup' and bundle['status']=='complete' and
             bundle['runId']==pointer['runId'] and bundle['source']['clusterUid']==c['s3']['prefix'] and
             bundle['source']['hostUuid']==c['host']['uuid'],'selected_store_backup_mismatch')
+    availability=metadata_status(d,bundle.get('velero',{}))
+    require(not require_metadata or availability['available'],'selected_generation_metadata_unavailable')
+    bundle={**bundle,'metadataAvailability':availability}
     return d,bundle
 
 def verified_store(path):
     c=profile(path);mount_ready(c)
-    subprocess.run(['sudo','-n','python3','-B',str(TOOLS/'store_host.py'),'verify',str(path)],check=True,stdout=subprocess.DEVNULL)
+    verification=subprocess.run(['sudo','-n','python3','-B',str(TOOLS/'store_host.py'),'verify',str(path)],check=True,capture_output=True)
+    proof=json.loads(verification.stdout)
+    require(proof.get('backingCapacityVerified') is True and proof.get('allocationPolicy')=='preallocated-local-ext4-v1',
+            'backing_capacity_verification_required')
     return c
 
 def public(state):
     return {k:state[k]for k in ['status','runId','driver','phase','encryptedFileRestoreVerified','dockerCheckpointVerified','applicationRestoreVerified']if k in state}
+
+def backup_status(c):
+    root=Path(c['paths']['state']);current=root/'current.json'
+    result={'status':'not_started'} if not current.exists() else public(read(root/'runs'/read(current,os.getuid())['runId']/'journal.json',os.getuid()))
+    result['backingCapacityVerification']='NOT_RUN_READ_ONLY_STATUS'
+    # A later preflight/failed run must not hide expiry of the retained complete
+    # generation. Keep current-run status separate from retained capability.
+    if (root/'last-complete.json').exists():
+        _,bundle=selected(c,require_metadata=False)
+        result['retainedGenerationRunId']=bundle['runId']
+        result['metadataAvailability']=bundle['metadataAvailability']
+        result['retainedGenerationMetadataAvailable']=bundle['metadataAvailability']['available']
+        if result['status']=='complete':
+            result['captureStatus']='complete'
+            if not bundle['metadataAvailability']['available']:result['status']='retained_sets_degraded'
+    return result
 
 def discard_new_plaintext(run):
     """Only a just-sealed run's disposable plaintext, never its repository/receipts."""
@@ -48,6 +70,9 @@ def backup(c,path,bun,check=False,quiet=False):
     state={'status':'running','runId':run_id,'driver':'versity-velero','phase':'preflight',
            'encryptedFileRestoreVerified':False,'dockerCheckpointVerified':False,'applicationRestoreVerified':False}
     def progress(phase,why=''):
+        # Recheck the real backing filesystem, not just free blocks reported by
+        # the encrypted loop volume. Existing sparse stores need explicit review.
+        verified_store(path)
         state['phase']=phase;save(run/'journal.json',state)
         if not quiet:print('OPS backup: '+phase+(' — '+why if why else ''),flush=True)
     save(state_root/'current.json',{'runId':run_id});save(run/'journal.json',state)
@@ -56,8 +81,12 @@ def backup(c,path,bun,check=False,quiet=False):
         progress('preflight','Verify source identity, encrypted destination, image coverage and complete native PVC support.')
         v=Velero(c,d,bun,run/'velero-logs');v.ready()
         native_config=read(c['sourceConfig'],os.getuid());require(native_config['kind']['source']['cluster_uid']==c['s3']['prefix'],'source_selection_changed')
+        from store_capacity import capacity_plan
+        storage=read(c['sourceConfig'],os.getuid())['kind']['storage']
+        peak=capacity_plan(storage['max_capture_bytes'],c['limits']['maxCheckpointBytes'],
+                           storage['reserve_free_bytes'],c['limits']['reserveFreeBytes'])
         free=shutil.disk_usage(c['paths']['data']).free
-        require(free>=c['limits']['maxCheckpointBytes']+c['limits']['reserveFreeBytes'],'encrypted_destination_space_required')
+        require(free>=peak['encryptedRequiredFreeBytes'],'encrypted_destination_peak_space_required')
         native=run_backup(c['sourceConfig'],check_only=check,bun=bun,
              progress=lambda phase:progress('native-'+phase,'Use the qualified consistent backend collector and encrypted archive verifier.'))
         if check:
@@ -100,7 +129,8 @@ def backup(c,path,bun,check=False,quiet=False):
         os.close(fd)
 
 def hydrate_native(c):
-    d,b=selected(c);state=Path(c['paths']['state']);run=state/'hydrate'/b['runId'];run.mkdir(mode=0o700,parents=True,exist_ok=True)
+    # Native-only migration does not require the independent Velero object set.
+    d,b=selected(c,require_metadata=False);state=Path(c['paths']['state']);run=state/'hydrate'/b['runId'];run.mkdir(mode=0o700,parents=True,exist_ok=True)
     target=run/'repository';receipt=run/'verified.json'
     if target.exists():
         proof=read(receipt,os.getuid())
@@ -128,11 +158,11 @@ def main():
             save(args.ops_home/'tmp'/('backup-prepare-failure-'+uuid.uuid4().hex+'.private.json'),{'traceback':traceback.format_exc()})
             raise
     else:
-        c=verified_store(path)
+        if args.action in {'status','restore-status'}:
+            c=profile(path);mount_ready(c)
+        else:c=verified_store(path)
         if args.action=='backup':result=backup(c,path,args.bun,args.check,args.json)
-        elif args.action=='status':
-            current=Path(c['paths']['state'])/'current.json'
-            result={'status':'not_started'} if not current.exists() else public(read(Path(c['paths']['state'])/'runs'/read(current,os.getuid())['runId']/'journal.json',os.getuid()))
+        elif args.action=='status':result=backup_status(c)
         elif args.action=='hydrate-native':result=hydrate_native(c)
         else:
             from store_docker import restore,status

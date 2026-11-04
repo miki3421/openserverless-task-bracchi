@@ -30,8 +30,8 @@ def prepare(ops_home,check=False):
     ips=[x['local'] for a in addresses for x in a['addr_info'] if x['family']=='inet' and x['scope']=='global'];require(len(ips)==1,'one_host_ipv4_required')
     selected=home/'backup-store.json'
     if selected.exists():
-        c=profile(selected)
-        subprocess.run(['sudo','-n','python3','-B',str(TOOLS/'store_host.py'),'verify',str(selected)],check=True)
+        from store_driver import verified_store
+        verified_store(selected)
         return {'status':'check_passed' if check else 'already_prepared','driver':'versity-velero','encryptedDestination':True}
     if check:return {'status':'check_passed','driver':'versity-velero','preparationRequired':True,'clusterMutation':False}
     stage=home/'tmp'/('backup-store-prepare-'+uuid.uuid4().hex);stage.mkdir(mode=0o700,parents=True)

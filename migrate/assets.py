@@ -29,6 +29,8 @@ import urllib.parse
 import urllib.request
 import zipfile
 
+from acquisition import preflight as acquisition_preflight,check_remaining,check_expansion
+
 
 def sha(path):
     with Path(path).open('rb') as stream: return hashlib.file_digest(stream, 'sha256').hexdigest()
@@ -63,6 +65,7 @@ def tar_files(path, rows):
 def assemble(release, root, ops, bun, bin_dir, command, progress, *, k3s_binary='/usr/local/bin/k3s'):
     root = Path(root); root.mkdir(mode=0o700)
     for name in ('tools', 'clients', 'tasks', 'images', 'downloads'): (root / name).mkdir(mode=0o700)
+    acquisition=acquisition_preflight(release['images'],root,command)
     for name, source in [('ops', ops), ('bun', bun), ('k3s', k3s_binary)]:
         shutil.copyfile(source, root / 'tools' / name); (root / 'tools' / name).chmod(0o700)
     progress('tools')
@@ -114,27 +117,47 @@ def assemble(release, root, ops, bun, bin_dir, command, progress, *, k3s_binary=
         raise ValueError('target_task_revision_mismatch')
     command('task-bundle', ['git', '-C', str(checkout), 'bundle', 'create', str(root / 'tasks/target.bundle'), branch])
     (root / 'tasks/target.bundle').chmod(0o600)
-    prefix = ['sudo', '-n', '/usr/local/bin/k3s', 'ctr', '--namespace', 'k8s.io']
-    progress('target-images')
-    references = []
-    for index, row in enumerate(release['images'], 1):
-        ref = row['reference']; immutable = ref.split('@')[0].rsplit(':', 1)[0] + '@' + row['digest']
-        command('image-pull-' + str(index), prefix + ['images', 'pull', '--platform', 'linux/amd64', immutable], timeout=1800)
-        table = command('image-list-' + str(index), prefix + ['images', 'list']).decode()
-        existing = {r.split()[0]: r.split()[2] for r in table.splitlines()[1:] if len(r.split()) >= 3}
-        if ref in existing and existing[ref] != row['digest']: raise ValueError('existing_target_image_alias_differs')
-        if ref not in existing: command('image-alias-' + str(index), prefix + ['images', 'tag', immutable, ref])
-        references.append(ref)
-        progress('target-images', index, len(release['images']))
-    operator = release['target']['images']['operator']
-    for name, refs in [('baseline.tar', references), ('operator-candidate.tar', [operator])]:
-        dest = root / 'images' / name
-        command('export-' + name, prefix + ['images', 'export', '--platform', 'linux/amd64', str(dest), *refs], timeout=1800)
-        command('own-' + name, ['sudo', '-n', 'chown', str(os.getuid()) + ':' + str(os.getgid()), str(dest)])
-        dest.chmod(0o600)
+    acquire_images(release,root,command,progress,acquisition)
     manifest = {'schemaVersion': 1, 'files': {}}
     for directory in ('tools', 'clients', 'tasks', 'images'):
         for path in (root / directory).iterdir():
             manifest['files'][str(path.relative_to(root))] = {'bytes': path.stat().st_size, 'sha256': sha(path)}
     (root / 'manifest.json').write_text(json.dumps(manifest, indent=2) + '\n'); (root / 'manifest.json').chmod(0o600)
     return manifest
+
+
+def acquire_images(release,root,command,progress,acquisition):
+    root=Path(root)
+    # The software stage is complete, and its actual retained files must fit the
+    # fixed scratch allocation before any provider fetch is allowed.
+    software_bytes=sum(p.stat().st_blocks*512 for directory in ('tools','clients','tasks','downloads')
+                       for p in (root/directory).rglob('*') if p.is_file() and not p.is_symlink())
+    if software_bytes>acquisition['softwareStageUpperBoundBytes']:raise ValueError('software_staging_budget_exceeded')
+    acquisition={**acquisition,'remainingWorkBytes':acquisition['workingBytes']-acquisition['softwareStageUpperBoundBytes']}
+    prefix = ['sudo', '-n', '/usr/local/bin/k3s', 'ctr', '--namespace', 'k8s.io']
+    progress('target-images')
+    references = []
+    for index, row in enumerate(release['images'], 1):
+        ref = row['reference']; immutable = ref.split('@')[0].rsplit(':', 1)[0] + '@' + row['digest']
+        check_remaining(acquisition,root,command)
+        # Client.Fetch explicitly refuses unpack. Unlike images pull this stage
+        # cannot allocate overlay snapshots before their verified expansion bound.
+        command('image-fetch-' + str(index), prefix + ['content', 'fetch', '--all-metadata', '--platform', 'linux/amd64', immutable], timeout=1800)
+        acquisition['remainingWorkBytes']-=acquisition['perImageContentUpperBoundBytes'][ref]
+        table = command('image-list-' + str(index), prefix + ['images', 'list']).decode()
+        existing = {r.split()[0]: r.split()[2] for r in table.splitlines()[1:] if len(r.split()) >= 3}
+        if ref in existing and existing[ref] != row['digest']: raise ValueError('existing_target_image_alias_differs')
+        if ref not in existing: command('image-alias-' + str(index), prefix + ['images', 'tag', immutable, ref])
+        references.append(ref)
+        check_remaining(acquisition,root,command)
+        progress('target-images', index, len(release['images']))
+    operator = release['target']['images']['operator']
+    for name, refs in [('baseline.tar', references), ('operator-candidate.tar', [operator])]:
+        check_remaining(acquisition,root,command)
+        dest = root / 'images' / name
+        command('export-' + name, prefix + ['images', 'export', '--platform', 'linux/amd64', str(dest), *refs], timeout=1800)
+        command('own-' + name, ['sudo', '-n', 'chown', str(os.getuid()) + ':' + str(os.getgid()), str(dest)])
+        dest.chmod(0o600)
+        acquisition['remainingWorkBytes']-=acquisition['exportUpperBoundBytes']
+        check_remaining(acquisition,root,command)
+    return check_expansion(acquisition,[root/'images/baseline.tar',root/'images/operator-candidate.tar'],root,command)

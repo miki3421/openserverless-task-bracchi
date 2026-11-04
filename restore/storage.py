@@ -19,7 +19,11 @@
 import math
 import os
 from pathlib import Path
+import sys
 from lib import require
+
+sys.path.insert(0,str(Path(__file__).resolve().parents[1]/'backup/engine/scripts'))
+from store_capacity import filesystem_witness,revalidate_filesystem
 
 GIB = 1024**3
 
@@ -61,7 +65,8 @@ def inspect_storage(profile, manifest, snapshot, read):
         return path
     roots = [existing(path) for path in paths]
     require(len({p.stat().st_dev for p in roots}) == 1, 'split_restore_filesystems_require_qualification')
-    stat = os.statvfs(roots[0])
+    witness=filesystem_witness(roots[0])
+    stat = revalidate_filesystem(witness,paths)
     require(stat.f_frsize <= 4096, 'image_storage_block_size_requires_qualification')
     require(stat.f_favail >= max(1024, math.ceil(stat.f_files * .1)), 'insufficient_restore_inodes')
     node = read(['get', 'node/' + profile['target']['hostname']])
@@ -78,11 +83,13 @@ def inspect_storage(profile, manifest, snapshot, read):
         import json
         print('OPS restore storage: ' + json.dumps(result), flush=True)
     require(result['sufficient'], 'insufficient_peak_restore_storage')
+    result.update(filesystem=witness,selectedStoragePaths=paths)
     return result
 
 
 def require_headroom(plan):
-    stat = os.statvfs('/var/lib')
+    require('filesystem'in plan and 'selectedStoragePaths'in plan,'bound_storage_filesystem_required')
+    stat = revalidate_filesystem(plan['filesystem'],plan['selectedStoragePaths'])
     available = stat.f_bavail * stat.f_frsize
     require(plan['availableBytes'] - available <= plan['workingBytes'], 'restore_working_set_budget_exceeded')
     require(available >= plan['kubernetesReserveBytes'],
