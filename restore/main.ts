@@ -16,7 +16,7 @@
 // under the License.
 
 // Personal-fork rehearsal command; the target and archive are selected in a protected profile.
-import { mkdirSync, writeFileSync, unlinkSync } from "node:fs";
+import { existsSync, mkdirSync, writeFileSync, unlinkSync } from "node:fs";
 import { homedir } from "node:os";
 import { join } from "node:path";
 import { randomUUID } from "node:crypto";
@@ -33,7 +33,16 @@ export async function main() {
   process.umask(0o077);
   if(process.argv.includes("--help")){console.log("Usage: ops restore [--check] [--json]\n       ops restore status [--json]\n       ops restore reset [--check] [--json]");return;}
   const requestOptions=options(JSON.parse(process.env.OPS_RESTORE_REQUEST||"{}"));
-  const home=process.env.OPS_HOME||join(homedir(),".ops"),uid=process.getuid!(),selectedProfile=profilePath(home,uid);
+  const home=process.env.OPS_HOME||join(homedir(),".ops"),uid=process.getuid!();
+  if(existsSync(join(home,"backup-store.json"))&&!existsSync(join(home,"migrate/prepared.json"))) {
+    if(requestOptions.reset)throw Error("docker_restore_reset_not_supported");
+    verifyEngine();
+    const args=["python3","-B",join(import.meta.dir,"../backup/engine/scripts/store_driver.py"),"--ops-home",home,"--bun",process.execPath,
+      ...(requestOptions.check?["--check"]:[]),...(requestOptions.json?["--json"]:[]),requestOptions.status?"restore-status":"restore-kind"];
+    const child=Bun.spawn(args,{stdin:"inherit",stdout:"inherit",stderr:"inherit",env:{...process.env,PYTHONDONTWRITEBYTECODE:"1"}});
+    process.exitCode=await child.exited;return;
+  }
+  const selectedProfile=profilePath(home,uid);
   const profile=privateJSON(selectedProfile,uid);
   if(profile.user?.uid!==uid||profile.user?.home!==homedir())throw Error("restore_profile_user_mismatch");
   verifyEngine();

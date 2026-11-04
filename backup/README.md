@@ -53,3 +53,20 @@ Native sudo helpers use explicit Python `-B` and accept the selected source
 administrator's protected configuration without changing its ownership or mode.
 No bytecode is added to the immutable release during failure handling; `status`
 retains the same complete integrity checks after an unsuccessful helper.
+# Host S3 destination candidate
+
+`ops backup prepare` explicitly prepares the opt-in Versity/Velero local-host
+destination for the qualified Linux AMD64 legacy kind profile. It downloads only
+pinned tools, creates fresh encrypted storage and a restricted TLS host service,
+then prepares Velero. Existing destinations are verified rather than reformatted.
+`ops backup prepare --check` checks prerequisites without installation or capture.
+
+After preparation, ordinary `ops backup` selects `backup-store.json` and captures
+native data, Velero metadata and a cold Docker checkpoint as one verified
+generation. The kind node pauses during the cold phase; the S3 gateway continues
+outside Kubernetes/Docker. `ops restore` in this source context restores Docker
+onto fresh storage and retains the original node. Its result still requires
+application acceptance. The existing native archive format and old readers are
+preserved; this candidate does not remove Restic's file-level encryption layer.
+Full product/remote-filesystem qualification is not implied by implementation.
+

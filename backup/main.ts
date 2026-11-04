@@ -1,11 +1,11 @@
 // Thin consumer of the immutable canonical engine. Edit the engine in its repository.
 import { createHash } from "node:crypto";
-import { lstatSync, readFileSync, readdirSync } from "node:fs";
+import { existsSync, lstatSync, readFileSync, readdirSync } from "node:fs";
 import { homedir } from "node:os";
 import { dirname, isAbsolute, join, resolve, sep } from "node:path";
 
-export const ENGINE_REVISION = "2a23171c937c9285a737e1527a15c1882939215d";
-const MANIFEST_SHA256 = "e0453031fbe090339015154c85dc4e115c4b43df998e76a4c8073c8ebf3fc0e5";
+export const ENGINE_REVISION = "2e99e1a4f76dbb32489468a962bbeb4447441757";
+const MANIFEST_SHA256 = "50869e1a55fb8b991bf19dd51af06fe6a25aba80ec22cb86de1d29d508576bec";
 const hash = (bytes: Uint8Array) => createHash("sha256").update(bytes).digest("hex");
 function regular(path: string): Buffer {
   for (let cursor = path;; cursor = dirname(cursor)) {
@@ -54,7 +54,8 @@ export function flag(value: unknown): boolean {
 export function request(value: unknown, home: string): string[] {
   if (!value || typeof value !== "object" || Array.isArray(value) || !isAbsolute(home)) throw new Error("invalid_backup_request");
   const options = value as Record<string, unknown>;
-  if (Object.keys(options).some(k => !["check", "status", "json"].includes(k))) throw new Error("invalid_backup_request");
+  if (Object.keys(options).some(k => !["check", "status", "json", "prepare"].includes(k))) throw new Error("invalid_backup_request");
+  if (flag(options.prepare)) throw new Error("prepare_requires_store_driver");
   const check = flag(options.check), status = flag(options.status), json = flag(options.json);
   if (check && status) throw new Error("invalid_backup_request");
   return ["--config", join(home, "backup.json"), "--bun", process.execPath,
@@ -62,11 +63,16 @@ export function request(value: unknown, home: string): string[] {
 }
 export async function main(): Promise<void> {
   if (process.argv.includes("--help")) {
-    console.log("Usage: ops backup [--check] [--json]\n       ops backup status [--json]"); return;
+    console.log("Usage: ops backup [--check] [--json]\n       ops backup prepare [--check] [--json]\n       ops backup status [--json]"); return;
   }
-  const args = request(JSON.parse(process.env.OPS_BACKUP_REQUEST || "{}"), process.env.OPS_HOME || join(homedir(), ".ops"));
+  const options = JSON.parse(process.env.OPS_BACKUP_REQUEST || "{}"), home=process.env.OPS_HOME || join(homedir(), ".ops");
+  if (!options || Object.keys(options).some(k=>!["check","status","json","prepare"].includes(k))) throw Error("invalid_backup_request");
+  const prepare=flag(options.prepare), status=flag(options.status), check=flag(options.check), json=flag(options.json);
+  if ((prepare&&status)||(check&&status)) throw Error("ambiguous_backup_request");
   verifyEngine();
-  const child = Bun.spawn(["python3", "-B", join(import.meta.dir, "engine/scripts/ops_backup.py"), ...args], {
+  const store=prepare||existsSync(join(home,"backup-store.json"));
+  const args=store?["--ops-home",home,"--bun",process.execPath,...(check?["--check"]:[]),...(json?["--json"]:[]),prepare?"prepare":status?"status":"backup"]:request(options,home);
+  const child = Bun.spawn(["python3", "-B", join(import.meta.dir, store?"engine/scripts/store_driver.py":"engine/scripts/ops_backup.py"), ...args], {
     stdin: "inherit", stdout: "inherit", stderr: "inherit", env: { ...process.env, PYTHONDONTWRITEBYTECODE: "1" },
   });
   process.exitCode = await child.exited;

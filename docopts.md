@@ -25,6 +25,7 @@ Type `ops <task>` to see usage and subtasks.
 ```text
 Usage:
   ops backup [--check] [--json]
+  ops backup prepare [--check] [--json]
   ops backup status [--json]
   ops restore [--check] [--json]
   ops restore status [--json]

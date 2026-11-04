@@ -38,11 +38,13 @@ test.skipIf(!process.env.OPS_TEST_BINARY)("real OPS dispatches bare backup, chec
     for (const [args, check, status, json] of [
       [["backup"], false, false, false], [["backup", "--check", "--json"], true, false, true],
       [["backup", "status", "--json"], false, true, true],
+      [["backup", "prepare", "--check"], true, false, false],
     ] as [string[], boolean, boolean, boolean][]) {
       const result = run(args); expect(result.exitCode).toBe(0);
       const line = result.stdout.toString().split("\n").find(v => v.startsWith("DISPATCH="));
       expect(line).toBeDefined(); const options = JSON.parse(line!.slice(9));
       expect(flag(options.check)).toBe(check); expect(flag(options.status)).toBe(status); expect(flag(options.json)).toBe(json);
+      expect(flag(options.prepare)).toBe(args.includes("prepare"));
     }
     const help = run(["backup", "--help"]); expect(help.exitCode).toBe(0); expect(help.stdout.toString()).toContain("Usage:");
     expect(help.stdout.toString()).not.toContain("DISPATCH=");
