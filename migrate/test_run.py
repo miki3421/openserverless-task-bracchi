@@ -31,6 +31,13 @@ sys.path.insert(0,str(Path(__file__).resolve().parent))
 import run
 
 class MigrationBoundary(unittest.TestCase):
+    def test_prepared_resume_requires_exact_snapshot_target_and_host(self):
+        c={'s3':{'prefix':'source'},'host':{'uuid':'host','hostname':'local'}}
+        p={'route':'same-host-kind-010-to-k3s-090','archive':{'snapshot':'snapshot'},'source':{'clusterUid':'source','hostUuid':'host','hostname':'local'},'target':{'clusterUid':'target','hostUuid':'host','hostname':'local'}}
+        pointer={'snapshot':'snapshot','targetClusterUid':'target'};bundle={'native':{'snapshot':'snapshot'},'source':{'clusterUid':'source'}}
+        run.resume_binding(pointer,p,bundle,c)
+        for bad in [{'snapshot':'other','targetClusterUid':'target'},{'snapshot':'snapshot','targetClusterUid':'foreign'}]:
+            with self.assertRaisesRegex(ValueError,'binding_changed'):run.resume_binding(bad,p,bundle,c)
     def test_installation_waits_for_first_node_registration(self):
         replies=[mock.Mock(returncode=0,stdout=b'{"items":[]}',stderr=b''),mock.Mock(returncode=0,stdout=b'{"items":[{"metadata":{"name":"synthetic"}}]}',stderr=b'')]
         with tempfile.TemporaryDirectory()as d,mock.patch.object(run.subprocess,'run',side_effect=replies)as execute,mock.patch.object(run.time,'sleep')as sleep:

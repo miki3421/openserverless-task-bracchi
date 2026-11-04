@@ -141,10 +141,10 @@ def read_cli_configuration(path, uid):
     return value
 
 
-def existing_preparation(pointer, uid, source, target, archive, commit):
+def existing_preparation(pointer, uid, source, target, archive, commit, refresh=False):
     selection = private_json(pointer, uid)
     path = Path(selection['profile']); profile = validate_profile(private_json(path, uid))
-    require(path.parent == Path(profile['target']['opsHome']) and profile['engineCommit'] == commit and
+    require(path.parent == Path(profile['target']['opsHome']) and
             profile['source'] == source and all(profile['target'][k] == v for k, v in target.items()) and
             all(profile['archive'][k] == archive[k] for k in ('repository', 'snapshot', 'passwordFile')) and
             selection.get('targetClusterUid') == target['clusterUid'] and selection.get('snapshot') == archive['snapshot'],
@@ -156,7 +156,21 @@ def existing_preparation(pointer, uid, source, target, archive, commit):
                 not any(p in {'.', '..'} for p in Path(name).parts), 'unsafe_prepared_asset_path')
         item = regular(assets / name, uid)
         require(item.stat().st_size == row['bytes'] and digest(item) == row['sha256'], 'prepared_asset_changed')
+    if profile['engineCommit'] != commit:
+        refresh_wrapper_pin(profile, path, commit, write=refresh)
     return str(path)
+
+
+def refresh_wrapper_pin(profile, path, commit, write=True):
+    """Only wrapper fixes may advance an empty, independently inspected target."""
+    previous=profile['engineCommit']
+    require(subprocess.run(['git','-C',str(TASK),'merge-base','--is-ancestor',previous,commit],capture_output=True).returncode==0,'prepared_code_requires_descendant_revision')
+    changed=subprocess.check_output(['git','-C',str(TASK),'diff','--name-only',previous,commit],text=True).splitlines()
+    allowed={'migrate/run.py','migrate/prepare.py','migrate/main.ts','migrate/README.md','setup/kubernetes/opsfile.yml'}
+    require(changed and all(name in allowed or re.fullmatch(r'migrate/(?:test_[a-z_]+\.py|[a-z_]+\.test\.ts)',name)for name in changed),'prepared_restore_workers_changed_requires_review')
+    if write:
+        save(Path(path).with_name('restore-before-wrapper-refresh-'+uuid.uuid4().hex+'.private.json'),profile)
+        updated={**profile,'engineCommit':commit};save(path,updated)
 
 
 def prepare(request):
@@ -231,7 +245,7 @@ def prepare(request):
         save(work / 'source-identity.private.json', source)
         if (root / 'prepared.json').exists():
             progress('verify-existing-preparation')
-            path = existing_preparation(root / 'prepared.json', uid, source, observed['target'], archive, commit)
+            path = existing_preparation(root / 'prepared.json', uid, source, observed['target'], archive, commit, refresh=not request['check'])
             if not request['check']:
                 run('rebind-target', ['sudo', '-n', 'python3', '-B', str(TASK / 'migrate/target.py'), 'bind', path])
             state.update(status='check_passed' if request['check'] else 'prepared', restoreConfigured=True)

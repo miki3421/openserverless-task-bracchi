@@ -51,6 +51,14 @@ def metadata(p):
 
 
 class PreparationContract(unittest.TestCase):
+    def test_only_descendant_wrapper_changes_refresh_an_empty_target_code_pin(self):
+        p={'engineCommit':'a'*64};target=Path('/synthetic/restore.json')
+        with patch.object(prepare.subprocess,'run',return_value=type('Result',(),{'returncode':0})()),patch.object(prepare.subprocess,'check_output',return_value='migrate/run.py\nsetup/kubernetes/opsfile.yml\n'),patch.object(prepare,'save')as save:
+            prepare.refresh_wrapper_pin(p,target,'b'*64,write=False);save.assert_not_called()
+            prepare.refresh_wrapper_pin(p,target,'b'*64);self.assertEqual(save.call_count,2)
+        with patch.object(prepare.subprocess,'run',return_value=type('Result',(),{'returncode':0})()),patch.object(prepare.subprocess,'check_output',return_value='restore/engine.py\n'),patch.object(prepare,'save')as save:
+            with self.assertRaisesRegex(ValueError,'restore_workers_changed'):prepare.refresh_wrapper_pin(p,target,'b'*64)
+            save.assert_not_called()
     def test_standard_cli_config_is_read_without_changing_source_permissions_or_bytes(self):
         with tempfile.TemporaryDirectory() as root:
             path = Path(root) / 'config.json'; path.write_text('{"apihost":"synthetic"}\n'); path.chmod(0o644)

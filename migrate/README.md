@@ -15,6 +15,19 @@ generation; source applications and native backends still need acceptance
 after restore. Failed phases retain private journals and stop subsequent work.
 It is not certified for production or other layouts by synthetic tests.
 
+An already prepared target can be resumed only while it is independently
+verified empty of application data, with the same host, cluster UID, backup
+snapshot and verified capsule. Docker must remain stopped and disabled. Only
+descendant changes limited to migration wrappers/tests and Kubernetes prepare
+may refresh that profile's code pin; changes to restore workers require review.
+The previous profile is retained. Once application restore has started this
+path refuses automatic replay.
+
+Kubernetes prepare and restore explicitly use the prepared K3s client rather
+than an inherited kind context. Prepare failures propagate to the caller. At
+successful completion, the selected profile's client cache is switched to K3s
+and its original kind client is retained privately for rollback.
+
 `ops migrate prepare --to=k3s` is the preparatory step for the qualified
 same-host kind0.1.0 to K3s0.9.0 rehearsal. It runs after installing the target
 K3s with `ops cloud k3s`, before `ops setup kubernetes prepare` and
