@@ -19,7 +19,18 @@ import {configFingerprint} from "../update/source";
 import {collectSeaweed,type JSONClient,type PrivateRunner} from "../update/storage";
 import {pauseSourceMilvus} from "./source-milvus";
 
-function fixture(){
+type FixtureArchitecture = "amd64" | "arm64";
+function nativeArchitecture(): FixtureArchitecture {
+ if(process.platform!=="linux" || !["x64","arm64"].includes(process.arch))
+  throw new Error("unsupported_native_fixture_platform");
+ return process.arch==="x64"?"amd64":"arm64";
+}
+function syntheticELF(architecture: FixtureArchitecture): Buffer {
+ // Only a parser fixture: the PrivateRunner is mocked; this never executes weed.
+ const binary=Buffer.alloc(64);binary.write("\x7fELF");binary[4]=2;binary[5]=1;
+ binary.writeUInt16LE(architecture==="amd64"?62:183,18);return binary;
+}
+function fixture(architecture: FixtureArchitecture = nativeArchitecture()){
  const root=mkdtempSync(join(tmpdir(),"ops-milvus-pause-"));const events:string[]=[];let mutations=0,ticks=0;
  const whisk:any={metadata:{namespace:"nuvolaris",name:"controller",uid:"source-whisk"},spec:{nuvolaris:{password:"private-canary"},components:{milvus:true,seaweedfs:true}}};
  const dep:any={kind:"Deployment",metadata:{namespace:"nuvolaris",name:"nuvolaris-milvus-standalone",uid:"source-deployment",generation:10,
@@ -31,7 +42,7 @@ function fixture(){
  const controller:any={metadata:{name:"controller"},spec:{replicas:0}};const apis:any[]=["nuvolaris-system-api","nuvolaris-streamer-api"].map(name=>({metadata:{name},spec:{replicas:0}}));
  const state:any={cluster:"source-cluster",namespace:"source-namespace",pods:[pod,seaweed],cron:[{spec:{suspend:true}}],ingress:0,removeOnSleep:true};
  const profile:any={route:"k3s-010-to-090",mode:"rehearsal",source:{namespace:"nuvolaris",instance:"controller",clusterUid:state.cluster,namespaceUid:state.namespace,whiskUid:whisk.metadata.uid}};
- const plan:any={architectures:["amd64"],source:{namespace:"nuvolaris",apiGroup:"nuvolaris.org",uid:whisk.metadata.uid,namespaceUid:state.namespace,clusterUid:state.cluster,context:"source-context",configSha256:configFingerprint(whisk)},bindings:[
+ const plan:any={architectures:[architecture],source:{namespace:"nuvolaris",apiGroup:"nuvolaris.org",uid:whisk.metadata.uid,namespaceUid:state.namespace,clusterUid:state.cluster,context:"source-context",configSha256:configFingerprint(whisk)},bindings:[
   {artifactId:"milvus-data",method:"milvus-qualified-native-backup",targets:[{pod:pod.metadata.name,podUid:pod.metadata.uid,container:"standalone",image:pod.spec.containers[0].image}]},
   {artifactId:"seaweedfs-data",targets:[{pod:seaweed.metadata.name,podUid:seaweed.metadata.uid,container:"seaweedfs",image:seaweed.spec.containers[0].image}]}]};
  const freeze:any={sourceClusterUid:state.cluster,frontendsAndSchedulerStopped:true};
@@ -139,7 +150,7 @@ test("real SeaweedFS collector rejects background writes and accepts a fully sto
     writeFileSync(join(path,"volumes/synthetic_1.dat"),"synthetic data");writeFileSync(join(path,"volumes/synthetic_1.idx"),"");
    }
   };
-  return collectSeaweed(f.plan,out,f.read,async(_job,fd)=>{const binary=Buffer.alloc(64);binary.write("\x7fELF");binary[4]=2;binary[5]=1;binary.writeUInt16LE(62,18);writeFileSync(fd,binary);return 0;},get,run);
+  return collectSeaweed(f.plan,out,f.read,async(_job,fd)=>{writeFileSync(fd,syntheticELF(f.plan.architectures[0]));return 0;},get,run);
  };
  try{
   await expect(collect()).rejects.toThrow("seaweed_source_changed_during_backup");expect(f.mutations()).toBe(0);expect(f.dep.spec.replicas).toBe(1);
@@ -150,3 +161,37 @@ test("real SeaweedFS collector rejects background writes and accepts a fully sto
   expect(f.dep.spec.replicas).toBe(0);expect(f.mutations()).toBe(1);
  }finally{for(const out of outputs)rmSync(out,{recursive:true,force:true});f.cleanup();}
 });
+
+
+test("runner/plan mismatch rejects before binary capture or private runner execution",async()=>{
+ const native=nativeArchitecture();const f=fixture(native==="amd64"?"arm64":"amd64");
+ let captures=0,queries=0,runs=0;
+ try{
+  await expect(collectSeaweed(f.plan,f.root,f.read,async()=>{captures++;return 0;},
+   async()=>{queries++;return {};},async()=>{runs++;})).rejects.toThrow("seaweed_runner_architecture_mismatch");
+  expect(captures).toBe(0);expect(queries).toBe(0);expect(runs).toBe(0);expect(f.mutations()).toBe(0);
+  expect(existsSync(join(f.root,"weed"))).toBe(false);
+ }finally{f.cleanup();}
+});
+
+for(const variant of ["wrong-machine","magic","class","endian","empty","short-magic","short-machine-low","short-machine-high"]){
+ test("matching native plan rejects invalid synthetic ELF before any private runner: "+variant,async()=>{
+  const architecture=nativeArchitecture();const f=fixture(architecture);let captures=0,queries=0,runs=0;
+  let binary=syntheticELF(architecture);
+  if(variant==="wrong-machine")binary=syntheticELF(architecture==="amd64"?"arm64":"amd64");
+  if(variant==="magic")binary[0]=0;
+  if(variant==="class")binary[4]=1;
+  if(variant==="endian")binary[5]=2;
+  // The production parser reads20 bytes; exercise both e_machine byte boundaries.
+  if(variant==="empty")binary=binary.subarray(0,0);
+  if(variant==="short-magic")binary=binary.subarray(0,3);
+  if(variant==="short-machine-low")binary=binary.subarray(0,18);
+  if(variant==="short-machine-high")binary=binary.subarray(0,19);
+  try{
+   await expect(collectSeaweed(f.plan,f.root,f.read,async(_job,fd)=>{
+    captures++;writeFileSync(fd,binary);return 0;
+   },async()=>{queries++;return {};},async()=>{runs++;})).rejects.toThrow("invalid_seaweed_binary");
+   expect(captures).toBe(1);expect(queries).toBe(0);expect(runs).toBe(0);expect(f.mutations()).toBe(0);
+  }finally{f.cleanup();}
+ });
+}
