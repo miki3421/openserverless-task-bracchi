@@ -45,6 +45,15 @@ independent unpack on the same server. It recovers the data in a distinct native
 namespace before replacing the control plane. This is per-component recovery;
 atomic application consistency and off-server backup custody are not asserted.
 
+The maintenance route verifies the native Milvus export before scaling only its
+original Whisk-owned source Deployment to zero. It waits for every matching Pod
+to disappear, checks the Deployment UID/spec/generation and source maintenance
+around SeaweedFS capture, and retains the filer/volume consistency check. Milvus
+stays paused until the old control plane is stopped; its previous replica count
+and pause evidence are retained in the private run journal. A failure does not
+automatically restart it or bypass checkpoint review. This coordination is not
+used by ordinary online backup and does not claim cross-service atomicity.
+
 The target uses a fresh K3s 1.36.4 control plane, the standard `k3s.service`,
 the same server and API hostname, and explicit retained PVC mappings. This does
 not attempt to skip supported intermediate versions of an in-place Kubernetes

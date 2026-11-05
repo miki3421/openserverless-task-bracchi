@@ -25,7 +25,9 @@ import { collectNativeComponent } from "../update/native";
 import { runSequence } from "../update/sequence";
 import { verifyMilvusTool } from "../update/storage";
 import { packArchive, unpackArchive } from "../update/archive";
-import { saveJSON, type UpgradeProfile } from "./lib";
+import { privateJSON, saveJSON, type UpgradeProfile } from "./lib";
+import { pauseSourceMilvus } from "./source-milvus";
+import { verifyPartialBackup } from "../update/backup";
 
 export async function assessSourceBackup(profile:UpgradeProfile,context:string,taskRoot:string) {
   const source=profile.source;
@@ -41,14 +43,32 @@ export async function assessSourceBackup(profile:UpgradeProfile,context:string,t
 }
 export async function captureFreshBackup(root:string,profile:UpgradeProfile,context:string,taskRoot:string) {
   const {inventory,plan,read}=await assessSourceBackup(profile,context,taskRoot);
-  saveJSON(join(root,"inventory.json"),inventory);saveJSON(join(root,"backup-plan.json"),plan);
+  saveJSON(join(root,"inventory.json"),inventory);
+  const freeze=privateJSON(join(root,"freeze.json"),0);
+  const seaweed=plan.bindings.find(binding=>binding.artifactId==="seaweedfs-data")!;
+  if(!plan.bindings.some(binding=>binding.artifactId==="milvus-data"))throw new Error("source_milvus_export_required");
+  seaweed.dependsOn=[...new Set([...seaweed.dependsOn,"milvus-data"])];
+  saveJSON(join(root,"backup-plan.json"),plan);
+  let paused:Awaited<ReturnType<typeof pauseSourceMilvus>>|undefined;
   const artifacts=join(root,"artifacts");mkdirSync(artifacts,{mode:0o700});
   const tools=join(root,"inputs/tools");
   const result=await runSequence(inventory,plan,artifacts,{
     verifyLive:()=>verifyLiveInventory(inventory,read),
     qualifyMilvus:()=>verifyMilvusTool(tools),
-    collect:(id,output)=>collectNativeComponent(inventory,plan,id,output,read,undefined,undefined,tools),
+    collect:async(id,output)=>{
+      console.log("OPS upgrade: collect "+id+" — collect the qualified native component.");
+      if(id==="seaweedfs-data"){
+        paused=await pauseSourceMilvus(root,profile,plan,read,freeze,
+          ()=>verifyPartialBackup(inventory,plan,join(artifacts,"milvus-data"),"milvus-data"));
+        paused.assertPaused();
+      }
+      const collected=await collectNativeComponent(inventory,plan,id,output,read,undefined,undefined,tools);
+      if(id==="seaweedfs-data")paused!.assertPaused();
+      return collected;
+    },
   });
+  if(!paused)throw new Error("source_milvus_pause_required");
+  paused.assertPaused();
   const keyDirectory="/var/lib/ops-upgrade/keys";mkdirSync(keyDirectory,{mode:0o700,recursive:true});
   const password=join(keyDirectory,root.split("/").at(-1)+".key");
   writeFileSync(password,randomBytes(48).toString("hex")+"\n",{mode:0o600,flag:"wx"});
@@ -56,8 +76,9 @@ export async function captureFreshBackup(root:string,profile:UpgradeProfile,cont
   const packed=await packArchive({inventory:join(root,"inventory.json"),plan:join(root,"backup-plan.json"),artifacts,archive,
     workspace:join(root,"archive-build"),password,tools});
   const restored=await unpackArchive({archive,workspace:join(root,"unpack"),password,tools});
+  paused.assertPaused();
   saveJSON(join(root,"backup-verification.json"),{...restored,snapshot:packed.snapshot,
-    freshSourceCollectionVerified:true,sourceWriteFreezeAttempted:true,sourceAtomicConsistencyClaimed:false,
+    freshSourceCollectionVerified:true,sourceMilvusPausedForSeaweed:true,sourceWriteFreezeAttempted:true,sourceAtomicConsistencyClaimed:false,
     independentHostCustodyVerified:false,consistency:result.consistency});
   return {inventory,plan,snapshot:packed.snapshot};
 }
