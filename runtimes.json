@@ -145,9 +145,9 @@
                 "kind": "nodejs:22",
                 "default": true,
                 "image": {
-                    "prefix": "docker.io/apache",
-                    "name": "openserverless-runtime-nodejs",
-                    "tag": "v22-26i22h40-snapshot"
+                    "prefix": "localhost",
+                    "name": "ops-advanced-nodejs",
+                    "tag": "22-20261105-r3"
                 },
                 "deprecated": false,
                 "attached": {
