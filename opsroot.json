@@ -12,11 +12,11 @@
       "coreutils": "arch b2sum b3sum base32 basename basenc cat chgrp chmod chown chroot cksum comm cp csplit cut date dd df dir dircolors dirname du env expand expr factor fmt fold groups hashsum head hostid hostname id install join kill link ln logname ls md5sum mkdir mkfifo mknod mktemp more mv nice nl nohup nproc numfmt od paste pathchk pinky pr printenv printf ptx pwd readlink realpath rm rmdir seq sha1sum sha224sum sha256sum sha3-224sum sha3-256sum sha3-384sum sha3-512sum sha384sum sha3sum sha512sum shake128sum shake256sum shred shuf sleep sort split stat stdbuf stty sum sync tac tail tee timeout touch tr truncate tsort tty uname unexpand uniq unlink uptime users vdir wc who whoami yes"
     },
     "images": {
-      "operator": "localhost/ops-advanced-security-aligned:20261105-r3",
+      "operator": "localhost/ops-advanced-operator:20261105-r4",
       "controller": "localhost/ops-advanced-controller-options:20261105",
       "invoker": "docker.io/apache/openserverless-wsk-invoker:0.9.0-incubating.26i21w32-snapshot",
       "streamer": "localhost/ops-streamer-availability:20261020-local2",
-      "systemapi": "localhost/ops-advanced-admin-api-integrated:20261026-local",
+      "systemapi": "localhost/ops-advanced-admin-api:20261105-r1",
       "devcontainer": "docker.io/apache/openserverless-devcontainer:0.9.0-incubating.26i21w32-snapshot",
       "ingress": "registry.k8s.io/ingress-nginx/controller:v1.7.0",
       "couchdb": "docker.io/apache/couchdb:3.5.2@sha256:c703989c0a370a1a6b179785bcb5b2b5501347bb0219d02d597d0a9107eb8d28",
