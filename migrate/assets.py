@@ -128,9 +128,11 @@ def assemble(release, root, ops, bun, bin_dir, command, progress, *, k3s_binary=
     assemble_target_tasks(release,root,command)
     acquire_images(release,root,command,progress,acquisition,metadata=getattr(manifest_fetch,'verified_paths',{}))
     manifest = {'schemaVersion': 1, 'files': {}}
-    for directory in ('tools', 'clients', 'tasks', 'images'):
-        for path in (root / directory).iterdir():
-            manifest['files'][str(path.relative_to(root))] = {'bytes': path.stat().st_size, 'sha256': sha(path)}
+    inputs = [path for directory in ('tools', 'clients', 'tasks', 'images')
+              for path in (root / directory).iterdir()]
+    for index, path in enumerate(inputs, 1):
+        progress('input-checksums', index, len(inputs))
+        manifest['files'][str(path.relative_to(root))] = {'bytes': path.stat().st_size, 'sha256': sha(path)}
     (root / 'manifest.json').write_text(json.dumps(manifest, indent=2) + '\n'); (root / 'manifest.json').chmod(0o600)
     return manifest
 
@@ -175,7 +177,8 @@ def acquire_images(release,root,command,progress,acquisition,*,metadata=None):
         check_remaining(acquisition,root,command)
         progress('target-images', index, len(release['images']))
     operator = release['target']['images']['operator']
-    for name, refs in [('baseline.tar', references), ('operator-candidate.tar', [operator])]:
+    for index, (name, refs) in enumerate([('baseline.tar', references), ('operator-candidate.tar', [operator])], 1):
+        progress('image-export', index, 2)
         check_remaining(acquisition,root,command)
         dest = root / 'images' / name
         command('export-' + name, prefix + ['images', 'export', '--platform', 'linux/amd64', str(dest), *refs], timeout=1800)
@@ -183,6 +186,8 @@ def acquire_images(release,root,command,progress,acquisition,*,metadata=None):
         dest.chmod(0o600)
         acquisition['remainingWorkBytes']-=acquisition['exportUpperBoundBytes']
         check_remaining(acquisition,root,command)
+    progress('image-verification')
     verified=check_expansion(acquisition,[root/'images/baseline.tar',root/'images/operator-candidate.tar'],root,command)
+    progress('image-cleanup')
     image_namespace.release(root,staging,expected_aliases,command)
     return verified

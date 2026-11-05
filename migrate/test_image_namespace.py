@@ -65,12 +65,14 @@ class NamespaceIsolation(unittest.TestCase):
                 calls.append('verified-original-archives')
                 if verify_failure:raise ValueError('synthetic_archive_failed')
                 return {'verified':True}
+            def progress(phase,*counts):
+                calls.append('feedback:'+phase+(':'+str(counts[0])+'/'+str(counts[1])if counts else''))
             failure=fetch_failure or verify_failure or poisoned or wrong_owner
             with mock.patch.object(assets,'check_remaining'),mock.patch.object(assets,'check_expansion',side_effect=verify):
                 if failure:
-                    with self.assertRaises(ValueError):assets.acquire_images({'images':images,'target':{'images':{'operator':ref}}},root,command,mock.Mock(),plan)
+                    with self.assertRaises(ValueError):assets.acquire_images({'images':images,'target':{'images':{'operator':ref}}},root,command,progress,plan)
                 else:
-                    self.assertEqual(assets.acquire_images({'images':images,'target':{'images':{'operator':ref}}},root,command,mock.Mock(),plan),{'verified':True})
+                    self.assertEqual(assets.acquire_images({'images':images,'target':{'images':{'operator':ref}}},root,command,progress,plan),{'verified':True})
             receipt=json.loads((root/'image-namespace.private.json').read_text())
             self.assertEqual(spaces['k8s.io'],source)
             self.assertEqual(receipt['status'],'staging'if failure else'released')
@@ -80,7 +82,11 @@ class NamespaceIsolation(unittest.TestCase):
 
     def test_different_source_and_target_digest_share_no_mutable_alias_state(self):
         calls=self.exercise()
-        self.assertLess(calls.index('verified-original-archives'),calls.index('image-namespace-unref-0'))
+        self.assertLess(calls.index('feedback:image-export:1/2'),calls.index('export-baseline.tar'))
+        self.assertLess(calls.index('feedback:image-export:2/2'),calls.index('export-operator-candidate.tar'))
+        self.assertLess(calls.index('feedback:image-verification'),calls.index('verified-original-archives'))
+        self.assertLess(calls.index('verified-original-archives'),calls.index('feedback:image-cleanup'))
+        self.assertLess(calls.index('feedback:image-cleanup'),calls.index('image-namespace-unref-0'))
 
     def test_failed_fetch_preserves_private_namespace_and_does_not_export(self):
         calls=self.exercise(fetch_failure=True)
@@ -89,6 +95,7 @@ class NamespaceIsolation(unittest.TestCase):
     def test_failed_archive_verification_preserves_staging_and_evidence(self):
         calls=self.exercise(verify_failure=True)
         self.assertNotIn('image-namespace-remove',calls)
+        self.assertNotIn('feedback:image-cleanup',calls)
 
     def test_private_namespace_still_rejects_unexpected_alias_digest(self):self.exercise(poisoned=True)
 

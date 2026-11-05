@@ -39,6 +39,7 @@ from images import availability
 from source_cache import recover_missing,recovery_image
 from image_references import pinned_workloads
 from manifest_cache import ManifestSource
+from feedback import PreparationFeedback
 
 REQUEST_FIELDS = {'to', 'source', 'status', 'check', 'json', 'repository', 'key',
                   'snapshot', 'ops', 'bun', 'bin', 'opsHome'}
@@ -186,6 +187,10 @@ def prepare_profile(request, profile_path, work, uid, account, run, progress):
         if phase=='target-images':
             message=(f"Stage pinned target image {counts[0]}/{counts[1]} without unpacking; preserve running source aliases."if counts else
                      'Stage pinned target images in a separate namespace; keep source applications running.')
+        elif phase=='image-export':message=f'Export verified image archive {counts[0]}/{counts[1]}; retain original image identities for offline recovery.'
+        elif phase=='image-verification':message='Verify original archive bytes, image descriptors and expanded storage requirements before unpacking.'
+        elif phase=='image-cleanup':message='Release the temporary image staging namespace after archive verification.'
+        elif phase=='input-checksums':message=f'Compute and bind SHA-256 for input file {counts[0]}/{counts[1]} before starting migration.'
         else:message='Stage and verify the pinned target '+phase.replace('-',' ')+'.'
         progress('prepare-'+phase,message)
     manifest = assemble(release, assets, request['ops'], request['bun'], request['bin'], run,
@@ -194,6 +199,7 @@ def prepare_profile(request, profile_path, work, uid, account, run, progress):
     require(manifest['files']['tools/k3s']['sha256'] == release['installedTools']['k3s'],
             'target_capsule_contains_wrong_k3s')
     profile = bind_assets(profile, assets, manifest)
+    progress('recheck-source','Recheck source identity and original image aliases before committing the migration profile.')
     _,final_cache=inspect_source(profile, False, request, work, run, 'recheck-source')
     final_entries={row['reference']:row['manifestDigest']for row in final_cache['entries']}
     require(all(final_entries.get(ref)==root for ref,root in original_entries.items()),
@@ -239,11 +245,12 @@ def execute(request, request_path):
         state = {'status': 'running', 'phase': 'preflight', 'sourceVersion': '0.1.0',
                  'targetVersion': '0.9.0', 'sourceDistribution': 'k3s', 'applicationRestoreVerified': False}
 
+        feedback = PreparationFeedback(enabled=not request['json'])
+
         def progress(phase, why):
             state['phase'] = phase
             save(work / 'journal.json', state)
-            if not request['json']:
-                print('OPS migrate: ' + phase + ' — ' + why, flush=True)
+            feedback.update(phase, why)
 
         def run(label, args, timeout=300):
             out = work / (label + '.stdout.private')
@@ -256,7 +263,8 @@ def execute(request, request_path):
             return out.read_bytes()
 
         try:
-            ready = prepare_profile(request, profile_path, work, uid, account, run, progress)
+            with feedback:
+                ready = prepare_profile(request, profile_path, work, uid, account, run, progress)
             if not ready:
                 state.update(status='preparation_required', clusterMutation=False, downloadRequired=True,
                              migrationReady=False, assetVerification='NOT_RUN')

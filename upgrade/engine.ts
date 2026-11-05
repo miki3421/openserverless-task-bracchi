@@ -21,7 +21,7 @@ import { hostname } from "node:os";
 import { randomUUID } from "node:crypto";
 import { assessSourceBackup, captureFreshBackup } from "./backup";
 import { cachedImages, cacheReadiness } from "./cache";
-import { phaseMessage, logDriverOutput } from "./progress";
+import { phaseMessage, logDriverOutput, phaseHeartbeat, BACKUP_LABELS, backupFailureMessage } from "./progress";
 import { inspectNativeResume } from "./resume";
 import { noSymlinks, privateJSON, saveJSON, validateProfile, validateJournalBinding, verifyAssets, sha256, runPhases, type UpgradeProfile, type Journal } from "./lib";
 
@@ -207,7 +207,7 @@ export async function main() {
     if((await command(["git","-c","safe.directory="+taskRoot,"-C",taskRoot,"rev-parse","HEAD"])).trim()!==profile.engineCommit||
         (await command(["git","--no-optional-locks","-c","safe.directory="+taskRoot,"-C",taskRoot,"status","--porcelain","--untracked-files=no"])).trim())throw new Error("upgrade_code_revision_mismatch");
     const context=await inspectNativeResume(BASE,profile,caller,kube);
-    const cache=await inspectSourceCache();
+    const cache=await phaseHeartbeat("preflight",()=>inspectSourceCache(),{enabled:!request.json});
     if(request.check){console.log(JSON.stringify({status:"resume_preflight_passed",runId:context.state.runId,
       resumePhase:context.state.phase,resumeStep:context.adapter.failedStep,alreadyVerifiedComponents:context.adapter.completed,
       backupComponents:context.payload.components,backupFiles:context.payload.files,sourceImageCache:cache.proof,
@@ -221,14 +221,16 @@ export async function main() {
       for(const file of ["journal.json","adapter-journal.json","resume-review.json"])safeCopy(join(context.root,file),join(evidence,file));
       context.state.status="running";delete context.state.error;saveJSON(join(context.root,"journal.json"),context.state);
       console.log("OPS upgrade resume: reuse the verified encrypted backup and completed restores; repeat the interrupted read-only check.");
-      await executeUpgrade(context.root,profile,context.source,context.state,true);
+      await executeUpgrade(context.root,profile,context.source,context.state,true,!request.json);
     } finally {rmdirSync(lock);}
     return;
   }
   if(!request.check&&existsSync(join(BASE,"current.json")))throw new Error("existing_upgrade_requires_checkpoint_review");
-  const manifest=await verifyAssets(profile,caller);const source=await facts(profile);
+  if(!request.json)console.log("OPS upgrade: verify-inputs — Verify pinned files and source readiness before maintenance.");
+  const manifest=await phaseHeartbeat("preflight",()=>verifyAssets(profile,caller),{enabled:!request.json});
+  const source=await phaseHeartbeat("preflight",()=>facts(profile),{enabled:!request.json});
   // Reject missing compressed image content before creating a run or entering maintenance.
-  const cache=await inspectSourceCache();
+  const cache=await phaseHeartbeat("preflight",()=>inspectSourceCache(),{enabled:!request.json});
   const checkBin=mkdtempSync("/tmp/ops-upgrade-check-");
   const previousPath=process.env.PATH,previousKubeconfig=process.env.KUBECONFIG;
   let assessment:any;
@@ -236,7 +238,7 @@ export async function main() {
     writeFileSync(join(checkBin,"kubectl"),'#!/bin/sh\nexec /usr/local/bin/k3s kubectl "$@"\n',{mode:0o700,flag:"wx"});
     process.env.PATH=checkBin+":"+previousPath;process.env.KUBECONFIG=SOURCE_KUBECONFIG;
     const context=(await command(["/usr/local/bin/k3s","kubectl","config","current-context"])).trim();
-    assessment=await assessSourceBackup(profile,context,resolve(import.meta.dir,".."));
+    assessment=await phaseHeartbeat("preflight",()=>assessSourceBackup(profile,context,resolve(import.meta.dir,"..")),{enabled:!request.json});
   } finally {
     process.env.PATH=previousPath;
     if(previousKubeconfig===undefined)delete process.env.KUBECONFIG;else process.env.KUBECONFIG=previousKubeconfig;
@@ -256,7 +258,15 @@ export async function main() {
   saveJSON(join(root,"profile.json"),profile);saveJSON(join(root,"source.json"),source);
   const save=()=>saveJSON(join(root,"journal.json"),state);save();
   const inputs=join(root,"inputs");mkdirSync(inputs,{mode:0o700});
-  for(const name of Object.keys(manifest)){safeCopy(join(profile.assets.directory,name),join(inputs,name));if(await sha256(join(inputs,name))!==manifest[name].sha256)throw new Error("copied_asset_checksum_changed");if(name.startsWith("tools/"))chmodSync(join(inputs,name),0o700);}
+  await phaseHeartbeat("preflight",async()=>{
+    const names=Object.keys(manifest);
+    for(const [index,name] of names.entries()){
+      if(!request.json)console.log(`OPS upgrade: prepare-input-file ${index+1}/${names.length} — copy and verify ${name}.`);
+      safeCopy(join(profile.assets.directory,name),join(inputs,name));
+      if(await sha256(join(inputs,name))!==manifest[name].sha256)throw new Error("copied_asset_checksum_changed");
+      if(name.startsWith("tools/"))chmodSync(join(inputs,name),0o700);
+    }
+  },{enabled:!request.json});
   saveJSON(join(inputs,"manifest.json"),{schemaVersion:1,files:manifest});
   const taskRoot=resolve(import.meta.dir,"..");
   const marker={schemaVersion:1,role:"ops-local-upgrade",labId:runId,hostUuid:profile.hostUuid,hostname:source.hostname,
@@ -266,16 +276,16 @@ export async function main() {
     bun:process.execPath,
     nativeNamespace:marker.nativeNamespace,sourcePodCidr:source.sourcePodCidr,targetPodCidr:"10.54.0.0/16",targetServiceCidr:"10.55.0.0/16",targetClusterDns:"10.55.0.10"};
   saveJSON(join(root,"configuration.json"),configuration);
-  await executeUpgrade(root,profile,source,state);
+  await executeUpgrade(root,profile,source,state,false,!request.json);
 }
-export async function executeUpgrade(root:string,profile:UpgradeProfile,source:any,state:Journal,resuming=false) {
+export async function executeUpgrade(root:string,profile:UpgradeProfile,source:any,state:Journal,resuming=false,feedback=true) {
   const taskRoot=resolve(import.meta.dir,".."),attempt=randomUUID();
   const save=()=>saveJSON(join(root,"journal.json"),state);
   const driver=async(phase:string)=>privateCommand(root,"phase-"+phase+(resuming?"-resume-"+attempt:""),["python3","-I",join(import.meta.dir,"adapters/driver.py"),join(root,"configuration.json"),phase,...(resuming?["--resume-verified"]:[])],undefined,2400000,true);
   try {
     await runPhases(state,async phase=>{
       console.log(phaseMessage(phase));
-      await (async()=>{
+      await phaseHeartbeat(phase,async()=>{
       if(phase==="preflight")return;
       if(phase==="freeze-applications"){await saveRuntime(root,profile,source);await freeze(root,source);return;}
       if(phase==="backup"){
@@ -290,13 +300,22 @@ export async function executeUpgrade(root:string,profile:UpgradeProfile,source:a
       }
       await driver(phase);
       if(phase==="final-iam")state.finalIamVerified=true;
-      })();
+      },{enabled:feedback});
       console.log("OPS upgrade: "+phase+" PASS");
     },save);
     console.log(JSON.stringify({status:"upgrade_complete",runId:state.runId,targetVersion:profile.target.version,
       credentialsAndDefinitionsPreserved:true,finalIamVerified:true,applicationAcceptanceRequired:true,backupDirectory:root}));
   } catch {
     const adapter=existsSync(join(root,"adapter-journal.json"))?privateJSON(join(root,"adapter-journal.json"),0):null;
+    if(state.phase==="backup")for(const component of Object.keys(BACKUP_LABELS)){
+      try {
+        const file=join(root,"artifacts",component,"collection.json");if(!existsSync(file))continue;
+        const report=privateJSON(file,0);
+        if(report.status==="failed"&&report.componentId===component){
+          const message=backupFailureMessage(component,report.failureCode);if(message)console.error(message);
+        }
+      } catch {} // Diagnostic reads must not hide the original failed phase.
+    }
     const causes:Record<string,string>={AttributeError:"verification helper error",ValueError:"a validation check failed",TimeoutExpired:"operation timed out",RuntimeError:"a required operation failed"};
     console.error("OPS upgrade stopped at "+state.phase+(adapter?.failedStep?", step "+adapter.failedStep:"")+(causes[adapter?.errorType]?" — "+causes[adapter.errorType]:"")+".");
     if(state.phase==="native-restore")console.error("  Source ingress, schedules and actions remain paused. Original volumes and the verified backup are retained; the target control plane has not been created.");

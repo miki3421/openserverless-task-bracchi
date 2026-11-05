@@ -76,3 +76,29 @@ export async function logDriverOutput(stream:ReadableStream<Uint8Array>,write:(p
  }
  const message=progressMessage(pending+decoder.decode());if(message)emit(message);
 }
+
+/** Report waiting, not a measured percentage; never replay command arguments. */
+export async function phaseHeartbeat<T>(phase:string,operation:()=>Promise<T>,
+ options:{enabled?:boolean;intervalMs?:number;emit?:(message:string)=>void}={}):Promise<T> {
+ if(!Object.hasOwn(PHASE_DETAILS,phase))throw new Error("unknown_feedback_phase");
+ const interval=options.intervalMs??20000;
+ if(!Number.isFinite(interval)||interval<=0)throw new Error("positive_feedback_interval_required");
+ if(options.enabled===false)return await operation();
+ const started=performance.now(),emit=options.emit??(message=>console.log(message));
+ const timer=setInterval(()=>emit(`OPS upgrade: ${phase} — waiting for completion (${Math.floor((performance.now()-started)/1000)}s elapsed waiting for this operation).`),interval);
+ try{return await operation();}finally{clearInterval(timer);}
+}
+
+export const BACKUP_LABELS:Record<string,string>={
+ "platform-configuration":"platform configuration","openwhisk-resources":"OpenWhisk definitions",
+ "persistent-volume-recovery":"volume mappings","couchdb-data":"CouchDB","etcd-data":"etcd",
+ "milvus-data":"Milvus","mongodb-data":"Mongo","postgres-data":"PostgreSQL",
+ "redis-acl":"Redis ACLs","redis-data":"Redis","registry-data":"registry","seaweedfs-data":"SeaweedFS",
+};
+export function backupFailureMessage(component:string,code:unknown):string|null {
+ if(!Object.hasOwn(BACKUP_LABELS,component))return null;
+ const reason=component==="seaweedfs-data"&&code==="seaweed_source_changed_during_backup"
+  ?"The filer contents changed during collection; the incomplete backup was rejected."
+  :"Collection failed; inspect the retained private diagnostics.";
+ return `OPS upgrade: backup stopped at ${BACKUP_LABELS[component]} — ${reason}`;
+}

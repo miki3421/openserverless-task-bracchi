@@ -286,3 +286,13 @@ The maintainer-only `release_images.py` exports only the explicit
 and preserving manifest/config/layer bytes. It never publishes images or runs
 Docker. `publish_images.py --check` verifies the reviewed operator artifact
 without registry writes. Publication is restricted to the personal fork's CI.
+
+### Feedback during long operations
+
+Human output distinguishes image export, archive/expanded-space verification,
+input SHA-256 calculation and the final source recheck. Preparation and engine
+phases emit a waiting update every20 seconds during long operations, with elapsed
+waiting time. This reports waiting rather than a percentage or estimated completion.
+Private command output remains in the protected diagnostics. The JSON option does
+not add these periodic human messages. Known failed backup components are named using a fixed message; raw errors and
+command arguments are not forwarded. Feedback does not retry or replay phases.
