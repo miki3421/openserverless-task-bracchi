@@ -188,9 +188,23 @@
                 "kind": "python:sys",
                 "default": false,
                 "image": {
-                    "prefix": "docker.io/apache",
-                    "name": "openserverless-runtime-python",
-                    "tag": "sys-26i22h40-snapshot"
+                    "prefix": "localhost",
+                    "name": "ops-advanced-python",
+                    "tag": "sys-20261105-r1"
+                },
+                "deprecated": false,
+                "attached": {
+                    "attachmentName": "codefile",
+                    "attachmentType": "text/plain"
+                }
+            },
+            {
+                "kind": "python:3.15",
+                "default": false,
+                "image": {
+                    "prefix": "localhost",
+                    "name": "ops-advanced-python",
+                    "tag": "3.15-20261105-r1"
                 },
                 "deprecated": false,
                 "attached": {
@@ -216,9 +230,9 @@
                 "kind": "python:3.12",
                 "default": true,
                 "image": {
-                    "prefix": "docker.io/apache",
-                    "name": "openserverless-runtime-python",
-                    "tag": "v3.12-26i22h40-snapshot"
+                    "prefix": "localhost",
+                    "name": "ops-advanced-python",
+                    "tag": "3.12-20261105-r1"
                 },
                 "deprecated": false,
                 "attached": {
