@@ -12,7 +12,7 @@
       "coreutils": "arch b2sum b3sum base32 basename basenc cat chgrp chmod chown chroot cksum comm cp csplit cut date dd df dir dircolors dirname du env expand expr factor fmt fold groups hashsum head hostid hostname id install join kill link ln logname ls md5sum mkdir mkfifo mknod mktemp more mv nice nl nohup nproc numfmt od paste pathchk pinky pr printenv printf ptx pwd readlink realpath rm rmdir seq sha1sum sha224sum sha256sum sha3-224sum sha3-256sum sha3-384sum sha3-512sum sha384sum sha3sum sha512sum shake128sum shake256sum shred shuf sleep sort split stat stdbuf stty sum sync tac tail tee timeout touch tr truncate tsort tty uname unexpand uniq unlink uptime users vdir wc who whoami yes"
     },
     "images": {
-      "operator": "localhost/ops-advanced-operator:20261106-static-r1",
+      "operator": "localhost/ops-advanced-operator:20261106-rbacproxy-r1",
       "controller": "localhost/ops-advanced-controller:20261106-kafka-azure-r3",
       "invoker": "localhost/ops-advanced-invoker:20261106-kafka-azure-r3",
       "streamer": "localhost/ops-streamer-availability:20261020-local2",
@@ -29,7 +29,7 @@
       "nginx": "docker.io/nginx/nginx-unprivileged:1.30.6@sha256:e17bfe33eecc8fd86ca9f12c665f21270b0d88b09a0f13bfdede3fcd795f5fda",
       "pgvector": "docker.io/pgvector/pgvector:0.8.6-pg18-bookworm@sha256:2ba9ca5f2e7daa0f0e7723cba1ee9167bab54efd3640516a44ac1a928dd67e7a",
       "kubegres": "docker.io/reactivetechio/kubegres:1.18",
-      "rbacproxy": "registry.k8s.io/kubebuilder/kube-rbac-proxy:v0.14.1",
+      "rbacproxy": "quay.io/brancz/kube-rbac-proxy:v0.23.1@sha256:bb7c6fbfbb00cc2892e97fd102b8f01eb19eef09ce216385a7cf68ea7a9e7fac",
       "tika": "docker.io/apache/tika:3.2.3.0-full",
       "pgdumper": "docker.io/miki3421/ops-advanced-pg-dumper:18.6-pgvector0.8.6-dev",
       "mongodb": "docker.io/library/mongo:9.0.2@sha256:bac22ea7710d774103dcad3ec8ac13cba1eb378f488e3ce8a6b3a1adf2ba9dcc"
