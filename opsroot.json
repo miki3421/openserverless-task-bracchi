@@ -30,7 +30,7 @@
       "pgvector": "docker.io/pgvector/pgvector:0.8.6-pg18-bookworm@sha256:2ba9ca5f2e7daa0f0e7723cba1ee9167bab54efd3640516a44ac1a928dd67e7a",
       "kubegres": "docker.io/reactivetechio/kubegres:1.18",
       "rbacproxy": "quay.io/brancz/kube-rbac-proxy:v0.23.1@sha256:bb7c6fbfbb00cc2892e97fd102b8f01eb19eef09ce216385a7cf68ea7a9e7fac",
-      "tika": "docker.io/apache/tika:3.2.3.0-full",
+      "tika": "localhost/ops-advanced-tika:3.3.3-20261106-r1",
       "pgdumper": "docker.io/miki3421/ops-advanced-pg-dumper:18.6-pgvector0.8.6-dev",
       "mongodb": "docker.io/library/mongo:9.0.2@sha256:bac22ea7710d774103dcad3ec8ac13cba1eb378f488e3ce8a6b3a1adf2ba9dcc",
       "certmanager_controller": "quay.io/jetstack/cert-manager-controller:v1.21.3@sha256:9f4f96a33c7774cef24466fcd85031997531a03a8d117f151126baa8d1290dcc",
