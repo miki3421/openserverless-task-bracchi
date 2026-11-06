@@ -1,0 +1,11 @@
+{
+  "version": "v1.21.3",
+  "upstreamSha256": "c04a51295adda2b1a775146751f973e787190778c7f35180861d9678876e5c74",
+  "manifestSha256": "c7e0ba0420308c1cbca33af876b1788abb8c7315f4cea641ac8c59d9039499e3",
+  "images": {
+    "certmanager_controller": "quay.io/jetstack/cert-manager-controller:v1.21.3@sha256:9f4f96a33c7774cef24466fcd85031997531a03a8d117f151126baa8d1290dcc",
+    "certmanager_cainjector": "quay.io/jetstack/cert-manager-cainjector:v1.21.3@sha256:083d0e906f8eb44e255fe4ff817ae54e49f9ed82e22f1011bb4e9e4f4b8a641f",
+    "certmanager_webhook": "quay.io/jetstack/cert-manager-webhook:v1.21.3@sha256:055ac8e9de6a0ba6763794838fe38944acc650f68ebe1b01dd8be079e580f458",
+    "certmanager_acmesolver": "quay.io/jetstack/cert-manager-acmesolver:v1.21.3@sha256:c8c1225bb2fe8ab37a330b77f0d8c2ee6a41210fcb54fc07ca606ab9a022b8b7"
+  }
+}

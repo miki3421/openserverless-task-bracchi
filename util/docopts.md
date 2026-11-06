@@ -72,10 +72,16 @@ Usage:
 -  ingress-type            return the ingress type
 -  edit                    edit (with vscode) the current tasks or a plugin
 -  link-plugin             link the <plugin> in current dir to the global list
--  cert-manager            deploy the cert manager
+-  cert-manager            install pinned cert-manager on a new Kubernetes 1.33–1.36 cluster
 ```
 
 ## Options
+
+`cert-manager` verifies the local manifest and image catalog, uses the explicit
+`OPS_TMP/kubeconfig` context and waits for all three deployments. An identical
+installation is checked without reapplying it. A different or partial existing
+installation is refused: upgrades and certificate migration require a separate
+reviewed procedure. This command does not delete existing certificates or CRDs.
 
 ```
   --showhelp               Show configuration tool help.

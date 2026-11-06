@@ -12,7 +12,7 @@
       "coreutils": "arch b2sum b3sum base32 basename basenc cat chgrp chmod chown chroot cksum comm cp csplit cut date dd df dir dircolors dirname du env expand expr factor fmt fold groups hashsum head hostid hostname id install join kill link ln logname ls md5sum mkdir mkfifo mknod mktemp more mv nice nl nohup nproc numfmt od paste pathchk pinky pr printenv printf ptx pwd readlink realpath rm rmdir seq sha1sum sha224sum sha256sum sha3-224sum sha3-256sum sha3-384sum sha3-512sum sha384sum sha3sum sha512sum shake128sum shake256sum shred shuf sleep sort split stat stdbuf stty sum sync tac tail tee timeout touch tr truncate tsort tty uname unexpand uniq unlink uptime users vdir wc who whoami yes"
     },
     "images": {
-      "operator": "localhost/ops-advanced-operator:20261106-rbacproxy-r1",
+      "operator": "localhost/ops-advanced-operator:20261106-certmanager-r2",
       "controller": "localhost/ops-advanced-controller:20261106-kafka-azure-r3",
       "invoker": "localhost/ops-advanced-invoker:20261106-kafka-azure-r3",
       "streamer": "localhost/ops-advanced-streamer:20261106-go1273-r1",
@@ -32,7 +32,11 @@
       "rbacproxy": "quay.io/brancz/kube-rbac-proxy:v0.23.1@sha256:bb7c6fbfbb00cc2892e97fd102b8f01eb19eef09ce216385a7cf68ea7a9e7fac",
       "tika": "docker.io/apache/tika:3.2.3.0-full",
       "pgdumper": "docker.io/miki3421/ops-advanced-pg-dumper:18.6-pgvector0.8.6-dev",
-      "mongodb": "docker.io/library/mongo:9.0.2@sha256:bac22ea7710d774103dcad3ec8ac13cba1eb378f488e3ce8a6b3a1adf2ba9dcc"
+      "mongodb": "docker.io/library/mongo:9.0.2@sha256:bac22ea7710d774103dcad3ec8ac13cba1eb378f488e3ce8a6b3a1adf2ba9dcc",
+      "certmanager_controller": "quay.io/jetstack/cert-manager-controller:v1.21.3@sha256:9f4f96a33c7774cef24466fcd85031997531a03a8d117f151126baa8d1290dcc",
+      "certmanager_cainjector": "quay.io/jetstack/cert-manager-cainjector:v1.21.3@sha256:083d0e906f8eb44e255fe4ff817ae54e49f9ed82e22f1011bb4e9e4f4b8a641f",
+      "certmanager_webhook": "quay.io/jetstack/cert-manager-webhook:v1.21.3@sha256:055ac8e9de6a0ba6763794838fe38944acc650f68ebe1b01dd8be079e580f458",
+      "certmanager_acmesolver": "quay.io/jetstack/cert-manager-acmesolver:v1.21.3@sha256:c8c1225bb2fe8ab37a330b77f0d8c2ee6a41210fcb54fc07ca606ab9a022b8b7"
     }
   }
 }

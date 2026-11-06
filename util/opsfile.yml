@@ -39,7 +39,6 @@ vars:
       else
         echo $AUTH
       fi
-  CERTMANAGER: "https://github.com/cert-manager/cert-manager/releases/download/v1.11.0/cert-manager.yaml"
 
 tasks:
   config:
@@ -302,11 +301,10 @@ tasks:
         fi
 
   cert-manager:
-    desc: install the cert-manager
+    desc: install the pinned cert-manager on a new cluster
     silent: true
     cmds:
-    - curl -L "{{.CERTMANAGER}}" >_cert-manager.yaml
-    - kubectl --kubeconfig $OPS_TMP/kubeconfig apply -f _cert-manager.yaml
+    - bun cert-manager/install.ts
 
   freeze:
     desc: freeze util
