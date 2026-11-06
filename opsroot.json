@@ -13,8 +13,8 @@
     },
     "images": {
       "operator": "localhost/ops-advanced-operator:20261105-r5",
-      "controller": "localhost/ops-advanced-controller:20261106-jdk11-r1",
-      "invoker": "localhost/ops-advanced-invoker:20261106-jdk11-r1",
+      "controller": "localhost/ops-advanced-controller:20261106-libs-r2",
+      "invoker": "localhost/ops-advanced-invoker:20261106-libs-r2",
       "streamer": "localhost/ops-streamer-availability:20261020-local2",
       "systemapi": "localhost/ops-advanced-admin-api:20261105-r1",
       "devcontainer": "docker.io/apache/openserverless-devcontainer:0.9.0-incubating.26i21w32-snapshot",

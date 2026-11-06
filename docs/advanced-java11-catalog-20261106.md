@@ -37,3 +37,6 @@ Rollback restores the previous controller/invoker image values in the task
 catalog, Whisk and StatefulSets together. Verify the old artifacts are present
 and repeat application acceptance. No data restoration is required by this
 JVM/package-only change.
+
+The subsequent [dependency catalog](advanced-java-dependencies-catalog-20261106.md)
+records the rebuilt application images now selected by this branch.
