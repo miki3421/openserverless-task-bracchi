@@ -56,12 +56,13 @@ def validate_data(cfg, directory, expected=None):
         name = row.get('path', ''); path = PurePosixPath(name)
         check(name and str(path) == name and not path.is_absolute() and '..' not in path.parts and
               '\\' not in name and name not in names and
-              (name == 'recovery-settings.json' or path.parts[0] in selected) and
+              (name in {'recovery-settings.json', 'application-settings.ndjson'} or path.parts[0] in selected) and
               path.name != 'weed' and not name.endswith(('.stderr', '.stdout')),
               'Unexpected data artifact')
-        if name != 'recovery-settings.json': components.add(path.parts[0])
+        if name not in {'recovery-settings.json', 'application-settings.ndjson'}: components.add(path.parts[0])
         names.add(name); artifact(directory, {'file': name, 'bytes': row['bytes'], 'sha256': row['sha256']})
-    check('recovery-settings.json' in names and components == set(selected), 'Incomplete data component coverage')
+    check({'recovery-settings.json', 'application-settings.ndjson'} <= names and components == set(selected),
+          'Incomplete data component coverage')
     expected = {r['file']: r for r in report['artifacts']}
     check(len(expected) == len(report['artifacts']) and set(expected) == names | {'data-manifest.json'},
           'Data report coverage mismatch')

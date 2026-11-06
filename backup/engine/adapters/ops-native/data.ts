@@ -1,8 +1,8 @@
 // Data recovery on a fresh installation, not a Kubernetes/node/image checkpoint.
-import { closeSync, constants, fsyncSync, lstatSync, mkdirSync, openSync } from "node:fs";
+import { closeSync, constants, fsyncSync, lstatSync, mkdirSync, openSync, writeSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 import { checkedSource } from "./cluster";
-import { inventoryMigration } from "./update/migration";
+import { inventoryMigration, scanDatabase, entityRecord } from "./update/migration";
 import { localClient } from "./update/inventory";
 import { planBackup, readPrivateJSON, verifyLiveInventory } from "./update/backup";
 import { canonical, hash } from "./update/releases";
@@ -63,6 +63,16 @@ export function essentialSettings(whisk: any, users: any[]) {
     name: u.metadata.name, spec: u.spec })).sort((a,b) => a.name.localeCompare(b.name)),
     serviceCredentials: credentials(whisk.spec),
     restorePolicy: "Create target-version tenant identities and reconcile references; never apply source Kubernetes resources or overwrite target admin automatically." };
+}
+
+export function entitySettings(document:any) {
+  const identity=entityRecord(document), result:any={id:identity.id,type:identity.type,
+    namespace:identity.namespace,name:identity.name};
+  // Preserve runtime-only settings/secrets without executable action code or
+  // attachment binaries. Target application definitions still come from deploy.
+  for(const key of ["parameters","annotations","limits","binding","publish","status","trigger","action"])
+    if(document[key]!==undefined) result[key]=document[key];
+  return result;
 }
 
 function workspace(config: any, output: string, fresh = false) {
@@ -145,6 +155,19 @@ export async function dataCollect(configPath: string, output: string) {
   if(hash(canonical(settings)) !== data.settingsSha256) throw new Error("data_settings_changed");
   privateJSON(join(payload,"recovery-settings.json"),settings);
   files.push(await artifactInfo(payload,join(payload,"recovery-settings.json")));
+  const couch=exportCouchClient(plan,read), settingsPath=join(payload,"application-settings.ndjson");
+  const settingsFD=openSync(settingsPath,constants.O_CREAT|constants.O_EXCL|constants.O_WRONLY,0o600);
+  const system=new Set(inventory.namespaces.filter((n:any)=>n.management==="system").map((n:any)=>n.name));
+  try {
+    const count=await scanDatabase(couch.get,couch.databases.entities,doc=>{
+      if(doc._id.startsWith("_design/") || system.has(doc.namespace?.split("/")[0])) return;
+      const bytes=Buffer.from(canonical(entitySettings(doc))+"\n");let offset=0;
+      while(offset<bytes.length){const n=writeSync(settingsFD,bytes,offset,bytes.length-offset);if(n<=0)throw Error("data_settings_short_write");offset+=n;}
+    });
+    if(count!==inventory.databaseCounts.entities) throw Error("data_settings_count_mismatch");
+    fsyncSync(settingsFD);
+  } finally {closeSync(settingsFD);}
+  files.push(await artifactInfo(payload,settingsPath));
   for(const id of data.selected) {
     const stage=join(output,id);
     if(id === "couchdb-data") {
@@ -187,7 +210,7 @@ export async function dataCollect(configPath: string, output: string) {
   // Only the declared data files enter the Restic collection. Scratch/provider
   // logs, source kubeconfig, binaries and full migration plans remain private.
   const {copyFileSync} = await import("node:fs");
-  for(const row of files.filter(f=>f.path!=="recovery-settings.json")) {
+  for(const row of files.filter(f=>!["recovery-settings.json","application-settings.ndjson"].includes(f.path))) {
     const source=join(output,row.path), destination=join(payload,row.path);
     mkdirSync(dirname(destination),{mode:0o700,recursive:true}); copyFileSync(source,destination,constants.COPYFILE_EXCL);
     const st=lstatSync(destination); if(st.mode&0o077) {const {chmodSync}=await import("node:fs");chmodSync(destination,0o600);}
