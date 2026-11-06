@@ -24,3 +24,9 @@ The matching locally imported operator image is
 See the operator fork's `docs/advanced-certmanager-20261106.md` for scanner counts,
 remaining go-jose findings, failure evidence and qualification limits. No image
 publication, baseline update, general migration or ARM64 qualification is implied.
+
+The operator fork also records `docs/advanced-certmanager-jose-20261106.md`:
+the three remaining go-jose version matches were traced to unused Vault plugin
+helpers, corroborated by the exact controller binary's Go function table. The
+official image pin and raw scan findings remain unchanged; this assessment does
+not qualify different binaries or future dependency graphs.
