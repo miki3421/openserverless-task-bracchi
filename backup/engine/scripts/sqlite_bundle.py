@@ -172,10 +172,49 @@ def validate_bundle(path, inventory, maximum):
     return proof
 
 
+def scan_bound_file(root):
+    """A file mount cannot expose adjacent DB WAL: accept only ordinary files."""
+    root = Path(root)
+    require(root.is_absolute() and not any(p.is_symlink() for p in (root, *root.parents)), 'Unlinked bound file required')
+    info = root.stat()
+    require(stat.S_ISREG(info.st_mode) and info.st_nlink == 1, 'Regular single-link bound file required')
+    require(root.suffix not in {'.db', '.sqlite', '.sqlite3', '.mdb', '.rdb', '.sst', '.ldb'} and
+            root.name not in {'PG_VERSION', 'pg_control', 'WiredTiger', 'WiredTiger.wt', 'CURRENT'} and
+            not root.name.startswith('MANIFEST-'), 'Database file mount requires a qualified directory/native method')
+    with root.open('rb') as stream:
+        require(stream.read(16) != b'SQLite format 3\x00', 'SQLite file mount cannot omit adjacent WAL')
+    identity = [info.st_mode, info.st_uid, info.st_gid, info.st_ino, info.st_size, info.st_mtime_ns, info.st_ctime_ns]
+    member = {'path': 'payload', 'type': 'file', 'mode': stat.S_IMODE(info.st_mode),
+              'uid': info.st_uid, 'gid': info.st_gid, 'bytes': info.st_size}
+    return {'schema': 'sqlite-file-inventory.v1', 'root_kind': 'file',
+            'tree_sha256': hashlib.sha256(json.dumps(identity).encode()).hexdigest(),
+            'file_count': 1, 'directory_count': 0, 'bytes': info.st_size, 'databases': [], 'members': [member],
+            'root': {'mode': stat.S_IMODE(info.st_mode), 'uid': info.st_uid, 'gid': info.st_gid, 'inode': info.st_ino},
+            'empty_directories': []}
+
+
+def collect_bound_file(root, *, output=None):
+    import io
+    root = Path(root); before = scan_bound_file(root); member = dict(before['members'][0])
+    with root.open('rb') as source:
+        member['sha256'] = hashlib.file_digest(source, 'sha256').hexdigest(); source.seek(0)
+        with tarfile.open(fileobj=output or sys.stdout.buffer, mode='w|') as archive:
+            header = tarfile.TarInfo('payload'); header.size = member['bytes']
+            header.mode, header.uid, header.gid = member['mode'], member['uid'], member['gid']
+            archive.addfile(header, source)
+            require(scan_bound_file(root) == before, 'Bound file changed during collection')
+            raw = json.dumps({'schema': 'sqlite-file-proof.v1', 'inventory': before, 'native_sqlite': {},
+                              'raw_database_copy': False, 'members': [member]}).encode()
+            proof = tarfile.TarInfo(PROOF); proof.size = len(raw); proof.mode = 0o600
+            archive.addfile(proof, io.BytesIO(raw))
+
+
 def main():
     mode, source = sys.argv[1:3]
     if mode == 'inspect': print(json.dumps(scan(source)))
     elif mode == 'collect': collect_bundle(source, sys.argv[3])
+    elif mode == 'inspect-file': print(json.dumps(scan_bound_file(source)))
+    elif mode == 'collect-file': collect_bound_file(source)
     else: raise ValueError('Unknown SQLite bundle mode')
 
 

@@ -1,7 +1,7 @@
 """Explicit additional local-path PVC methods; never infer a generic DB tar."""
 import json
 from pathlib import Path, PurePosixPath
-import tarfile
+from sqlite_bundle import validate_bundle
 
 from . import check, docker, fingerprint, write_json, read_json
 from .collection import verify_tar
@@ -68,13 +68,7 @@ def collect_extras(cfg, io, items, workspace):
         path = output / 'sqlite-bundle.tar'
         remote_bundle(cfg, io, item['node_path'], 'collect', path)
         verify_tar(path)
-        with tarfile.open(path) as archive:
-            members = [m for m in archive if m.name == '.ops-sqlite-backup-proof.json']
-            check(len(members) == 1 and members[0].isfile() and members[0].size <= 4 * 1024**2, 'Native SQLite proof missing')
-            with archive.extractfile(members[0]) as stream: proof = json.load(stream)
-        check(proof.get('schema') == 'sqlite-file-proof.v1' and proof.get('raw_database_copy') is False and
-              proof['inventory'] == observed and set(proof['native_sqlite']) == {d['path'] for d in observed['databases']} and
-              all(v.get('integrityCheck') == 'ok' for v in proof['native_sqlite'].values()), 'Incomplete native SQLite proof')
+        proof = validate_bundle(path, observed, cfg.data['storage']['max_capture_bytes'])
         write_json(output / 'sqlite-proof.json', proof, cfg)
 
 
@@ -95,20 +89,7 @@ def validate_extras(cfg, directory, items):
             check(read_json(root / name, cfg) == item, 'Additional PVC declaration/empty proof mismatch')
             continue
         proof = read_json(root / 'sqlite-proof.json', cfg)
-        expected = {r['path'] for r in item['files']['databases']}
-        check(proof.get('schema') == 'sqlite-file-proof.v1' and proof.get('inventory') == item['files'] and
-              proof.get('raw_database_copy') is False and set(proof.get('native_sqlite', {})) == expected and
-              all(v.get('integrityCheck') == 'ok' for v in proof['native_sqlite'].values()), 'Invalid native SQLite bundle proof')
-        with tarfile.open(root / 'sqlite-bundle.tar') as archive:
-            members = archive.getmembers(); names = [m.name for m in members]
-            check(len(names) == len(set(names)) and expected <= set(names) and '.ops-sqlite-backup-proof.json' in names,
-                  'Native SQLite bundle incomplete')
-            for member in members:
-                if member.name in expected:
-                    check(member.isfile(), 'SQLite artifact must be a regular native backup')
-                    with archive.extractfile(member) as source: check(source.read(16) == b'SQLite format 3\x00', 'Invalid SQLite backup header')
-                check(not any(member.name == name + suffix for name in expected for suffix in ('-wal', '-shm', '-journal')),
-                      'Raw SQLite sidecar in native bundle')
-            member = archive.getmember('.ops-sqlite-backup-proof.json')
-            check(member.isfile() and member.size <= 4 * 1024**2, 'Invalid in-bundle native proof')
-            with archive.extractfile(member) as source: check(json.load(source) == proof, 'Native proof differs from bundle')
+        path = root / 'sqlite-bundle.tar'
+        verify_tar(path)
+        verified = validate_bundle(path, item['files'], cfg.data['storage']['max_capture_bytes'])
+        check(verified == proof, 'Invalid native SQLite bundle proof')

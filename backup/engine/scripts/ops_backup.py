@@ -295,10 +295,14 @@ def run_backup(path, *, check_only=False, bun=None, backend_factory=None, progre
             if name == 'preflight':
                 storage = archive.data['storage']
                 Restic(archive, run / 'repository', run / 'verification')  # pin/key checks before plaintext acquisition
-                check(shutil.disk_usage(root).free >= storage['max_capture_bytes'] + storage['reserve_free_bytes'],
-                      'Insufficient reserved storage before collection')
+                from storage_capacity import local_backup_peak, require_local_backup_capacity
+                capacity = local_backup_peak(storage['max_capture_bytes'], storage['reserve_free_bytes'])
+                capacity['availableBytes'] = shutil.disk_usage(root).free
+                atomic_json(run / 'capacity-plan.json', capacity)
+                require_local_backup_capacity(root, storage['max_capture_bytes'], storage['reserve_free_bytes'])
             result = operation()
-            check(workspace_bytes(run) <= archive.data['storage']['max_capture_bytes'] * (4 if name == 'encrypt-and-verify' else 3),
+            check(workspace_bytes(run) <= archive.data['storage']['max_capture_bytes'] * (5 if name == 'encrypt-and-verify' else 3) +
+                  (2 * 1024**3 if name == 'encrypt-and-verify' else 0),
                   'Aggregate backup workspace budget exceeded')
         if not check_only:
             check(result.get('status') == 'encrypted-and-file-restore-verified', 'Missing complete file restore verification')

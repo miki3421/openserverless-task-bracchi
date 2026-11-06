@@ -37,8 +37,10 @@ def validate_settings(value):
     check(isinstance(value['components'], list) and 0 < len(value['components']) <= 128, 'Explicit bounded external components required')
     names, ids = set(), set()
     for row in value['components']:
-        check(isinstance(row, dict) and set(row) == {'name', 'container_id', 'image_id', 'started_at', 'method', 'user', 'databases', 'mounts', 'ephemeral_paths'},
+        required = {'name', 'container_id', 'image_id', 'started_at', 'method', 'user', 'databases', 'mounts', 'ephemeral_paths'}
+        check(isinstance(row, dict) and required <= set(row) <= required | {'database_user', 'writable_layer'},
               'Closed external component required')
+        check('writable_layer' not in row or row['writable_layer'] == 'verified-rootfs-v1', 'Qualified writable-layer method required')
         check(isinstance(row['name'], str) and LABEL.fullmatch(row['name']) and row['name'] not in names, 'Unique external component name required')
         check(isinstance(row['container_id'], str) and HASH.fullmatch(row['container_id']) and row['container_id'] not in ids and
               isinstance(row['image_id'], str) and IMAGE.fullmatch(row['image_id']), 'Unique full container/image identity required')
@@ -50,12 +52,18 @@ def validate_settings(value):
         check(isinstance(dbs, list) and len(dbs) <= 256 and
               all(isinstance(d, str) and DBNAME.fullmatch(d) for d in dbs) and len(dbs) == len(set(dbs)), 'Explicit safe database names required')
         check(bool(dbs) == (row['method'] == 'postgresql'), 'Database selection/method mismatch')
+        check('database_user' not in row or row['method'] == 'postgresql' and
+              isinstance(row['database_user'], str) and DBNAME.fullmatch(row['database_user']), 'Explicit PostgreSQL database role required')
         check(isinstance(row['ephemeral_paths'], list) and all(isinstance(p, str) for p in row['ephemeral_paths']) and set(row['ephemeral_paths']) <= EPHEMERAL and
               len(row['ephemeral_paths']) == len(set(row['ephemeral_paths'])), 'Only explicit runtime/cache paths may be ephemeral')
         check(isinstance(row['mounts'], list) and len(row['mounts']) <= 64, 'Bounded explicit mount coverage required')
         destinations = set()
         for mount in row['mounts']:
-            check(isinstance(mount, dict) and set(mount) == {'type', 'source', 'destination', 'method'}, 'Closed external mount required')
+            required = {'type', 'source', 'destination', 'method'}
+            check(isinstance(mount, dict) and required <= set(mount) <= required | {'source_kind'}, 'Closed external mount required')
+            check(mount.get('source_kind', 'directory') in {'directory', 'file'}, 'Explicit external source kind required')
+            check(mount.get('source_kind', 'directory') != 'file' or
+                  mount['type'] == 'bind' and mount['method'] == 'sqlite-files', 'File mount requires ordinary bind-file coverage')
             path = mount['destination']
             check(isinstance(path, str) and path.startswith('/') and path != '/' and '..' not in PurePosixPath(path).parts and
                   str(PurePosixPath(path)) == path and not any(c in path for c in ',\n\r\x00'), 'Safe explicit mount destination required')
@@ -66,6 +74,11 @@ def validate_settings(value):
                 source = mount['source']
                 check(source.startswith('/') and source not in {'/', '/etc', '/proc', '/sys', '/dev', '/home', '/var', '/var/lib/docker'} and
                       '..' not in PurePosixPath(source).parts and str(PurePosixPath(source)) == source, 'Dedicated external bind source required')
+                if mount.get('source_kind') == 'file':
+                    original = PurePosixPath(source)
+                    check(original.suffix not in {'.db', '.sqlite', '.sqlite3', '.mdb', '.rdb', '.sst', '.ldb'} and
+                          original.name not in {'PG_VERSION', 'pg_control', 'WiredTiger', 'WiredTiger.wt', 'CURRENT'} and
+                          not original.name.startswith('MANIFEST-'), 'Database file mount requires native/directory coverage')
             else:
                 check(re.fullmatch(r'[a-zA-Z0-9][a-zA-Z0-9_.-]{0,250}', mount['source']), 'Safe named-volume identity required')
             check(mount['method'] in {'sqlite-files', 'postgresql', 'system-reference'}, 'Unsupported external mount method')
@@ -109,21 +122,28 @@ def inspect_component(cfg, transport, row):
     roots = [m['destination'] for m in row['mounts'] if m['method'] != 'system-reference'] + row['ephemeral_paths']
     for line in changed:
         check(len(line) > 2 and line[:2] in {'A ', 'C ', 'D '} and
-              any(line[2:] == path or line[2:].startswith(path + '/') for path in roots), 'Unclassified external writable-layer state')
-    return {'container_id': item['Id'], 'image_id': item['Image'], 'started_at': item['State']['StartedAt'],
+              (row.get('writable_layer') == 'verified-rootfs-v1' or
+               any(line[2:] == path or line[2:].startswith(path + '/') for path in roots)), 'Unclassified external writable-layer state')
+    result = {'container_id': item['Id'], 'image_id': item['Image'], 'started_at': item['State']['StartedAt'],
             'running': item['State']['Running'], 'mounts': declared, 'configuration_sha256': fingerprint(item['Config']),
             'host_configuration_sha256': fingerprint(item['HostConfig'])}
+    if 'writable_layer' in row:
+        result['writable_layer_method'] = row['writable_layer']
+        result['writable_layer_paths_sha256'] = fingerprint(sorted(line for line in changed if
+            not any(line[2:] == p or line[2:].startswith(p + '/') for p in row['ephemeral_paths'])))
+    return result
 
 
 def files_command(cfg, row, mount, settings, mode):
     # Existing pinned image only. No socket or host root mount, no source writes.
     source = 'type=' + mount['type'] + ',src=' + mount['source'] + ',dst=/source,readonly'
     memory = settings['helper_memory_bytes']
+    selected_mode = mode + '-file' if mount.get('source_kind') == 'file' else mode
     return docker(cfg.kind, 'run', '--rm', '-i', '--init', '--pull=never', '--network=none', '--read-only', '--user=0:0',
                   '--cap-drop=ALL', '--cap-add=DAC_READ_SEARCH', '--security-opt=no-new-privileges=true',
                   '--pids-limit=64', '--memory=' + str(memory), '--memory-swap=' + str(memory),
                   '--tmpfs=/scratch:rw,nosuid,nodev,noexec,size=' + str(memory // 2) + ',mode=0700',
-                  '--mount', source, '--entrypoint=python3', settings['helper_image'], '-', mode, '/source', '/scratch')
+                  '--mount', source, '--entrypoint=python3', settings['helper_image'], '-', selected_mode, '/source', '/scratch')
 
 
 def files_bundle(cfg, transport, row, mount, settings, mode='inspect', output=None):
@@ -146,7 +166,8 @@ def files_bundle(cfg, transport, row, mount, settings, mode='inspect', output=No
 
 
 def pg_command(cfg, row, program, *args):
-    return docker(cfg.kind, 'exec', '--user', row['user'], row['container_id'], program, *args)
+    selected = ['--username', row['database_user']] if 'database_user' in row else []
+    return docker(cfg.kind, 'exec', '--user', row['user'], row['container_id'], program, *selected, *args)
 
 
 def pg_inventory(cfg, transport, row):
@@ -211,6 +232,9 @@ def collect(cfg, transport, inventory, workspace):
                 from sqlite_bundle import validate_bundle
                 root_inventory = next(r['inventory'] for r in observed['file_roots'] if r['destination'] == mount['destination'])
                 validate_bundle(output / f'files-{n:03d}.tar', root_inventory, cfg.data['storage']['max_capture_bytes'])
+        if row.get('writable_layer') == 'verified-rootfs-v1':
+            from external_rootfs import collect as collect_rootfs
+            collect_rootfs(cfg, transport, row, output)
         check(inspect_component(cfg, transport, row) == observed['identity'], 'External invocation/configuration changed during collection')
     check(observe(cfg, transport) == inventory, 'External service/role/file inventory changed during collection')
     write_json(root / 'coverage.json', {'schema': 'ops-external-coverage.v1', 'inventory': inventory,
@@ -224,6 +248,8 @@ def files(inventory):
     for index, item in enumerate(inventory['components']):
         prefix = f'external/{index:03d}/'
         result.add(prefix + 'container.json')
+        if item['identity'].get('writable_layer_method') == 'verified-rootfs-v1':
+            result.update({prefix + 'rootfs.tar', prefix + 'rootfs-proof.json'})
         if item['method'] == 'postgresql':
             result.add(prefix + 'roles.sql')
             result.update(prefix + f'database-{n:03d}.dump' for n in range(len(item['postgresql']['databases'])))
@@ -272,6 +298,9 @@ def validate(cfg, workspace, inventory):
         check(configs == expected_images, 'Exact external Docker image-ID coverage required')
     for index, (row, item) in enumerate(zip(cfg.online['external_services']['components'], inventory['components'])):
         output = root / f'{index:03d}'
+        if row.get('writable_layer') == 'verified-rootfs-v1':
+            from external_rootfs import validate as validate_rootfs
+            validate_rootfs(cfg, row, output)
         captured = read_json(output / 'container.json', cfg)
         check(isinstance(captured, list) and len(captured) == 1 and captured[0]['Id'] == row['container_id'] and
               captured[0]['Image'] == row['image_id'] and captured[0]['State']['StartedAt'] == item['identity']['started_at'] and

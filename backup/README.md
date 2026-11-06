@@ -87,3 +87,16 @@ or failure; capture completion is not a statement of current recoverability.
 Native migration and Docker checkpoint recovery explicitly select their separate
 retained sets without claiming current Velero availability. Application recovery
 still requires a separate test. No pruning or retention extension is automatic.
+
+## Production-case online kind profile
+
+The local archive route combines explicit native OPS backends, extra PVC methods
+and declared external Docker services. Single-file binds, separate PostgreSQL
+roles and opt-in verified rootfs exports preserve configuration and installed
+runtime packages. Unknown DB formats retain native-method guards; this route
+never stops or commits a source container. Full source identity checks remain.
+
+Before acquisition, --check writes/enforces the peak-space plan: five configured
+capture budgets plus metadata and free reserve. Compression and pruning are not
+assumed. Check failure does not authorize storage resizing, image acquisition,
+access changes or backup. These remain explicit operator decisions.

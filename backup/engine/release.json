@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
   "repository": "https://github.com/miki3421/ops-k3s-backup",
-  "revision": "c6699e51568c89f11054e322734c2a8d427c24d8",
+  "revision": "7ba705ae8f3dfc2e1cb4408028fde6d0a193dc3e",
   "files": [
     {
       "path": "adapters/ops-native/LICENSE",
@@ -194,9 +194,14 @@
       "sha256": "01723f5598874632a320ca4cbdfdd63bd530bd9317142a920556c7a9769fc05c"
     },
     {
+      "path": "scripts/external_rootfs.py",
+      "bytes": 4261,
+      "sha256": "a45e036d6117cfd12e574f757b82464c95633e08e1a40949feda3a4ac2917985"
+    },
+    {
       "path": "scripts/external_services.py",
-      "bytes": 22096,
-      "sha256": "3b332e6d42cc4a47d028f0cccf94323775c4d4efef9b40e8f7ad2e9cc83fd73b"
+      "bytes": 24484,
+      "sha256": "4b5cb16b6b72ee7e0a55dbe19e64a8ec655311b6cf6e6750097d07bb47ec3b03"
     },
     {
       "path": "scripts/guest-activate-lab.py",
@@ -315,8 +320,8 @@
     },
     {
       "path": "scripts/kind_adapter/extra_pvcs.py",
-      "bytes": 7491,
-      "sha256": "15e665e4fea554fdbddd39882b5ddd8d034901e69b0400208c9b1c0e6be5d55e"
+      "bytes": 5601,
+      "sha256": "a30ea5b6457c9a52f5decaf4d69583abdaf2a981a6cbcb5bd0f6b0afbf6f270c"
     },
     {
       "path": "scripts/kind_adapter/native_ops.py",
@@ -410,8 +415,8 @@
     },
     {
       "path": "scripts/ops_backup.py",
-      "bytes": 18958,
-      "sha256": "07da8c7219cc81db02a8d04da0615ca5752a29c4e995a7cbffce3ea4d8600ec8"
+      "bytes": 19295,
+      "sha256": "94408a1f1b1c7eb8164ef4d1c04782a935ae561cb92b5b6d026c58638a212cec"
     },
     {
       "path": "scripts/pack-real-backup.py",
@@ -445,8 +450,8 @@
     },
     {
       "path": "scripts/sqlite_bundle.py",
-      "bytes": 11128,
-      "sha256": "b7beb5417c0c8e6ebb3944c0fb35f0aff004bdf8d0e9b425720558feb35b199f"
+      "bytes": 13830,
+      "sha256": "d5dbf8503d97163908e32540008195a53cfed1ecf3280f8c69c64501873b052c"
     },
     {
       "path": "scripts/sqlite_online.py",
@@ -465,8 +470,8 @@
     },
     {
       "path": "scripts/storage_capacity.py",
-      "bytes": 534,
-      "sha256": "4afb1e93f068e796a625d893f279051afd302616683c98473b29b75e7710fce4"
+      "bytes": 1644,
+      "sha256": "38b553c933a1d983edded9eb300aaa347a757c55731df02cbbbb6a19d95b532e"
     },
     {
       "path": "scripts/store_capacity.py",

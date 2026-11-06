@@ -4,8 +4,8 @@ import { existsSync, lstatSync, readFileSync, readdirSync } from "node:fs";
 import { homedir } from "node:os";
 import { dirname, isAbsolute, join, resolve, sep } from "node:path";
 
-export const ENGINE_REVISION = "c6699e51568c89f11054e322734c2a8d427c24d8";
-const MANIFEST_SHA256 = "bec68052e8f076002e260746c68ac5cad6fc861b4890e3411a69fb7a94cb8d54";
+export const ENGINE_REVISION = "7ba705ae8f3dfc2e1cb4408028fde6d0a193dc3e";
+const MANIFEST_SHA256 = "60c584d1fea12f7514b4bb5606f4fa70cbfa303f73cdfb3b2b107044c06eb561";
 const hash = (bytes: Uint8Array) => createHash("sha256").update(bytes).digest("hex");
 function regular(path: string): Buffer {
   for (let cursor = path;; cursor = dirname(cursor)) {
