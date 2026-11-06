@@ -22,6 +22,17 @@ vars:
   VAL: ""
 
 tasks:
+  activations:
+    desc: configure activation and log retention for installation
+    silent: true
+    env:
+      OPS_ACTIVATION_RETENTION_INPUT: "{{.__days}}"
+    cmds:
+      - |
+        SETTING=$(bun "$OPS_ROOT/config/activations.ts") || exit 1
+        config "$SETTING"
+        echo "$SETTING (applies on setup; requires the matching operator)"
+
   apihost:
     silent: true
     cmds:
