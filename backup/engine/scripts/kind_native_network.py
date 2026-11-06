@@ -37,8 +37,8 @@ def document(path, uid=None):
 def validate_request(source_path, request_path, operation, workspace, output):
     source, uid = document(source_path)
     cfg = OnlineConfig(source)
-    check(cfg.online.get('collector') == 'ops-native-v1' and len(cfg.online['namespaces']) == 1 and
-          not cfg.online.get('extra_pvcs'), 'Single standard native kind profile required')
+    check(cfg.online.get('collector') == 'ops-native-v1' and len(cfg.online['namespaces']) == 1,
+          'Single explicit native kind profile required')
     check(cfg.source['hostname'].lower() == platform.node().lower(), 'Kind source host mismatch')
     check(Path(source_path).is_relative_to(cfg.root), 'Source request outside selected storage')
     request, _ = document(request_path, uid)
@@ -77,6 +77,8 @@ def validate_request(source_path, request_path, operation, workspace, output):
     bun, _ = owned_file(transport['bun'], uid, executable=True)
     owned_file(bun.parent / 'kubectl', uid, executable=True)
     check(hashlib.file_digest(bun.open('rb'), 'sha256').hexdigest() == transport.get('bunSha256'), 'Native Bun changed')
+    from platform_support import verify_executable
+    verify_executable(bun, transport['bunSha256'])
     return cfg, owner, request, bun, kube
 
 

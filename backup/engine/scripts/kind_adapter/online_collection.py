@@ -32,8 +32,20 @@ def validate(cfg, directory):
           report['source_invocation_unchanged'] is True, 'Complete successful online collection required')
     plan = read_json(directory / 'plan.json', cfg); validate_plan(cfg, plan, report['plan_digest'])
     inventory = plan['inventory']; expected = set(NATIVE_FILES)
-    if cfg.online.get('collector') == 'ops-native-v1': expected.add('source-selection.json')
+    if cfg.online.get('collector') == 'ops-native-v1' or cfg.online.get('external_services'):
+        expected.add('source-selection.json')
+        check(read_json(directory / 'source-selection.json', cfg) == cfg.document, 'Captured source selection mismatch')
+    if cfg.online.get('image_archive'): expected.add('prepared-image-coverage.json')
+    if cfg.online.get('image_recovery_receipt'):
+        expected.add('prepared-recovery-receipt.json')
+        from oci_recovery import verify_recovery_receipt
+        verify_recovery_receipt({'path': str(directory / 'prepared-recovery-receipt.json'),
+                                'sha256': cfg.online['image_recovery_receipt']['sha256']}, cfg, inventory)
     expected.update(extra_files(inventory['extra_pvcs']))
+    if 'external_services' in inventory:
+        from external_services import files as external_files, validate as validate_external
+        expected.update(external_files(inventory['external_services']))
+        validate_external(cfg, directory, inventory['external_services'])
     for ns, observed in inventory['namespaces'].items():
         app_root = directory / 'applications' / ns
         app = read_json(app_root / 'applications-report.json', cfg)
@@ -57,6 +69,13 @@ def validate(cfg, directory):
           type(status.get('totalKey')) is int and status['totalKey'] > 0 and status.get('hash') is not None,
           'Verified native control-plane snapshot status required')
     check(read_json(directory / 'image-references.json', cfg) == inventory['images'], 'Image reference inventory mismatch')
+    if cfg.online.get('image_archive'):
+        from image_archive import validate_image_archive
+        proof = validate_image_archive({'path': str(directory / 'container-images.tar'),
+                    'sha256': cfg.online['image_archive']['sha256']}, inventory['image_scope']['targets'],
+                    inventory['kind']['node_info']['architecture'], cfg.data['storage']['max_capture_bytes'],
+                    deadline=time.monotonic() + cfg.data['timeouts']['archive_seconds'])
+        check(read_json(directory / 'prepared-image-coverage.json', cfg) == proof, 'Prepared OCI proof mismatch')
     from . import validate_node
     row = validate_node(cfg.kind, read_json(directory / 'container-inspect.json', cfg))
     check(row['Image'] == inventory['kind']['image_id'] and row['State']['Running'] is True and
@@ -86,6 +105,13 @@ def _collect(cfg, plan, approval, workspace, io_factory, component_factory):
     check(make_plan(cfg, observed) == plan, 'Source drift since reviewed online plan')
     for ns, info in observed['namespaces'].items():
         component_factory(cfg, io, ns, info, None).preflight()
+    if cfg.online.get('image_archive'):
+        from image_archive import validate_image_archive
+        if cfg.online.get('image_recovery_receipt'):
+            from oci_recovery import verify_recovery_receipt
+            verify_recovery_receipt(cfg.online['image_recovery_receipt'], cfg, observed, live=True)
+        validate_image_archive(cfg.online['image_archive'], observed['image_scope']['targets'],
+                observed['kind']['node_info']['architecture'], cfg.data['storage']['max_capture_bytes'], deadline=io.deadline)
     source = cfg.source['container_id']; cp = observed['control_plane']['pod']
     container = cfg.online['etcd_container']; status_tool = cfg.online['etcd_status_tool']
     prefix = io.kube('exec', '-n', 'kube-system', cp, '-c', container, '--', timeout=300)
@@ -104,11 +130,31 @@ def _collect(cfg, plan, approval, workspace, io_factory, component_factory):
               'plan_digest': approval, 'status': 'failed', 'services_stopped': False, 'started_at': now(),
               'finished_at': None, 'source_invocation_unchanged': False, 'artifacts': []}
     write_json(workspace / 'plan.json', plan, cfg)
-    if cfg.online.get('collector') == 'ops-native-v1':
+    if cfg.online.get('collector') == 'ops-native-v1' or cfg.online.get('external_services'):
         write_json(workspace / 'source-selection.json', cfg.document, cfg)
     snapshot = '/var/lib/etcd/.ops-online-' + uuid.uuid4().hex + '.db'
     snapshot_attempted = False
     try:
+        if cfg.online.get('image_archive'):
+            from image_archive import copy_image_archive
+            if cfg.online.get('image_recovery_receipt'):
+                from oci_recovery import verify_recovery_receipt
+                raw = verify_recovery_receipt(cfg.online['image_recovery_receipt'], cfg, observed, live=True)
+                path = workspace / 'prepared-recovery-receipt.json'
+                with path.open('xb') as stream:
+                    os.fchmod(stream.fileno(), 0o600);stream.write(raw)
+            used = sum(p.stat().st_size for p in workspace.rglob('*') if p.is_file())
+            proof = copy_image_archive(cfg.online['image_archive'], workspace / 'container-images.tar',
+                    observed['image_scope']['targets'], observed['kind']['node_info']['architecture'],
+                    cfg.data['storage']['max_capture_bytes'] - used, deadline=io.deadline)
+            write_json(workspace / 'prepared-image-coverage.json', proof, cfg)
+            if cfg.online.get('image_recovery_receipt'):
+                verify_recovery_receipt(cfg.online['image_recovery_receipt'], cfg, observed, live=True)
+            from image_cache import inspect_references
+            image_prefix = docker(cfg.kind, 'exec', source, 'ctr', '--namespace', 'k8s.io')
+            selected, targets, _ = inspect_references(image_prefix, execute=io.execute)
+            check(selected == observed['images'] and targets == observed['image_scope']['targets'],
+                  'Image roots changed before native snapshot')
         # No copy of member/snap/db or any other live datastore file.
         snapshot_attempted = True
         io.execute([*endpoint, 'snapshot', 'save', snapshot], timeout=300)
@@ -123,8 +169,9 @@ def _collect(cfg, plan, approval, workspace, io_factory, component_factory):
         io.execute(docker(cfg.kind, 'image', 'save', observed['kind']['image_id']),
                    output=workspace / 'container-image.tar', timeout=1200)
         platform = 'linux/' + observed['kind']['node_info']['architecture']
-        io.execute(docker(cfg.kind, 'exec', source, 'ctr', '--namespace', 'k8s.io', 'images', 'export',
-                          '--platform', platform, '-', *observed['images']), output=workspace / 'container-images.tar', timeout=1200)
+        if not cfg.online.get('image_archive'):
+            io.execute(docker(cfg.kind, 'exec', source, 'ctr', '--namespace', 'k8s.io', 'images', 'export',
+                              '--platform', platform, '-', *observed['images']), output=workspace / 'container-images.tar', timeout=1200)
         write_json(workspace / 'image-references.json', observed['images'], cfg)
         inspect = io.json(docker(cfg.kind, 'inspect', source))[0]
         write_json(workspace / 'container-inspect.json', inspect, cfg)
@@ -132,6 +179,9 @@ def _collect(cfg, plan, approval, workspace, io_factory, component_factory):
             output = cfg.directory(workspace / 'applications' / ns, create=True, fresh=True)
             component_factory(cfg, io, ns, info, output).collect()
         collect_extras(cfg, io, observed['extra_pvcs'], workspace)
+        if 'external_services' in observed:
+            from external_services import collect as collect_external
+            collect_external(cfg, io, observed['external_services'], workspace)
         # Verify the bootstrap files did not rotate while the native set was captured.
         verify = workspace / 'bootstrap-recheck.tar'
         io.execute(docker(cfg.kind, 'exec', source, 'tar', '-C', '/', '-cf', '-', 'etc/kubernetes',

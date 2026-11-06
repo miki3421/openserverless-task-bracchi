@@ -220,7 +220,7 @@ def amd64(platform):
     return platform['os'] == 'linux' and platform['architecture'] == 'amd64' and platform.get('variant', '') in ('', 'v1')
 
 
-def selected_manifests(root, resolve, budget=None):
+def selected_manifests(root, resolve, budget=None, architecture='amd64'):
     """Walk each original root; foreign siblings need not be exported."""
     active = set()
     budget = [0] if budget is None else budget
@@ -230,7 +230,8 @@ def selected_manifests(root, resolve, budget=None):
         budget[0] += 1
         require(depth <= 64 and budget[0] <= 32768, 'image_descriptor_graph_budget_exceeded')
         if 'platform' in row:
-            if not amd64(row['platform']): return []
+            from platform_support import matches_platform
+            if not matches_platform(row['platform'], architecture): return []
             selected_platform = True
         require(name not in active, 'image_descriptor_cycle')
         active.add(name)
@@ -241,7 +242,7 @@ def selected_manifests(root, resolve, budget=None):
                 children = value.get('manifests')
                 require(isinstance(children, list) and children, 'image_index_roots_required')
                 result = [manifest for child in children for manifest in visit(child, depth + 1, selected_platform)]
-                require(result or not selected_platform, 'image_root_linux_amd64_manifest_required')
+                require(result or not selected_platform, 'image_root_linux_'+architecture+'_manifest_required')
                 return result
             return [(value, selected_platform)]
         finally:
@@ -250,7 +251,9 @@ def selected_manifests(root, resolve, budget=None):
     return visit(root, 0)
 
 
-def image_storage(paths):
+def image_storage(paths, architecture='amd64'):
+    from platform_support import architecture as native_architecture, matches_platform
+    architecture=native_architecture(architecture)
     content = {}; metadata = {}; metadata_bytes = 0; snapshots = {}; verified = set(); expanded = 0; roots = set()
 
     def decode(raw, identity):
@@ -318,10 +321,10 @@ def image_storage(paths):
             for root in index['manifests']:
                 roots.add(descriptor(root, INDEX | MANIFEST))
                 selected = 0
-                for manifest, selected_platform in selected_manifests(root, resolve, graph_budget):
+                for manifest, selected_platform in selected_manifests(root, resolve, graph_budget, architecture):
                     descriptor(manifest.get('config'), CONFIG)
                     config = resolve(manifest['config'])
-                    if not amd64(config):
+                    if not matches_platform(config, architecture):
                         require(not selected_platform, 'image_platform_mismatch')
                         continue
                     selected += 1
@@ -343,7 +346,7 @@ def image_storage(paths):
                             snapshots[chain] = state; verified.add(key)
                             require(expanded <= LIMIT, 'image_expansion_budget_exceeded')
                         _, parent_bound, parent_links = snapshots[chain]; parent = chain
-                require(selected, 'image_root_linux_amd64_manifest_required')
+                require(selected, 'image_root_linux_'+architecture+'_manifest_required')
     content_bytes = sum(content.values())
     store_bytes = sum(rounded(size) + ENTRY_OVERHEAD for size in content.values())
     require(store_bytes + expanded <= LIMIT, 'image_expansion_budget_exceeded')

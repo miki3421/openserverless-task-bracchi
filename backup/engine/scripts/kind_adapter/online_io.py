@@ -26,12 +26,12 @@ class OnlineConfig:
         self.document = data
         self.online = data['online']
         required = {'namespaces', 'excluded_pvcs', 'etcd_container', 'etcd_status_tool'}
-        check(isinstance(self.online, dict) and required <= set(self.online) <= required | {'profile', 'extra_pvcs', 'collector'},
+        check(isinstance(self.online, dict) and required <= set(self.online) <= required | {'profile', 'extra_pvcs', 'collector', 'image_archive', 'image_recovery_receipt', 'external_services'},
               'Closed online settings required')
         check(self.online.get('collector', 'classic-v1') in {'classic-v1', 'ops-native-v1'}, 'Unknown kind collector')
         if self.online.get('collector') == 'ops-native-v1':
-            check(isinstance(self.online['namespaces'], list) and len(self.online['namespaces']) == 1 and not self.online.get('extra_pvcs'),
-                  'Native kind collection currently requires one standard OPS installation')
+            check(isinstance(self.online['namespaces'], list) and len(self.online['namespaces']) == 1,
+                  'Native kind collection requires one explicit OPS installation')
         from .profiles import profile
         profile(self)
         namespaces = self.online['namespaces']
@@ -50,6 +50,16 @@ class OnlineConfig:
                   1 <= len(row['reason']) <= 500, 'Only explicit rebuildable model PVC exclusion supported')
             key = (row['namespace'], row['name'])
             check(key not in keys, 'Duplicate exclusion'); keys.add(key)
+        if 'image_archive' in self.online:
+            from image_archive import selection
+            selection(self.online['image_archive'])
+        if 'image_recovery_receipt' in self.online:
+            from image_archive import selection
+            check('image_archive' in self.online, 'Recovery receipt requires an explicit prepared image archive')
+            selection(self.online['image_recovery_receipt'])
+        if 'external_services' in self.online:
+            from external_services import validate_settings
+            validate_settings(self.online['external_services'])
         self.fingerprint = fingerprint(data)
         extras = self.online.get('extra_pvcs', [])
         check(isinstance(extras, list), 'Explicit additional claims required')

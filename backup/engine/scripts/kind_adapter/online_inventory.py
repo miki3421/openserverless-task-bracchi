@@ -144,15 +144,20 @@ def observe(cfg, io):
         for row in sorted(extra_settings, key=lambda r: (r['namespace'], r['name'])):
             pvc = next(p for p in pvcs if p['metadata']['namespace'] == row['namespace'] and p['metadata']['name'] == row['name'])
             extras.append(observe_extra(cfg, io, row, pvc, pvs, io.get('pods', namespace=row['namespace'])['items']))
-    return {'schema': 'ops-kind-online-inventory.v3', 'configuration_sha256': cfg.fingerprint,
+    result = {'schema': 'ops-kind-online-inventory.v3', 'configuration_sha256': cfg.fingerprint,
             'kind': source, 'namespaces': namespaces, 'control_plane': control_plane(cfg, io),
             'excluded_pvcs': cfg.online['excluded_pvcs'], 'images': images, 'extra_pvcs': extras,
             'profile': cfg.online.get('profile', 'openserverless-v1'), 'image_scope': image_scope}
+    if 'external_services' in cfg.online:
+        from external_services import observe as observe_external
+        result['external_services'] = observe_external(cfg, io)
+    return result
 
 
 def make_plan(cfg, observed):
+    extra_keys = {'external_services'} if 'external_services' in cfg.online else set()
     check(isinstance(observed, dict) and set(observed) == {'schema', 'configuration_sha256', 'kind', 'namespaces',
-          'control_plane', 'excluded_pvcs', 'images', 'extra_pvcs', 'profile', 'image_scope'} and observed['schema'] == 'ops-kind-online-inventory.v3' and
+          'control_plane', 'excluded_pvcs', 'images', 'extra_pvcs', 'profile', 'image_scope'} | extra_keys and observed['schema'] == 'ops-kind-online-inventory.v3' and
           observed['configuration_sha256'] == cfg.fingerprint and
           set(observed['namespaces']) == set(cfg.online['namespaces']) and
           observed['excluded_pvcs'] == cfg.online['excluded_pvcs'] and
@@ -162,9 +167,12 @@ def make_plan(cfg, observed):
           len(observed['extra_pvcs']) == len(cfg.online.get('extra_pvcs', [])) and
           {(r['namespace'], r['claim'], r['method']) for r in observed['extra_pvcs']} ==
           {(r['namespace'], r['name'], r['method']) for r in cfg.online.get('extra_pvcs', [])}, 'Online inventory/configuration mismatch')
+    if extra_keys:
+        check([r['name'] for r in observed['external_services']['components']] ==
+              [r['name'] for r in cfg.online['external_services']['components']], 'External component coverage mismatch')
     value = {'schema': 'ops-kind-online-plan.v3', 'inventory': observed, 'outage_required': False,
              'contains_credentials': True, 'scope': 'kind-control-plane-listed-ops-namespaces-and-explicit-extra-pvcs',
-             'external_services_included': False, 'application_restore_supported': False,
+             'external_services_included': bool(extra_keys), 'application_restore_supported': False,
              'consistency': 'per-component native online backups; not a distributed atomic snapshot'}
     return {**value, 'digest': 'sha256:' + fingerprint(value)}
 

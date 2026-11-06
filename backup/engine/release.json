@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
   "repository": "https://github.com/miki3421/ops-k3s-backup",
-  "revision": "77e636c9c5e261e0bafe7b64437ac929196339f6",
+  "revision": "c6699e51568c89f11054e322734c2a8d427c24d8",
   "files": [
     {
       "path": "adapters/ops-native/LICENSE",
@@ -194,6 +194,11 @@
       "sha256": "01723f5598874632a320ca4cbdfdd63bd530bd9317142a920556c7a9769fc05c"
     },
     {
+      "path": "scripts/external_services.py",
+      "bytes": 22096,
+      "sha256": "3b332e6d42cc4a47d028f0cccf94323775c4d4efef9b40e8f7ad2e9cc83fd73b"
+    },
+    {
       "path": "scripts/guest-activate-lab.py",
       "bytes": 1417,
       "sha256": "cd97aa697654df197355e625747ce308c672b18791fbb697f357463f06a81abb"
@@ -259,9 +264,14 @@
       "sha256": "f1f9d68c93abfa4efcaaa48de5e983c73b17d0fdbfefbf758d41cd108906fa0a"
     },
     {
+      "path": "scripts/image_archive.py",
+      "bytes": 11769,
+      "sha256": "6bd6ee69fadef222eb89c55d100a50986bb7d052765437a9c33e00c16895f0e0"
+    },
+    {
       "path": "scripts/image_cache.py",
-      "bytes": 4589,
-      "sha256": "44ee78fa1a14362ebc38e5a8a9a9b902f104e7a5bb452cfffda15a928246a044"
+      "bytes": 6997,
+      "sha256": "2fd316a41a5e21a88ff5639af2a4e06e4e3da396024749b50e58dedebd7846f1"
     },
     {
       "path": "scripts/image_scope.py",
@@ -295,8 +305,8 @@
     },
     {
       "path": "scripts/kind_adapter/archive.py",
-      "bytes": 7395,
-      "sha256": "0f5ebb7f64ce59b35bc9d24bbf88988fd9e6e0667604fee97c7c0f1dc21c1c84"
+      "bytes": 7515,
+      "sha256": "ab04ca4cef7a9b84dd1b3f7a168cabeb6161e17aeeb18061cc5f1e9e7b974c63"
     },
     {
       "path": "scripts/kind_adapter/collection.py",
@@ -315,8 +325,8 @@
     },
     {
       "path": "scripts/kind_adapter/online_collection.py",
-      "bytes": 11277,
-      "sha256": "2d37685ec615635a66777c088424d31f432d1bf2b75660dba915971961a9cb59"
+      "bytes": 15143,
+      "sha256": "ed1d5b19cdda9d659673453b1e0eefe3d252dd269c01b27443a02df05c2fe0ee"
     },
     {
       "path": "scripts/kind_adapter/online_components.py",
@@ -325,13 +335,13 @@
     },
     {
       "path": "scripts/kind_adapter/online_inventory.py",
-      "bytes": 11270,
-      "sha256": "c096719f64f1bf9607dac031b6eccb981661389533f9b83ca60cd3ac1ffaa216"
+      "bytes": 11796,
+      "sha256": "08dd610bcd713afcc7804f3654fb1945f1b989c44166a2f5e371cab310754c32"
     },
     {
       "path": "scripts/kind_adapter/online_io.py",
-      "bytes": 8716,
-      "sha256": "46f60863e3347948b1b2ab3d36498aa6fb34e8826f399628d9701121d7a76ea7"
+      "bytes": 9321,
+      "sha256": "b92579631d89d42099f46ee72d5750c710f7a4f407708de6808deb4228f402d0"
     },
     {
       "path": "scripts/kind_adapter/profiles.py",
@@ -345,8 +355,8 @@
     },
     {
       "path": "scripts/kind_native_network.py",
-      "bytes": 7603,
-      "sha256": "e71684f8957f4539806f4299565d6718ac93c55c71866825ec399f65e4b5c4fd"
+      "bytes": 7668,
+      "sha256": "8a991c6e8d4324a10e9f253f533b6743cb34af5815fe13f36a0ba76281566ec0"
     },
     {
       "path": "scripts/kind_online_backup.py",
@@ -365,13 +375,18 @@
     },
     {
       "path": "scripts/oci_acquisition.py",
-      "bytes": 5840,
-      "sha256": "4a79cc04cfe4047e9c8b3e0bdd8ef02641d3f59d4352f3f2fa75fa5dc6d5301e"
+      "bytes": 5984,
+      "sha256": "38912bc0b5d88ee1e95858afb1c547d4805c1d7f2fd3ee0094a73266b7dd7cc1"
     },
     {
       "path": "scripts/oci_image_storage.py",
-      "bytes": 18601,
-      "sha256": "e249101a33a2ee520c7c0ffef660873d4078bbc37d2f4fc46b6528983145b485"
+      "bytes": 18927,
+      "sha256": "79e7a88442e57226b65397eaefd7b07be51a15e6ca211cc94b63401df3135bde"
+    },
+    {
+      "path": "scripts/oci_recovery.py",
+      "bytes": 20284,
+      "sha256": "b4fe335c31ad6c1890650bfbc86128c1f97e2ef173e4f182b13b96c64ab74e0a"
     },
     {
       "path": "scripts/offline_images.py",
@@ -395,13 +410,18 @@
     },
     {
       "path": "scripts/ops_backup.py",
-      "bytes": 17353,
-      "sha256": "b3cfd4abc03eea4d943073b7e50e0382c05d45fd70ba5410fb80c328242d6db3"
+      "bytes": 18958,
+      "sha256": "07da8c7219cc81db02a8d04da0615ca5752a29c4e995a7cbffce3ea4d8600ec8"
     },
     {
       "path": "scripts/pack-real-backup.py",
       "bytes": 5315,
       "sha256": "37319f31aa477320216c0119d81aa09e71f334e4897ca21442e84ea51bde8000"
+    },
+    {
+      "path": "scripts/platform_support.py",
+      "bytes": 1896,
+      "sha256": "7697ea17351ad5e15ea703dad63411b0bfd3757f75f08bc3582b13b7e182a172"
     },
     {
       "path": "scripts/prepare-arm64-vm.py",
@@ -425,8 +445,8 @@
     },
     {
       "path": "scripts/sqlite_bundle.py",
-      "bytes": 6375,
-      "sha256": "9887aa976a8fca568d647b56c5361b3b6336a6c99b4a0eba87a32fe70175af69"
+      "bytes": 11128,
+      "sha256": "b7beb5417c0c8e6ebb3944c0fb35f0aff004bdf8d0e9b425720558feb35b199f"
     },
     {
       "path": "scripts/sqlite_online.py",

@@ -39,6 +39,8 @@ class Restic:
             check(not path.is_symlink(), 'Restic binary symlink rejected')
         check(self.binary.is_file() and os.access(self.binary, os.X_OK) and
               digest(self.binary) == storage['restic_sha256'], 'Pinned executable Restic required')
+        from platform_support import verify_executable
+        verify_executable(self.binary, storage['restic_sha256'])
         password = private_file(storage['password_file'])
         check(password.stat().st_size >= 32, 'Explicit nonempty recovery password file required')
         check(not password.is_relative_to(repository) and not password.is_relative_to(evidence),

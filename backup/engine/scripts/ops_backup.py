@@ -12,6 +12,7 @@ import shutil
 import stat
 import subprocess
 import sys
+import time
 import uuid
 
 from backup_manifest import artifact, copy_verified_artifact
@@ -21,7 +22,7 @@ from kind_adapter.archive import Restic, collection_bytes, seal
 from kind_adapter.online_io import OnlineConfig, OnlineIO
 from kind_adapter.online_inventory import observe, make_plan, control_plane_tools
 from kind_adapter.online_collection import collect as kind_collect, validate as kind_validate
-from image_cache import inspect_cache
+from image_cache import inspect_cache, inspect_references, ImageCacheIncomplete
 import native_bundle
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -186,8 +187,30 @@ class KindBackend:
         self.plan = make_plan(self.cfg, observed)
         write_json(self.run / 'plan.json', self.plan, self.archive)
         prefix = docker(self.cfg.kind, 'exec', self.cfg.source['container_id'], 'ctr', '--namespace', 'k8s.io')
-        selected, targets, proof = inspect_cache(prefix, observed['kind']['node_info']['architecture'])
-        check(selected == observed['images'] and targets == observed['image_scope']['targets'], 'Image roots changed during preflight')
+        try:
+            if self.cfg.online.get('image_archive'):
+                from image_archive import validate_image_archive
+                if self.cfg.online.get('image_recovery_receipt'):
+                    from oci_recovery import verify_recovery_receipt
+                    verify_recovery_receipt(self.cfg.online['image_recovery_receipt'], self.cfg, observed, live=True)
+                proof = validate_image_archive(self.cfg.online['image_archive'], observed['image_scope']['targets'],
+                        observed['kind']['node_info']['architecture'], self.cfg.data['storage']['max_capture_bytes'],
+                        deadline=time.monotonic() + self.cfg.data['timeouts']['collection_seconds'])
+                selected, targets, _ = inspect_references(prefix, execute=io.execute)
+                check(selected == observed['images'] and targets == observed['image_scope']['targets'],
+                      'Image roots changed during prepared OCI validation')
+                proof = {'source': 'prepared-local-oci', **proof}
+            else:
+                selected, targets, proof = inspect_cache(prefix, observed['kind']['node_info']['architecture'])
+                check(selected == observed['images'] and targets == observed['image_scope']['targets'],
+                      'Image roots changed during preflight')
+        except ImageCacheIncomplete as error:
+            report = error.report
+            if len(json.dumps(report)) > 4 * 1024**2:
+                report = {'schema': report['schema'], 'complete': False, 'detailsOmitted': True,
+                          'missingBlobCount': len(report['missingBlobs']), 'coverage': report['coverage']}
+            write_json(self.run / 'cache-coverage.failure.json', report, self.archive)
+            raise
         for namespace, info in observed['namespaces'].items():
             self.component_factory(self.cfg, io, namespace, info, None).preflight()
         write_json(self.run / 'cache-coverage.json', proof, self.archive)

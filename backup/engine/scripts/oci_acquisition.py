@@ -4,6 +4,7 @@ import re
 
 from store_common import require,fingerprint
 from oci_image_storage import INDEX,MANIFEST,CONFIG,GZIP,PLAIN,rounded,ENTRY_OVERHEAD
+from platform_support import architecture as native_architecture, matches_platform
 
 GIB=1024**3
 JSON_LIMIT=4*1024**2
@@ -11,7 +12,8 @@ MAX_BLOBS=32768
 MAX_CONTENT=256*GIB
 
 
-def acquisition_plan(images,fetch):
+def acquisition_plan(images,fetch,architecture='amd64'):
+    architecture=native_architecture(architecture)
     require(isinstance(images,list) and 0<len(images)<=256,'bounded_image_catalog_required')
     content={};by_reference={};visited=set();selected=set();metadata_count=0
 
@@ -27,7 +29,7 @@ def acquisition_plan(images,fetch):
     def eligible(platform,parent):
         if platform is None:return parent
         require(isinstance(platform,dict),'image_platform_descriptor_required')
-        return parent and platform.get('os')=='linux' and platform.get('architecture')=='amd64'
+        return parent and matches_platform(platform,architecture)
 
     def walk(reference,digest,chosen,depth=0,ancestors=()):
         nonlocal metadata_count
@@ -71,7 +73,7 @@ def acquisition_plan(images,fetch):
         require(row['reference'] not in references,'duplicate_image_catalog_reference')
         references.add(row['reference'])
         walk(row['reference'],row.get('digest'),True)
-        require(any(reference==row['reference']for reference,_ in selected),'image_acquisition_amd64_manifest_required')
+        require(any(reference==row['reference']for reference,_ in selected),'image_acquisition_'+architecture+'_manifest_required')
     content_bytes=sum(rounded(x)+ENTRY_OVERHEAD for x in content.values())
     per_image={reference:sum(rounded(content[key])+ENTRY_OVERHEAD for key in identities)
                for reference,identities in by_reference.items()}
@@ -79,7 +81,7 @@ def acquisition_plan(images,fetch):
     # export. No existing cache reuse/deduplication is assumed in the free bound.
     export_bytes=content_bytes+len(content)*1024+8*1024**2
     scratch=max(content.values())+8*GIB
-    return {'schemaVersion':1,'catalogSha256':fingerprint(images),'platform':'linux/amd64',
+    return {'schemaVersion':1,'catalogSha256':fingerprint(images),'platform':'linux/'+architecture,
             'contentOnly':True,'contentUpperBoundBytes':content_bytes,'exportUpperBoundBytes':export_bytes,
             'scratchUpperBoundBytes':scratch,'softwareStageUpperBoundBytes':8*GIB,
             'perImageContentUpperBoundBytes':per_image,
