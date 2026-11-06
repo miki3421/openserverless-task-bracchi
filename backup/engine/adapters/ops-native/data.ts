@@ -10,6 +10,8 @@ import { scoped, listItems } from "./update/source";
 import { artifactInfo, collectCouchDatabases, exportCouchClient, privateJSON } from "./update/portable";
 import { collectNativeComponent, kubeNativeExecutor } from "./update/native";
 import { readOwnedMilvusCatalog, assertEmptyCatalog } from "./empty-milvus";
+import { collectSeaweed } from "./update/storage";
+import { ephemeralWeedRunner, verifyWeedToolParent } from "./data-tools";
 
 export const EXCLUDED = ["container-images-and-registry", "kubernetes-control-plane-and-node",
   "redeployable-actions-and-activation-history", "operator-static-and-tika-files",
@@ -94,6 +96,7 @@ export async function dataPreflight(configPath: string, output: string) {
   const plan = planBackup(inventory, read);
   privateJSON(join(output, "inventory.json"), inventory); privateJSON(join(output, "plan.json"), plan);
   const selection = dataSelection(plan);
+  if(selection.selected.includes("seaweedfs-data")) verifyWeedToolParent(dirname(config.storage.restic_binary));
   if (plan.bindings.some(b => b.artifactId === "milvus-data")) {
     // No claim that vectors are a cache: refuse NONEMPTY collections until a
     // portable data export has been qualified. Empty service is reconstructible.
@@ -196,6 +199,15 @@ export async function dataCollect(configPath: string, output: string) {
       } finally {closeSync(fd);closeSync(err);}
       const row=await artifactInfo(stage,path); if(!row.bytes) throw new Error("empty_data_export");
       files.push({...row,path:id+"/"+row.path});
+    } else if(id === "seaweedfs-data") {
+      mkdirSync(stage,{mode:0o700});
+      // The pinned Restic is already executable here. Use a fresh private child
+      // for the public weed TOOL; keep all data and logs in protected staging.
+      const tool=ephemeralWeedRunner(dirname(config.storage.restic_binary));
+      try {
+        const rows=await collectSeaweed(plan,stage,read,kubeNativeExecutor(plan),undefined,tool.run);
+        for(const row of rows) if(row.path!=="weed") files.push({...row,path:id+"/"+row.path});
+      } finally {tool.dispose();}
     } else {
       await collectNativeComponent(inventory,plan,id,stage,read);
       const receipt=readPrivateJSON(join(stage,"receipt.json"));
