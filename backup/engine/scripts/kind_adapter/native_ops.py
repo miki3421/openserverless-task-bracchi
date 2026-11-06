@@ -5,6 +5,9 @@ import os
 from pathlib import Path, PurePosixPath
 import pwd
 import re
+import resource
+import shutil
+import stat
 import subprocess
 import sys
 import tarfile
@@ -12,10 +15,53 @@ import uuid
 
 from backup_manifest import SCHEMA, artifact, validate_collection
 from native_bundle import record
+from storage_capacity import workspace_bytes, METADATA_RESERVE_BYTES
+from .archive import collection_bytes
 from . import check, digest, write_json, private_file
 from .profiles import profile
 
 ROOT = Path(__file__).resolve().parents[2]
+
+
+class _BoundedTarWriter:
+    """Stop before writing beyond the remaining clean collection allowance."""
+    def __init__(self, stream, maximum):
+        self.stream, self.maximum, self.written = stream, maximum, 0
+
+    def write(self, data):
+        check(self.written + len(data) <= self.maximum, 'Native archive capture budget exceeded')
+        written = self.stream.write(data)
+        check(written == len(data), 'Native archive short write')
+        self.written += written
+        return written
+
+
+def retire_verified_workspace(cfg, stage, identity):
+    """Remove only this invocation's intermediate directory, never old runs.
+
+    Caller must already have validated the independent tar, exact manifest and
+    application report. Failed acquisition/validation never reaches this path.
+    Directory-FD rmtree does not follow provider-log links to outside storage.
+    """
+    stage = Path(stage)
+    check(stage.parent == cfg.native_run and cfg.native_run != cfg.root and
+          cfg.native_run.is_relative_to(cfg.root) and
+          re.fullmatch(r'kind-ops-[a-f0-9]{32}', stage.name), 'Owned native workspace required')
+    cfg.directory(cfg.native_run)
+    info = stage.lstat()
+    check(stat.S_ISDIR(info.st_mode) and info.st_uid == os.geteuid() and
+          stat.S_IMODE(info.st_mode) == 0o700 and (info.st_dev, info.st_ino) == identity,
+          'Native workspace identity changed; intermediates retained')
+    check(shutil.rmtree.avoids_symlink_attacks, 'Safe native workspace retirement unavailable')
+    parent = os.open(cfg.native_run, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW)
+    try:
+        current = os.stat(stage.name, dir_fd=parent, follow_symlinks=False)
+        check((current.st_dev, current.st_ino) == identity and stat.S_ISDIR(current.st_mode),
+              'Native workspace identity changed; intermediates retained')
+        shutil.rmtree(stage.name, dir_fd=parent)
+        os.fsync(parent)
+    finally:
+        os.close(parent)
 
 
 def native_expectations(plan):
@@ -133,8 +179,11 @@ class NativeComponents:
                 '--operation', operation, '--workspace', str(stage / 'ops')]
         if output: args += ['--output', str(output)]
         # Output and provider details stay outside the clean archived payload.
+        maximum = self.cfg.data['storage']['max_capture_bytes']
+        def limit(): resource.setrlimit(resource.RLIMIT_FSIZE, (maximum, maximum))
         with (stage / (operation + '.stdout')).open('xb') as out, (stage / (operation + '.stderr')).open('xb') as err:
-            subprocess.run(args, stdout=out, stderr=err, check=True, timeout=self.io.timeout(7200))
+            subprocess.run(args, stdout=out, stderr=err, check=True, timeout=self.io.timeout(7200),
+                           preexec_fn=limit)
         return json.loads((stage / (operation + '.stdout')).read_text())
 
     def preflight(self):
@@ -150,19 +199,34 @@ class NativeComponents:
               {r['artifactId'] for r in native['bindings']} == expected, 'Shared native source coverage mismatch')
 
     def collect(self):
-        stage, config = self.prepare(); self.call(stage, config, 'preflight')
+        stage, config = self.prepare()
+        info = stage.lstat(); stage_identity = info.st_dev, info.st_ino
+        self.call(stage, config, 'preflight')
         self.verify_source_plan(json.loads((stage / 'ops/plan.json').read_text()))
         self.call(stage, config, 'collect-all'); payload = stage / 'payload'
+        maximum = self.cfg.data['storage']['max_capture_bytes']
+        # Raw native files may include provider scratch. Reject oversize work
+        # before making the next copy, rather than consuming the sealing reserve.
+        used = collection_bytes(self.io.workspace)
+        check(workspace_bytes(stage) + used <= maximum + METADATA_RESERVE_BYTES,
+              'Native intermediate capture budget exceeded')
         verified = self.call(stage, config, 'payload', payload)
         receipt = json.loads((payload / 'receipt.json').read_text())
         files = [record(p, payload) for p in sorted(payload.rglob('*')) if p.is_file()]
-        check(sum(r['bytes'] for r in files) <= self.cfg.data['storage']['max_capture_bytes'], 'Native payload capture budget exceeded')
+        check(sum(r['bytes'] for r in files) <= maximum, 'Native payload capture budget exceeded')
+        check(workspace_bytes(stage) + used <= 2 * maximum + METADATA_RESERVE_BYTES,
+              'Native intermediate capture budget exceeded')
         target = self.output / 'ops-native.tar'
-        with tarfile.open(target, mode='x') as archive:
-            for row in files:
-                source = artifact(payload, row)
-                archive.add(source, arcname=row['file'], recursive=False)
-        target.chmod(0o600)
+        # The tar (including padding/PAX headers) must fit alongside the other
+        # clean artifacts. It is never allowed to grow past the final cap.
+        with target.open('xb') as stream:
+            os.fchmod(stream.fileno(), 0o600)
+            writer = _BoundedTarWriter(stream, maximum - used)
+            with tarfile.open(fileobj=writer, mode='w|') as archive:
+                for row in files:
+                    source = artifact(payload, row)
+                    archive.add(source, arcname=row['file'], recursive=False)
+            stream.flush(); os.fsync(stream.fileno())
         proof = {'schemaVersion': 1, 'verifiedBy': 'ops-native-verify-payload', 'configurationSha256': self.cfg.fingerprint,
                  'sourceClusterUid': self.cfg.source['cluster_uid'], 'whiskUid': self.plan['whiskUid'],
                  'inventorySha256': verified['inventorySha256'], 'receiptSha256': verified['receiptSha256'],
@@ -176,4 +240,26 @@ class NativeComponents:
         validate_collection(report, self.output, configuration_sha256=self.cfg.fingerprint, expected_plan=self.plan)
         validate_payload(self.cfg, self.output, self.plan)
         write_json(self.output / 'applications-report.json', report, self.cfg)
+        # Native data now has an independently validated, self-contained copy.
+        # Preserve the canonical collection through Restic/full file verification;
+        # retire only this run's redundant raw + portable intermediates.
+        for name in ('ops-native.tar', 'ops-native-manifest.json', 'applications-report.json'):
+            with private_file(self.output / name).open('rb') as stream:
+                os.fsync(stream.fileno())
+        directory = self.output
+        while directory.is_relative_to(self.cfg.root):
+            fd = os.open(directory, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW)
+            try:
+                os.fsync(fd)
+            finally:
+                os.close(fd)
+            if directory == self.cfg.root:
+                break
+            directory = directory.parent
+        retire_verified_workspace(self.cfg, stage, stage_identity)
+        write_json(self.cfg.native_run / ('native-compaction-' + stage.name[9:] + '.json'), {
+            'schemaVersion': 1, 'status': 'verified-intermediates-retired',
+            'configurationSha256': self.cfg.fingerprint,
+            'payloadSha256': digest(target), 'sourceServicesStopped': False,
+        }, self.cfg)
         return report

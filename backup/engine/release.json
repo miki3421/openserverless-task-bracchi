@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
   "repository": "https://github.com/miki3421/ops-k3s-backup",
-  "revision": "7ba705ae8f3dfc2e1cb4408028fde6d0a193dc3e",
+  "revision": "d39d0ef40c9cd3de468bba2ac38de6586eeb47d8",
   "files": [
     {
       "path": "adapters/ops-native/LICENSE",
@@ -325,8 +325,8 @@
     },
     {
       "path": "scripts/kind_adapter/native_ops.py",
-      "bytes": 12031,
-      "sha256": "88c75c9c7167a82da3e6bf1cfcf1e9b8d0a72e947317d4c148dac9da6fc9d016"
+      "bytes": 16512,
+      "sha256": "692bb8105c379239c76cee9a5ee2c23c5d1c0982757281d0141b82f222ff6b40"
     },
     {
       "path": "scripts/kind_adapter/online_collection.py",
@@ -415,8 +415,8 @@
     },
     {
       "path": "scripts/ops_backup.py",
-      "bytes": 19295,
-      "sha256": "94408a1f1b1c7eb8164ef4d1c04782a935ae561cb92b5b6d026c58638a212cec"
+      "bytes": 18979,
+      "sha256": "100087f8406258b04e921cfb7342c5d6f309c05bf518c62198cc18235515bd39"
     },
     {
       "path": "scripts/pack-real-backup.py",
@@ -470,8 +470,8 @@
     },
     {
       "path": "scripts/storage_capacity.py",
-      "bytes": 1644,
-      "sha256": "38b553c933a1d983edded9eb300aaa347a757c55731df02cbbbb6a19d95b532e"
+      "bytes": 2863,
+      "sha256": "410299743a0cd52379f6ba11ed387352b660430a8afd16ec68aaf84ddde2a35d"
     },
     {
       "path": "scripts/store_capacity.py",

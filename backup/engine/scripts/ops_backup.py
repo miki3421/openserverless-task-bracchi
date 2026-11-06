@@ -24,6 +24,8 @@ from kind_adapter.online_inventory import observe, make_plan, control_plane_tool
 from kind_adapter.online_collection import collect as kind_collect, validate as kind_validate
 from image_cache import inspect_cache, inspect_references, ImageCacheIncomplete
 import native_bundle
+from storage_capacity import (workspace_bytes, local_backup_peak, require_local_backup_capacity,
+                              RETAINED_WORKSPACE, COMPACTED_KIND_WORKSPACE)
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -230,23 +232,11 @@ class KindBackend:
                     validator=kind_validate, tag='ops-kind-online-v1')
 
 
-def workspace_bytes(run):
-    total = 0
-    for directory, children, files in os.walk(run, followlinks=False):
-        for name in [*children, *files]:
-            path = Path(directory) / name
-            info = path.lstat()
-            if stat.S_ISLNK(info.st_mode):
-                # Native bootstrap links and provider log links are legitimate
-                # staging metadata. Count only the link inode, never its target.
-                # Clean payload/native receipts and the sealer enforce artifact policy.
-                total += info.st_size
-            elif stat.S_ISREG(info.st_mode):
-                check(info.st_nlink == 1, 'Unexpected workspace hardlink')
-                total += info.st_size
-            else:
-                check(stat.S_ISDIR(info.st_mode), 'Unexpected workspace special file')
-    return total
+def workspace_policy(backend):
+    # Source-owned dispatch only; no private profile switch can lower the bound.
+    if isinstance(backend, KindBackend) and backend.cfg.online.get('collector') == 'ops-native-v1':
+        return COMPACTED_KIND_WORKSPACE
+    return RETAINED_WORKSPACE
 
 
 def status(path):
@@ -286,6 +276,10 @@ def run_backup(path, *, check_only=False, bun=None, backend_factory=None, progre
         atomic_json(root / 'last-backup.json', {'runId': token, 'configurationSha256': cfg.fingerprint})
         atomic_json(run / 'journal.json', journal)
         backend = (backend_factory or (NativeBackend if route == 'k3s' else KindBackend))(cfg, archive, run, bun)
+        policy = workspace_policy(backend)
+        storage = archive.data['storage']
+        capacity = local_backup_peak(storage['max_capture_bytes'], storage['reserve_free_bytes'],
+                                     workspace_policy=policy)
         phases = [('preflight', backend.preflight)]
         if not check_only: phases += [('collect', backend.collect), ('assemble', backend.assemble), ('encrypt-and-verify', backend.seal)]
         result = None
@@ -293,16 +287,14 @@ def run_backup(path, *, check_only=False, bun=None, backend_factory=None, progre
             journal.update(phase=name, updatedAt=timestamp()); atomic_json(run / 'journal.json', journal)
             if progress: progress(name)
             if name == 'preflight':
-                storage = archive.data['storage']
                 Restic(archive, run / 'repository', run / 'verification')  # pin/key checks before plaintext acquisition
-                from storage_capacity import local_backup_peak, require_local_backup_capacity
-                capacity = local_backup_peak(storage['max_capture_bytes'], storage['reserve_free_bytes'])
                 capacity['availableBytes'] = shutil.disk_usage(root).free
                 atomic_json(run / 'capacity-plan.json', capacity)
-                require_local_backup_capacity(root, storage['max_capture_bytes'], storage['reserve_free_bytes'])
+                require_local_backup_capacity(root, storage['max_capture_bytes'], storage['reserve_free_bytes'],
+                                              workspace_policy=policy)
             result = operation()
-            check(workspace_bytes(run) <= archive.data['storage']['max_capture_bytes'] * (5 if name == 'encrypt-and-verify' else 3) +
-                  (2 * 1024**3 if name == 'encrypt-and-verify' else 0),
+            copies = capacity['workspaceCopies'] if name == 'encrypt-and-verify' else 3
+            check(workspace_bytes(run) <= storage['max_capture_bytes'] * copies + capacity['metadataReserveBytes'],
                   'Aggregate backup workspace budget exceeded')
         if not check_only:
             check(result.get('status') == 'encrypted-and-file-restore-verified', 'Missing complete file restore verification')
