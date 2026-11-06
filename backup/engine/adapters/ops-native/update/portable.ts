@@ -105,10 +105,22 @@ function segment(text: unknown): string {
 }
 export async function collectOpenWhisk(inventory: MigrationInventory, plan: BackupPlan, output: string, read: KubeRead,
     client: CouchExportClient = exportCouchClient(plan, read)): Promise<ExportFile[]> {
+  return collectCouchDatabases(output, client, [client.databases.subjects, client.databases.entities],
+    [inventory.databaseCounts.subjects, inventory.databaseCounts.entities], {
+      schemaVersion: 1, kind: "ops-protected-openwhisk-export", inventorySha256: inventory.inventorySha256,
+      namespaces: inventory.namespaces,
+    });
+}
+
+// Shared streaming documents/attachments exporter. Data-only mode supplies its
+// explicit database list without exporting redeployable actions or activations.
+export async function collectCouchDatabases(output: string, client: CouchExportClient,
+    selected: string[], expectedCounts: number[], metadata: Record<string, unknown>): Promise<ExportFile[]> {
   const files: ExportFile[] = [], attachments: any[] = [], databases: any[] = [];
   const allDatabases = await client.get("/_all_dbs");
   if (!Array.isArray(allDatabases) || allDatabases.some(d => typeof d !== "string")) throw new Error("invalid_export_database_list");
-  const selected = [client.databases.subjects, client.databases.entities];
+  if (!selected.length || new Set(selected).size !== selected.length || selected.length !== expectedCounts.length ||
+      expectedCounts.some(n => !Number.isSafeInteger(n) || n < 0)) throw new Error("invalid_export_database_selection");
   if (selected.some(d => !allDatabases.includes(d))) throw new Error("missing_openwhisk_export_database");
   mkdirSync(join(output, "attachments"), { mode: 0o700 });
   const seenPaths = new Set<string>();
@@ -148,19 +160,20 @@ export async function collectOpenWhisk(inventory: MigrationInventory, plan: Back
           const artifact = await artifactInfo(output, join(output, file)); files.push(artifact);
           attachments.push({ database, document: doc._id, revision: doc._rev, name, ...artifact });
         }
-      });
+      }, metadata.kind === "ops-logical-couch-data-export");
       fsyncSync(fd);
     } finally { closeSync(fd); }
-    const expected = index === 0 ? inventory.databaseCounts.subjects : inventory.databaseCounts.entities;
+    const expected = expectedCounts[index];
     if (count !== expected) throw new Error("openwhisk_export_count_mismatch");
     databases.push({ name: database, file: relativePath, documents: count,
       security: await client.get("/" + segment(database) + "/_security") });
     files.push(await artifactInfo(output, path));
   }
   const path = join(output, "openwhisk-export.json");
-  privateJSON(path, { schemaVersion: 1, kind: "ops-protected-openwhisk-export", inventorySha256: inventory.inventorySha256,
-    databases, attachments, namespaces: inventory.namespaces,
-    otherDatabasesCoveredBy: { artifact: "couchdb-data", names: allDatabases.filter(d => !selected.includes(d)) },
+  privateJSON(path, { ...metadata, databases, attachments,
+    ...(metadata.kind === "ops-logical-couch-data-export" ?
+      { excludedDatabases: allDatabases.filter(d => !selected.includes(d)) } :
+      { otherDatabasesCoveredBy: { artifact: "couchdb-data", names: allDatabases.filter(d => !selected.includes(d)) } }),
     restorePolicy: "preserve document identities and attachment mappings; apply explicit target-version transformations" });
   files.push(await artifactInfo(output, path));
   return files;

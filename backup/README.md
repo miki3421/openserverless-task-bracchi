@@ -100,3 +100,13 @@ Before acquisition, --check writes/enforces the peak-space plan: five configured
 capture budgets plus metadata and free reserve. Compression and pruning are not
 assumed. Check failure does not authorize storage resizing, image acquisition,
 access changes or backup. These remain explicit operator decisions.
+
+## Data-only mode
+
+`ops backup --data --check` checks service data and essential recovery settings
+without image/blob custody, control-plane capture or application add-ons.
+`ops backup --data` uses existing Restic encryption and compression; only its
+`repository/` is suitable for later share/R2 transfer. No upload or disk resize
+is implied. `ops backup status --data` reads its separate history. This mode
+reuses the existing private profile and rejects the separate host-store route.
+A file-recovery PASS does not qualify fresh OPS0.9/K3s application recovery.

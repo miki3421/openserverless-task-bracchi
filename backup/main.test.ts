@@ -9,6 +9,8 @@ test("requests use one configured profile and preserve literal paths", () => {
   expect(args).toContain("/tmp/OPS home 'literal'/backup.json");
   expect(args).toContain("--check"); expect(args).toContain("--json");
   expect(request({status: true}, "/tmp/OPS").at(-1)).toBe("status");
+  expect(request({data:true,check:true}, "/tmp/OPS")).toContain("--data");
+  expect(request({data:true,check:true}, "/tmp/OPS")).toContain("--check");
   for (const value of [1, "1", "yes", null]) expect(() => flag(value)).toThrow();
   expect(() => request({ check: true, status: true }, "/tmp/OPS")).toThrow();
   expect(() => request({ unknown: true }, "/tmp/OPS")).toThrow();

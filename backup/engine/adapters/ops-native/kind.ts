@@ -2,11 +2,14 @@
 import { preflight, collectAll, exportPayload } from "./cluster";
 import { writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
+import { dataPreflight, dataCollect } from "./data";
 
 export async function main() {
   const [operation, config, workspace, output] = process.argv.slice(2);
-  if (!config || !workspace || !["preflight", "collect-all", "payload"].includes(operation) || (operation === "payload" && !output))
+  if (!config || !workspace || !["preflight", "collect-all", "payload", "data-preflight", "data-collect"].includes(operation) || (operation === "payload" && !output))
     throw new Error("invalid_kind_native_operation");
+  if (operation === "data-preflight") return dataPreflight(config, workspace);
+  if (operation === "data-collect") return dataCollect(config, workspace);
   return operation === "preflight" ? preflight(config, workspace, "kind") : operation === "collect-all" ?
     collectAll(config, workspace, "kind") : exportPayload(config, workspace, output);
 }

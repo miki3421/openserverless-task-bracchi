@@ -239,10 +239,10 @@ def workspace_policy(backend):
     return RETAINED_WORKSPACE
 
 
-def status(path):
+def status(path, *, data_only=False):
     route, cfg, archive = selection(path)
     archive.directory(archive.root)
-    pointer = archive.root / 'last-backup.json'
+    pointer = archive.root / ('last-data-backup.json' if data_only else 'last-backup.json')
     if not pointer.exists(): return {'status': 'not_started', 'profile': route}
     entry = read_json(pointer, archive)
     check(entry.get('configurationSha256') == cfg.fingerprint and
@@ -254,10 +254,10 @@ def status(path):
 
 def public(journal):
     return {k: journal[k] for k in ('status', 'runId', 'profile', 'phase', 'startedAt', 'updatedAt',
-                                    'encryptedFileRestoreVerified', 'applicationRestoreVerified', 'preMigrationAccepted')}
+                                    'encryptedFileRestoreVerified', 'applicationRestoreVerified', 'preMigrationAccepted', 'scope') if k in journal}
 
 
-def run_backup(path, *, check_only=False, bun=None, backend_factory=None, progress=None):
+def run_backup(path, *, check_only=False, data_only=False, bun=None, backend_factory=None, progress=None):
     os.umask(0o077)
     route, cfg, archive = selection(path)
     archive.directory(archive.root)
@@ -273,9 +273,15 @@ def run_backup(path, *, check_only=False, bun=None, backend_factory=None, progre
         journal = {'status': 'running', 'runId': token, 'profile': route, 'phase': 'preflight',
                    'startedAt': timestamp(), 'updatedAt': timestamp(), 'configurationSha256': cfg.fingerprint,
                    'encryptedFileRestoreVerified': False, 'applicationRestoreVerified': False, 'preMigrationAccepted': False}
-        atomic_json(root / 'last-backup.json', {'runId': token, 'configurationSha256': cfg.fingerprint})
+        if data_only: journal['scope'] = 'data-only'
+        atomic_json(root / ('last-data-backup.json' if data_only else 'last-backup.json'),
+                    {'runId': token, 'configurationSha256': cfg.fingerprint})
         atomic_json(run / 'journal.json', journal)
-        backend = (backend_factory or (NativeBackend if route == 'k3s' else KindBackend))(cfg, archive, run, bun)
+        if data_only:
+            from ops_data import DataBackend
+            backend_type = DataBackend
+        else: backend_type = NativeBackend if route == 'k3s' else KindBackend
+        backend = (backend_factory or backend_type)(cfg, archive, run, bun)
         policy = workspace_policy(backend)
         storage = archive.data['storage']
         capacity = local_backup_peak(storage['max_capture_bytes'], storage['reserve_free_bytes'],
@@ -290,11 +296,21 @@ def run_backup(path, *, check_only=False, bun=None, backend_factory=None, progre
                 Restic(archive, run / 'repository', run / 'verification')  # pin/key checks before plaintext acquisition
                 capacity['availableBytes'] = shutil.disk_usage(root).free
                 atomic_json(run / 'capacity-plan.json', capacity)
-                require_local_backup_capacity(root, storage['max_capture_bytes'], storage['reserve_free_bytes'],
-                                              workspace_policy=policy)
+                if data_only:
+                    check(capacity['availableBytes'] >= storage['reserve_free_bytes'] + capacity['metadataReserveBytes'],
+                          'Insufficient space for data inventory')
+                else:
+                    require_local_backup_capacity(root, storage['max_capture_bytes'], storage['reserve_free_bytes'],
+                                                  workspace_policy=policy)
             result = operation()
+            if data_only and name == 'preflight':
+                capacity = require_local_backup_capacity(root, backend.capture_limit, storage['reserve_free_bytes'],
+                                                         workspace_policy=policy)
+                capacity['scope'] = 'data-only'; capacity['estimatedSourceBytes'] = backend.plan['estimatedSourceBytes']
+                atomic_json(run / 'capacity-plan.json', capacity)
+                atomic_json(run / 'data-coverage.json', result)
             copies = capacity['workspaceCopies'] if name == 'encrypt-and-verify' else 3
-            check(workspace_bytes(run) <= storage['max_capture_bytes'] * copies + capacity['metadataReserveBytes'],
+            check(workspace_bytes(run) <= capacity['captureLimitBytes'] * max(copies, 4 if data_only else 0) + capacity['metadataReserveBytes'],
                   'Aggregate backup workspace budget exceeded')
         if not check_only:
             check(result.get('status') == 'encrypted-and-file-restore-verified', 'Missing complete file restore verification')
@@ -319,11 +335,13 @@ def main():
     parser.add_argument('--config', required=True, type=Path)
     parser.add_argument('--bun', type=Path)
     parser.add_argument('--check', action='store_true')
+    parser.add_argument('--data', action='store_true', help='Only service data and essential recovery settings; no images or node checkpoint')
     parser.add_argument('--json', action='store_true')
     parser.add_argument('command', nargs='?', choices=['status'])
     args = parser.parse_args()
     try:
-        result = status(args.config) if args.command else run_backup(args.config, check_only=args.check, bun=args.bun,
+        check(not (args.command and args.check), 'Status cannot start a check')
+        result = status(args.config, data_only=args.data) if args.command else run_backup(args.config, check_only=args.check, data_only=args.data, bun=args.bun,
              progress=None if args.json else lambda phase: print('OPS backup: ' + phase, flush=True))
         print(json.dumps(result))
     except Exception:

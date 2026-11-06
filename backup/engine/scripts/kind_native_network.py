@@ -54,7 +54,7 @@ def validate_request(source_path, request_path, operation, workspace, output):
     transport = request.get('kindTransport', {})
     check(transport.get('containerId') == cfg.source['container_id'] and transport.get('node') == cfg.source['node'],
           'Kind capture transport mismatch')
-    check(operation in {'preflight', 'collect-all', 'payload'}, 'Unsupported native operation')
+    check(operation in {'preflight', 'collect-all', 'payload', 'data-preflight', 'data-collect'}, 'Unsupported native operation')
     workspace = Path(workspace)
     check(workspace.parent == Path(request['output_root']) and workspace.parent.is_relative_to(cfg.root),
           'Native workspace outside selected run')

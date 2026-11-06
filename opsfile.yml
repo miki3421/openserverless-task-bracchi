@@ -44,7 +44,7 @@ tasks:
     silent: true
     env:
       OPS_BACKUP_REQUEST: >-
-        {"check":{{toJson (default false .__check)}},"status":{{toJson (default false .status)}},"json":{{toJson (default false .__json)}},"prepare":{{toJson (default false .prepare)}}}
+        {"check":{{toJson (default false .__check)}},"status":{{toJson (default false .status)}},"json":{{toJson (default false .__json)}},"prepare":{{toJson (default false .prepare)}},"data":{{toJson (default false .__data)}}}
     cmds:
       - bun backup/main.ts
 

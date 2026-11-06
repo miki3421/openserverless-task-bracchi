@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
   "repository": "https://github.com/miki3421/ops-k3s-backup",
-  "revision": "d39d0ef40c9cd3de468bba2ac38de6586eeb47d8",
+  "revision": "b4033075031c2e15a856f5af5c8dd8979cd27d2f",
   "files": [
     {
       "path": "adapters/ops-native/LICENSE",
@@ -19,6 +19,11 @@
       "sha256": "a9ce0e00e9eedb84371e32146915b1b9a32aa2112444f333faae8710f7f00c5c"
     },
     {
+      "path": "adapters/ops-native/data.ts",
+      "bytes": 15303,
+      "sha256": "defb4e1fc0daca34a84410a26b8a8c11d977101147e6ef52771c64e2df44daea"
+    },
+    {
       "path": "adapters/ops-native/empty-milvus.ts",
       "bytes": 2515,
       "sha256": "b1ab2a166936d183d92c6d98898f3319f6f4bf892d1cc51d5687b083301b2eb1"
@@ -30,8 +35,8 @@
     },
     {
       "path": "adapters/ops-native/kind.ts",
-      "bytes": 1215,
-      "sha256": "c3670fd62746aa84e8f089d356fe8fba961a630a38b0ee47ec458fa916a37d9e"
+      "bytes": 1456,
+      "sha256": "519ede0dca311d4dc6d38237dcc6a2d5d739979cac70870a8caefe7908e3cbc3"
     },
     {
       "path": "adapters/ops-native/postgres-binding.ts",
@@ -75,8 +80,8 @@
     },
     {
       "path": "adapters/ops-native/update/migration.ts",
-      "bytes": 21373,
-      "sha256": "6c92a6bb546d7db20c13c7071b3cb4bffa75014631d008152f4c3184e2f9d4c6"
+      "bytes": 21504,
+      "sha256": "bc964020112b42cc0566079f7db31e68f2225d179477a94b2c9559ca80fcfe6d"
     },
     {
       "path": "adapters/ops-native/update/native.ts",
@@ -90,8 +95,8 @@
     },
     {
       "path": "adapters/ops-native/update/portable.ts",
-      "bytes": 10632,
-      "sha256": "91be933e7f68b0396335df952f9fb52a1eebeada0665a7704fc18e1de06e8290"
+      "bytes": 11501,
+      "sha256": "08a0fe5b2367e0f56b8ecbd63d53a2dfd78516b583492774e4794c9ffd890065"
     },
     {
       "path": "adapters/ops-native/update/releases.ts",
@@ -360,8 +365,8 @@
     },
     {
       "path": "scripts/kind_native_network.py",
-      "bytes": 7668,
-      "sha256": "8a991c6e8d4324a10e9f253f533b6743cb34af5815fe13f36a0ba76281566ec0"
+      "bytes": 7702,
+      "sha256": "9295cc85567e73b29856891f03d048b9f898593896d461cf6f09c3575c97230d"
     },
     {
       "path": "scripts/kind_online_backup.py",
@@ -415,8 +420,13 @@
     },
     {
       "path": "scripts/ops_backup.py",
-      "bytes": 18979,
-      "sha256": "100087f8406258b04e921cfb7342c5d6f309c05bf518c62198cc18235515bd39"
+      "bytes": 20391,
+      "sha256": "f9b2910d2443b53f295a9823f49db6ffa3e13a33c985c4703f6bec591f71f54e"
+    },
+    {
+      "path": "scripts/ops_data.py",
+      "bytes": 10274,
+      "sha256": "5aadf15167a4dc680248f31e5733a4f21aa599874234c56575d76c942496a20c"
     },
     {
       "path": "scripts/pack-real-backup.py",

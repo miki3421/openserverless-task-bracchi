@@ -4,8 +4,8 @@ import { existsSync, lstatSync, readFileSync, readdirSync } from "node:fs";
 import { homedir } from "node:os";
 import { dirname, isAbsolute, join, resolve, sep } from "node:path";
 
-export const ENGINE_REVISION = "d39d0ef40c9cd3de468bba2ac38de6586eeb47d8";
-const MANIFEST_SHA256 = "f442283274bd14fbd21ab9883ff52cef0933764644b5617e9e53712b2e54a2ac";
+export const ENGINE_REVISION = "b4033075031c2e15a856f5af5c8dd8979cd27d2f";
+const MANIFEST_SHA256 = "77ae3e8479a5f5d3bb85133e99bbb83fb96dec0101932c0bf377d916539e79d1";
 const hash = (bytes: Uint8Array) => createHash("sha256").update(bytes).digest("hex");
 function regular(path: string): Buffer {
   for (let cursor = path;; cursor = dirname(cursor)) {
@@ -54,21 +54,22 @@ export function flag(value: unknown): boolean {
 export function request(value: unknown, home: string): string[] {
   if (!value || typeof value !== "object" || Array.isArray(value) || !isAbsolute(home)) throw new Error("invalid_backup_request");
   const options = value as Record<string, unknown>;
-  if (Object.keys(options).some(k => !["check", "status", "json", "prepare"].includes(k))) throw new Error("invalid_backup_request");
+  if (Object.keys(options).some(k => !["check", "status", "json", "prepare", "data"].includes(k))) throw new Error("invalid_backup_request");
   if (flag(options.prepare)) throw new Error("prepare_requires_store_driver");
   const check = flag(options.check), status = flag(options.status), json = flag(options.json);
   if (check && status) throw new Error("invalid_backup_request");
   return ["--config", join(home, "backup.json"), "--bun", process.execPath,
-    ...(check ? ["--check"] : []), ...(json ? ["--json"] : []), ...(status ? ["status"] : [])];
+    ...(flag(options.data) ? ["--data"] : []), ...(check ? ["--check"] : []), ...(json ? ["--json"] : []), ...(status ? ["status"] : [])];
 }
 export async function main(): Promise<void> {
   if (process.argv.includes("--help")) {
-    console.log("Usage: ops backup [--check] [--json]\n       ops backup prepare [--check] [--json]\n       ops backup status [--json]"); return;
+    console.log("Usage: ops backup [--data] [--check] [--json]\n       ops backup prepare [--check] [--json]\n       ops backup status [--data] [--json]"); return;
   }
   const options = JSON.parse(process.env.OPS_BACKUP_REQUEST || "{}"), home=process.env.OPS_HOME || join(homedir(), ".ops");
-  if (!options || Object.keys(options).some(k=>!["check","status","json","prepare"].includes(k))) throw Error("invalid_backup_request");
+  if (!options || Object.keys(options).some(k=>!["check","status","json","prepare","data"].includes(k))) throw Error("invalid_backup_request");
   const prepare=flag(options.prepare), status=flag(options.status), check=flag(options.check), json=flag(options.json);
   if ((prepare&&status)||(check&&status)) throw Error("ambiguous_backup_request");
+  if (flag(options.data) && (prepare || existsSync(join(home,"backup-store.json")))) throw Error("data_store_route_not_supported");
   verifyEngine();
   const store=prepare||existsSync(join(home,"backup-store.json"));
   const args=store?["--ops-home",home,"--bun",process.execPath,...(check?["--check"]:[]),...(json?["--json"]:[]),prepare?"prepare":status?"status":"backup"]:request(options,home);

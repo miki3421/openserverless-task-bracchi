@@ -84,8 +84,10 @@ export function entityRecord(doc: any): Entity {
     runtime, attachments: doc._attachments && typeof doc._attachments === "object" ? Object.keys(doc._attachments).length : 0,
     scheduled: type === "action" && Array.isArray(doc.annotations) && doc.annotations.some((a: any) => a?.key === "cron") };
 }
-export async function scanDatabase(get: GetJSON, database: string, consume: (doc: any) => void | Promise<void>): Promise<number> {
-  if (!/^[a-z][a-z0-9_$()+/-]*$/.test(database) || database.includes("/"))
+export async function scanDatabase(get: GetJSON, database: string, consume: (doc: any) => void | Promise<void>,
+    allowRecoverySystemDatabase = false): Promise<number> {
+  if ((!/^[a-z][a-z0-9_$()+/-]*$/.test(database) &&
+      !(allowRecoverySystemDatabase && ["_users", "_replicator"].includes(database))) || database.includes("/"))
     throw new Error("invalid_source_database");
   const base = "/" + encodeURIComponent(database);
   const before = await get(base);
