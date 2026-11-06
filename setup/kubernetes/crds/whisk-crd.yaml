@@ -166,6 +166,11 @@ spec:
                   description: used to configure the couchdb instance used internally by OW
                   type: object
                   properties:
+                    activation-retention-days:
+                      description: Delete whole activation records and logs older than this many days; 0 or omission suspends cleanup. New OPS installations explicitly set 30.
+                      type: integer
+                      minimum: 0
+                      maximum: 36500
                     host:
                       description: couchdb internal service name. Defaulted to couchdb
                       type: string

@@ -76,6 +76,7 @@ spec:
       openserverless: $SECRET_OPENWHISK_OPENSERVERLESS
   couchdb:
     host: couchdb
+    activation-retention-days: ${OPERATOR_ACTIVATION_RETENTION_DAYS:-30}
     volume-size: ${STORAGE_SIZE_COUCHDB:-30}
     admin:
       user: whisk_admin

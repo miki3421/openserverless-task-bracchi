@@ -27,6 +27,7 @@ Usage:
   config (enable|disable) [--all] [--redis] [--mongodb] [--cron] [--static] [--postgres] [--prometheus] [--slack] [--mail] [--affinity] [--tolerations] [--quota] [--milvus] [--registry] [--seaweedfs] [--etcd] [--alertmanager]
   config apihost (<apihost>|auto) [--tls=<email>] [--protocol=<http/https>|auto]
   config sso
+  config activations [--days=<days>]
   config runtimes [<runtimesjson>]
   config slack [--apiurl=<slackapiurl>] [--channel=<slackchannel>]
   config mail  [--mailuser=<mailuser>] [--mailpwd=<mailpwd>] [--mailfrom=<mailfrom>] [--mailto=<mailto>]
@@ -60,6 +61,7 @@ Usage:
 ```
   config apihost          configure the apihost (auto: auto assign) and enable tls
   config sso              configure SSO/OIDC integration for admin-api; run `ops config sso --help` for details
+  config activations      configure activation and log retention for installation (30 days; 0 suspends cleanup)
   config runtime          show the current runtime.json or import the <runtime-json> if provided
   config full             enable all services without automatically enabling notification destinations or scheduling policies
   config enable           enable OpenServerless services to install
@@ -94,6 +96,7 @@ Usage:
 ## Options
 
 ```
+  --days=<days>         activation retention in days, 0..36500; default 30
   --etcd                select etcd (required by Milvus)
   --alertmanager        select Alert Manager (requires Prometheus)
   --all                 select all services; enable excludes Slack/mail unless explicitly selected
@@ -136,3 +139,14 @@ its prerequisites. Slack/mail require explicit selection and configured destinat
 `config full` preserves existing notification/scheduling selections; it does not
 activate them. `disable --all` disables every selectable flag, including Alert Manager.
 These commands change local configuration, not running Kubernetes resources.
+
+`ops config activations --days=30` sets retention for the next setup. New
+installations default to 30 days even without this command. The matching
+operator deletes entire expired activation records, including logs and results,
+once daily at 03:17 UTC. Values range from 0 to 36500; zero suspends future cleanup.
+It does not remove actions or application data. A running cluster requires an
+explicit update of `spec.couchdb.activation-retention-days`; local configuration
+alone does not apply it. The operator image must include the retention worker.
+An operator-only update of an old resource with no retention field does not
+enable historical deletion. Cleanup is logical deletion; CouchDB compaction
+reclaims obsolete bodies later, and backups retain their separate lifetimes.
