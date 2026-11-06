@@ -147,7 +147,7 @@
                 "image": {
                     "prefix": "localhost",
                     "name": "ops-advanced-nodejs",
-                    "tag": "22-20261105-r3"
+                    "tag": "22-20261106-decoder-r1"
                 },
                 "deprecated": false,
                 "attached": {
