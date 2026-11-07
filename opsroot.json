@@ -12,7 +12,7 @@
       "coreutils": "arch b2sum b3sum base32 basename basenc cat chgrp chmod chown chroot cksum comm cp csplit cut date dd df dir dircolors dirname du env expand expr factor fmt fold groups hashsum head hostid hostname id install join kill link ln logname ls md5sum mkdir mkfifo mknod mktemp more mv nice nl nohup nproc numfmt od paste pathchk pinky pr printenv printf ptx pwd readlink realpath rm rmdir seq sha1sum sha224sum sha256sum sha3-224sum sha3-256sum sha3-384sum sha3-512sum sha384sum sha3sum sha512sum shake128sum shake256sum shred shuf sleep sort split stat stdbuf stty sum sync tac tail tee timeout touch tr truncate tsort tty uname unexpand uniq unlink uptime users vdir wc who whoami yes"
     },
     "images": {
-      "operator": "docker.io/miki3421/ops-advanced-operator:20261107-static-template-r1@sha256:3eedc771131c01ba26b62f42fccccf29ca62f9dd1e16531e125f1272cdd375e1",
+      "operator": "docker.io/miki3421/ops-advanced-operator:20261107-kafka-kraft-r1@sha256:eabe50cd9e00b8dd58eaed26e0ea8da3727f327063f39d09f35f36bc07645c14",
       "controller": "docker.io/miki3421/ops-advanced-controller:20261106-kafka-azure-r3",
       "invoker": "docker.io/miki3421/ops-advanced-invoker:20261106-kafka-azure-r3",
       "streamer": "docker.io/miki3421/ops-advanced-streamer:20261106-go1273-r1",
@@ -42,6 +42,7 @@
       "prometheus": "docker.io/miki3421/ops-advanced-prometheus:3.16.0-20261106-r1@sha256:14dd90dd67668cd945f0f54fab389c9b817df0332d0927eed23f6f06666f569b",
       "alertmanager": "docker.io/miki3421/ops-advanced-alertmanager:0.34.2-20261106-r1@sha256:899999e4ef1aced4e2fcd287065b8ae6bcf7488ed9d715f6c8b6845743ca3058",
       "volume_exporter": "docker.io/miki3421/ops-advanced-volume-exporter:20261105-r2",
+      "kafka": "docker.io/miki3421/ops-advanced-kafka:4.4.0-20261107-r4@sha256:4cca13390dc2e488b2e44e2f56da9fa32e01a37430cb15eea734f5db3e34d5dd",
       "zookeeper": "docker.io/miki3421/ops-advanced-zookeeper:3.9.7-20261107-r3@sha256:137adefa2395428d951f0846ec5a442e98e0d574d7d4efe78bd4fcee1bea4718"
     }
   }
