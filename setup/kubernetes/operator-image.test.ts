@@ -26,3 +26,13 @@ test("operator pod receives the selected reference for its generated jobs", () =
   const env = Object.fromEntries(pod.env.map((e: any) => [e.name, e.value]));
   expect(`${env.OPERATOR_IMAGE}:${env.OPERATOR_TAG}`).toBe(pod.image);
 });
+
+test("release catalog has remotely downloadable custom images and sidecar", () => {
+  const catalog = JSON.parse(readFileSync(`${import.meta.dir}/../../opsroot.json`, "utf8"));
+  const runtimes = JSON.parse(readFileSync(`${import.meta.dir}/../../runtimes.json`, "utf8"));
+  for (const reference of Object.values(catalog.config.images) as string[])
+    expect(reference.startsWith("localhost/")).toBe(false);
+  for (const family of Object.values(runtimes.runtimes) as any[][])
+    for (const runtime of family) expect(runtime.image.prefix).not.toBe("localhost");
+  expect(catalog.config.images.volume_exporter).toStartWith("docker.io/miki3421/ops-advanced-volume-exporter:");
+});

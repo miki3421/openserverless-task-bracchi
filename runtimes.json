@@ -145,7 +145,7 @@
                 "kind": "nodejs:22",
                 "default": true,
                 "image": {
-                    "prefix": "localhost",
+                    "prefix": "docker.io/miki3421",
                     "name": "ops-advanced-nodejs",
                     "tag": "22-20261106-npm-r2"
                 },
@@ -188,7 +188,7 @@
                 "kind": "python:sys",
                 "default": false,
                 "image": {
-                    "prefix": "localhost",
+                    "prefix": "docker.io/miki3421",
                     "name": "ops-advanced-python",
                     "tag": "sys-20261105-r1"
                 },
@@ -202,7 +202,7 @@
                 "kind": "python:3.15",
                 "default": false,
                 "image": {
-                    "prefix": "localhost",
+                    "prefix": "docker.io/miki3421",
                     "name": "ops-advanced-python",
                     "tag": "3.15-20261105-r1"
                 },
@@ -230,7 +230,7 @@
                 "kind": "python:3.12",
                 "default": true,
                 "image": {
-                    "prefix": "localhost",
+                    "prefix": "docker.io/miki3421",
                     "name": "ops-advanced-python",
                     "tag": "3.12-20261105-r1"
                 },

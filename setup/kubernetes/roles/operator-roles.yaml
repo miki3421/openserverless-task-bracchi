@@ -105,6 +105,11 @@ rules:
   resources: ["poddisruptionbudgets"]
   verbs: ["get","patch","list","update","watch","create","delete"]      
 
+# Datastore isolation policies are reconciled inside the OPS namespace.
+- apiGroups: ["networking.k8s.io"]
+  resources: ["networkpolicies"]
+  verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
+
 ---
 kind: RoleBinding
 apiVersion: rbac.authorization.k8s.io/v1

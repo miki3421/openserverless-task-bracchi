@@ -17,3 +17,14 @@ test("fresh SeaweedFS ingress satisfies the shipped CRD without local config", (
   }
   expect(actual["console-enabled"]).toBe(false);
 });
+
+test("operator role can reconcile namespaced datastore isolation policies", () => {
+  const documents = readFileSync(`${import.meta.dir}/roles/operator-roles.yaml`, "utf8")
+    .split(/^---\s*$/m).map(s => Bun.YAML.parse(s) as any);
+  const role = documents.find(d => d?.kind === "Role" && d.metadata.name === "openserverless-operator-role");
+  expect(role.metadata.namespace).toBe("openserverless");
+  const rules = role.rules.filter((r: any) => r.apiGroups.includes("networking.k8s.io") && r.resources.includes("networkpolicies"));
+  const verbs = new Set(rules.flatMap((r: any) => r.verbs));
+  for (const verb of ["get", "list", "watch", "create", "update", "patch", "delete"]) expect(verbs.has(verb)).toBe(true);
+  expect(rules.every((r: any) => !r.resources.includes("*") && !r.verbs.includes("*"))).toBe(true);
+});
