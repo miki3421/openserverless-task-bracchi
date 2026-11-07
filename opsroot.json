@@ -12,7 +12,7 @@
       "coreutils": "arch b2sum b3sum base32 basename basenc cat chgrp chmod chown chroot cksum comm cp csplit cut date dd df dir dircolors dirname du env expand expr factor fmt fold groups hashsum head hostid hostname id install join kill link ln logname ls md5sum mkdir mkfifo mknod mktemp more mv nice nl nohup nproc numfmt od paste pathchk pinky pr printenv printf ptx pwd readlink realpath rm rmdir seq sha1sum sha224sum sha256sum sha3-224sum sha3-256sum sha3-384sum sha3-512sum sha384sum sha3sum sha512sum shake128sum shake256sum shred shuf sleep sort split stat stdbuf stty sum sync tac tail tee timeout touch tr truncate tsort tty uname unexpand uniq unlink uptime users vdir wc who whoami yes"
     },
     "images": {
-      "operator": "docker.io/miki3421/ops-advanced-operator:20261107-dockerhub-r1",
+      "operator": "docker.io/miki3421/ops-advanced-operator:20261107-zookeeper-r1",
       "controller": "docker.io/miki3421/ops-advanced-controller:20261106-kafka-azure-r3",
       "invoker": "docker.io/miki3421/ops-advanced-invoker:20261106-kafka-azure-r3",
       "streamer": "docker.io/miki3421/ops-advanced-streamer:20261106-go1273-r1",
@@ -41,7 +41,8 @@
       "prometheus_config_reloader": "quay.io/prometheus-operator/prometheus-config-reloader:v0.95.1@sha256:15f6aec87a20e25f33371ebf9f37bfba33d783f8f7c7dcc3448720c1a5397c2c",
       "prometheus": "docker.io/miki3421/ops-advanced-prometheus:3.16.0-20261106-r1@sha256:14dd90dd67668cd945f0f54fab389c9b817df0332d0927eed23f6f06666f569b",
       "alertmanager": "docker.io/miki3421/ops-advanced-alertmanager:0.34.2-20261106-r1@sha256:899999e4ef1aced4e2fcd287065b8ae6bcf7488ed9d715f6c8b6845743ca3058",
-      "volume_exporter": "docker.io/miki3421/ops-advanced-volume-exporter:20261105-r2"
+      "volume_exporter": "docker.io/miki3421/ops-advanced-volume-exporter:20261105-r2",
+      "zookeeper": "docker.io/miki3421/ops-advanced-zookeeper:3.9.7-20261107-r2@sha256:8a6aba58c5455cdf8673f12de4818fec0fd2811ce388e06bcf9dbb6ac3e20a8c"
     }
   }
 }
