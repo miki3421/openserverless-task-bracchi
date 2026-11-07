@@ -110,3 +110,13 @@ without image/blob custody, control-plane capture or application add-ons.
 is implied. `ops backup status --data` reads its separate history. This mode
 reuses the existing private profile and rejects the separate host-store route.
 A file-recovery PASS does not qualify fresh OPS0.9/K3s application recovery.
+
+## Local estimator candidate — 2026-11-07
+
+The local candidate pins canonical engine9459d1097a2d0623b102329d9aafb9bfbb7ae195
+for the operator-authorized data-only estimator correction and preflight only.
+Its111-file generated inventory preserves all109 prior members; the two added
+maintenance/scheduler sources already exist in the supplied canonical baseline
+and are not invoked by the check. No manual generated-engine edits, actual
+backup, cleanup, upload, scheduler or global CLI update. Publication remains
+separately gated. See the canonical `docs/data-estimator-review-20261107.md`.

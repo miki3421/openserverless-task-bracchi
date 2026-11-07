@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
   "repository": "https://github.com/miki3421/ops-k3s-backup",
-  "revision": "e8aa74843cbf606ef82d230a153bd9bc10e63fe8",
+  "revision": "9459d1097a2d0623b102329d9aafb9bfbb7ae195",
   "files": [
     {
       "path": "adapters/ops-native/LICENSE",
@@ -25,8 +25,8 @@
     },
     {
       "path": "adapters/ops-native/data.ts",
-      "bytes": 17668,
-      "sha256": "22820d61dc814da5ef465420a91cf59283af42ca64fa8731246edf45bcf4f3c5"
+      "bytes": 22167,
+      "sha256": "f0e1c339bf0872cd75539a5cadbc32e5a6c3cdb03dfa324981eb9b99e2d82aaa"
     },
     {
       "path": "adapters/ops-native/empty-milvus.ts",
@@ -197,6 +197,11 @@
       "path": "scripts/collect-redis-acl.py",
       "bytes": 3520,
       "sha256": "0e40b0ba246a639aa33aba9ce11da5f647628d8a70d57f91833a1924584bbd6a"
+    },
+    {
+      "path": "scripts/couchdb_maintenance.py",
+      "bytes": 28614,
+      "sha256": "66f6d0702b6775eea8d216059fccc74a3992479c5f15a4641d1b328b52aa08e3"
     },
     {
       "path": "scripts/export_ops_engine.py",
@@ -425,13 +430,13 @@
     },
     {
       "path": "scripts/ops_backup.py",
-      "bytes": 20391,
-      "sha256": "f9b2910d2443b53f295a9823f49db6ffa3e13a33c985c4703f6bec591f71f54e"
+      "bytes": 20723,
+      "sha256": "2212405bc53f90567fea9f0216546730ae2b81dcb13fc6c8fdadc5ffb8ca7f6a"
     },
     {
       "path": "scripts/ops_data.py",
-      "bytes": 10387,
-      "sha256": "2a127d6eb4aa3826feb828cf80ae1c3dd93e79e0348d2042c8fcdd7854baefd8"
+      "bytes": 10485,
+      "sha256": "24317104cf67ee206d3bb143e3cf1a3b4935a742e7b2539d9116c2d0253d1b13"
     },
     {
       "path": "scripts/pack-real-backup.py",
@@ -452,6 +457,11 @@
       "path": "scripts/runtime_config.py",
       "bytes": 15220,
       "sha256": "eea8692752c5ee010454675b5970a711390acf352643d690b198bd47085f3fb3"
+    },
+    {
+      "path": "scripts/scheduled_data_backup.py",
+      "bytes": 24556,
+      "sha256": "f07d827d9d21e8dd9ce1b02190b6baeda80a10904a6fe27c41a02812078a0014"
     },
     {
       "path": "scripts/seaweed_metadata.py",

@@ -136,6 +136,7 @@ class DataBackend:
         self.capture_limit = data_capture_limit(self.plan['estimatedSourceBytes'], self.capture_limit)
         return {'scope': 'data-only', 'components': self.plan['selected'], 'excluded': EXCLUDED,
                 'estimatedSourceBytes': self.plan['estimatedSourceBytes'], 'captureLimitBytes': self.capture_limit,
+                'estimates': self.plan['estimates'], 'estimateBasis': self.plan['estimateBasis'],
                 'applicationRestoreVerified': False}
 
     def collect(self):

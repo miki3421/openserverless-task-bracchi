@@ -7,7 +7,7 @@ import { localClient } from "./update/inventory";
 import { planBackup, readPrivateJSON, verifyLiveInventory } from "./update/backup";
 import { canonical, hash } from "./update/releases";
 import { scoped, listItems } from "./update/source";
-import { artifactInfo, collectCouchDatabases, exportCouchClient, privateJSON } from "./update/portable";
+import { artifactInfo, collectCouchDatabases, exportCouchClient, privateJSON, type CouchExportClient } from "./update/portable";
 import { collectNativeComponent, kubeNativeExecutor } from "./update/native";
 import { readOwnedMilvusCatalog, assertEmptyCatalog } from "./empty-milvus";
 import { collectSeaweed } from "./update/storage";
@@ -46,6 +46,43 @@ export function dataCouchSelection(names: string[], databases: {subjects: string
   // Retain subjects, database security and user documents; do not save deployed
   // action code, activation logs or cluster-specific CouchDB node metadata.
   return names.filter(n => ![databases.entities, databases.activations, "_nodes", "_dbs", "_global_changes"].includes(n)).sort();
+}
+
+function measuredBytes(value: unknown): number {
+  if (!Number.isSafeInteger(value) || (value as number) < 0) throw new Error("invalid_data_size_measurement");
+  return value as number;
+}
+
+// The logical exporter reads one copy of selected live documents/attachments,
+// not the Couch volume's old revisions, replicas, views or activation files.
+// Entity settings are still required: conservatively include the ENTIRE live
+// entity DB as a proxy, without reading document bodies in this estimator.
+export async function estimateCouchData(client: CouchExportClient) {
+  const names = await client.get("/_all_dbs"), selected = dataCouchSelection(names, client.databases);
+  const {subjects, entities, activations} = client.databases;
+  if (new Set([subjects, entities, activations]).size !== 3 || !names.includes(entities))
+    throw new Error("invalid_data_database_inventory");
+  let selectedLogicalBytes = 0, runtimeSettingsProxyBytes = 0;
+  for (const name of [...selected, entities]) {
+    const info = await client.get("/" + encodeURIComponent(name));
+    if (info?.db_name !== name) throw new Error("invalid_data_database_inventory");
+    measuredBytes(info.doc_count);
+    const bytes = measuredBytes(info.sizes?.external);
+    if (info.doc_count > 0 && bytes === 0) throw new Error("invalid_data_size_measurement");
+    if (name === entities) runtimeSettingsProxyBytes = bytes;
+    else selectedLogicalBytes = measuredBytes(selectedLogicalBytes + bytes);
+  }
+  const after = await client.get("/_all_dbs");
+  if (canonical([...names].sort()) !== canonical([...after].sort())) throw new Error("data_database_inventory_changed");
+  return {bytes: measuredBytes(selectedLogicalBytes + runtimeSettingsProxyBytes),
+    selectedDatabaseCount: selected.length, selectedLogicalBytes, runtimeSettingsProxyBytes,
+    basis: "Couch sizes.external for selected DBs plus whole live entity DB proxy for runtime settings; no activation DB"};
+}
+
+export function redisMemoryBytes(text: string): number {
+  const matches = [...text.matchAll(/^used_memory:(\d+)\r?$/gm)];
+  if (text.length > 65536 || matches.length !== 1) throw new Error("invalid_data_size_measurement");
+  return measuredBytes(Number(matches[0][1]));
 }
 
 export function essentialSettings(whisk: any, users: any[]) {
@@ -105,7 +142,12 @@ export async function dataPreflight(configPath: string, output: string) {
   const users = listItems(scoped(read, plan.source.namespace, "whisksusers." + plan.source.apiGroup));
   const whisk = scoped(read, plan.source.namespace, "whisks." + plan.source.apiGroup + "/" + plan.source.instance);
   let estimated = 0;
+  const estimates: {component: string; bytes: number; basis: string; [key: string]: unknown}[] = [];
   const execute = kubeNativeExecutor(plan), measured = new Set<string>();
+  if (selection.selected.includes("couchdb-data")) {
+    const couch = await estimateCouchData(exportCouchClient(plan, read));
+    estimates.push({component: "couchdb-data", ...couch}); estimated += couch.bytes;
+  }
   for (const b of plan.bindings.filter(b => selection.selected.includes(b.artifactId))) for (const target of b.targets) {
     const tools:Record<string,string>={"postgres-data":"pg_dumpall --version", "redis-data":"command -v redis-check-rdb >/dev/null; redis-cli --version",
       "etcd-data":"etcdctl version; etcdutl version", "seaweedfs-data":"weed version"};
@@ -116,6 +158,10 @@ export async function dataPreflight(configPath: string, output: string) {
       try {if(await execute({...target,file:"tools",script:"set -eu; "+tools[b.artifactId],input:"",validate:"binary"},fd,err)!==0)
         throw new Error("data_native_tool_not_ready");} finally {closeSync(fd);closeSync(err);}
     }
+    // These two components have explicit non-filesystem sizing below. In
+    // particular Redis can hold data in RAM with an almost empty PVC.
+    if (["couchdb-data", "redis-acl"].includes(b.artifactId)) continue;
+    let allocated = 0;
     for (const mount of target.mounts) {
       if (measured.has(mount.uid)) continue; measured.add(mount.uid);
       const quote = (s: string) => "'" + s.replaceAll("'", "'\\''") + "'";
@@ -129,13 +175,35 @@ export async function dataPreflight(configPath: string, output: string) {
       const {readFileSync} = await import("node:fs");
       const text = readFileSync(path, "utf8"), m = /^(\d+)\s/.exec(text);
       if (!m || text.length > 8192 || !Number.isSafeInteger(Number(m[1]) * 1024)) throw new Error("invalid_data_size_measurement");
-      estimated += Number(m[1]) * 1024;
+      allocated = measuredBytes(allocated + Number(m[1]) * 1024);
     }
+    let bytes = allocated, basis = "selected native mounted allocation; PostgreSQL includes all database history/proofs";
+    if (b.artifactId === "redis-data") {
+      const password = whisk.spec.redis?.default?.password;
+      if (typeof password !== "string" || !password || /[\r\n\0]/.test(password)) throw new Error("unsupported_redis_backup_credentials");
+      const path = join(output, "redis-memory-" + estimates.length + ".txt");
+      const fd = openSync(path, constants.O_CREAT | constants.O_EXCL | constants.O_WRONLY, 0o600);
+      const err = openSync(path + ".stderr", constants.O_CREAT | constants.O_EXCL | constants.O_WRONLY, 0o600);
+      try {
+        if (await execute({...target, file: "measure-memory", script:
+          "set -eu; IFS= read -r REDISCLI_AUTH; export REDISCLI_AUTH; exec redis-cli --raw INFO memory",
+          input: password + "\n", validate: "binary"}, fd, err) !== 0) throw new Error("data_size_measurement_failed");
+      } finally {closeSync(fd); closeSync(err);}
+      const {readFileSync} = await import("node:fs");
+      bytes = Math.max(allocated, redisMemoryBytes(readFileSync(path, "utf8")));
+      basis = "maximum of Redis used_memory and mounted allocation; not an empty-PVC assumption";
+    }
+    estimates.push({component: b.artifactId, bytes, basis}); estimated = measuredBytes(estimated + bytes);
+  }
+  if (selection.selected.includes("redis-acl")) {
+    const bytes = 16 * 1024**2; // Existing ACL validator's hard maximum, not a guessed zero.
+    estimates.push({component: "redis-acl", bytes, basis: "existing 16MiB ACL file validation ceiling"});
+    estimated = measuredBytes(estimated + bytes);
   }
   if (!Number.isSafeInteger(estimated)) throw new Error("invalid_data_size_measurement");
   const result = {schemaVersion: 1, kind: "ops-data-plan", source: plan.source, ...selection,
     settingsSha256: hash(canonical(essentialSettings(whisk, users))), estimatedSourceBytes: estimated,
-    estimateBasis: "selected service mounted allocated bytes; not compressed archive size",
+    estimates, estimateBasis: "scope-aware backend inputs; conservative export budget, not measured archive size",
     target: "fresh-ops-0.9.0-k3s", applicationRestoreVerified: false};
   privateJSON(join(output, "data-plan.json"), result);
   return {selectedComponents: selection.selected.length, ...result};

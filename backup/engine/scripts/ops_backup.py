@@ -304,11 +304,15 @@ def run_backup(path, *, check_only=False, data_only=False, bun=None, backend_fac
                                                   workspace_policy=policy)
             result = operation()
             if data_only and name == 'preflight':
-                capacity = require_local_backup_capacity(root, backend.capture_limit, storage['reserve_free_bytes'],
-                                                         workspace_policy=policy)
+                # Keep the reviewed measured plan even when admission fails;
+                # an initial configured-ceiling plan is not the measured peak.
+                capacity = local_backup_peak(backend.capture_limit, storage['reserve_free_bytes'], workspace_policy=policy)
+                capacity['availableBytes'] = shutil.disk_usage(root).free
                 capacity['scope'] = 'data-only'; capacity['estimatedSourceBytes'] = backend.plan['estimatedSourceBytes']
                 atomic_json(run / 'capacity-plan.json', capacity)
                 atomic_json(run / 'data-coverage.json', result)
+                require_local_backup_capacity(root, backend.capture_limit, storage['reserve_free_bytes'],
+                                              workspace_policy=policy)
             copies = capacity['workspaceCopies'] if name == 'encrypt-and-verify' else 3
             check(workspace_bytes(run) <= capacity['captureLimitBytes'] * max(copies, 4 if data_only else 0) + capacity['metadataReserveBytes'],
                   'Aggregate backup workspace budget exceeded')
