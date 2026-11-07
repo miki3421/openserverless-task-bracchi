@@ -246,3 +246,5 @@ spec:
     ingress:
       s3-enabled: ${SEAWEEDFS_CONFIG_INGRESS_S3_ENABLED:-true}
       s3-hostname: ${SEAWEEDFS_CONFIG_INGRESS_S3_HOSTNAME:-auto}
+      # Required by the CRD; the administrative Filer console stays private.
+      console-enabled: false

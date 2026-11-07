@@ -245,6 +245,9 @@ tasks:
         eval $(task storageclass-env)
         echo "Operator storage class is $OPERATOR_VOLUME_STORAGE_CLASS"
         export COMMAND="{{.COMMAND}}"
+        OPERATOR_JOB_IMAGE=$(bun "$OPS_ROOT/setup/kubernetes/operator-image.ts" image "$IMAGES_OPERATOR") || exit 1
+        OPERATOR_JOB_TAG=$(bun "$OPS_ROOT/setup/kubernetes/operator-image.ts" tag "$IMAGES_OPERATOR") || exit 1
+        export OPERATOR_JOB_IMAGE OPERATOR_JOB_TAG
         envsubst -i operator-pvc.yaml -o _operator-pvc.yaml
         envsubst -i operator.yaml -o _operator.yaml
       - "kubectl apply -f _operator-pvc.yaml -f _operator.yaml"

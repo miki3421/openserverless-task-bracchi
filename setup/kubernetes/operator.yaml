@@ -78,6 +78,11 @@ spec:
       containers:
         - name: openserverless-operator
           image: ${IMAGES_OPERATOR}
+          env:
+          - name: OPERATOR_IMAGE
+            value: "${OPERATOR_JOB_IMAGE}"
+          - name: OPERATOR_TAG
+            value: "${OPERATOR_JOB_TAG}"
           command:
           - bash
           - -c
