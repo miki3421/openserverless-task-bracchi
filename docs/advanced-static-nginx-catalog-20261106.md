@@ -1,5 +1,10 @@
 # ADV static Nginx catalog
 
+Historical qualification. The follow-up in
+`docs/advanced-static-nginx-catalog-20261107.md` corrects an operator runtime
+template that overrode this catalog during provider creation, and records the
+current published operator pin and live ADV result.
+
 The catalog pairs upstream unprivileged Nginx 1.30.6 with the operator's matching
 static manifest. The AMD64 image is pinned to manifest
 `sha256:e17bfe33eecc8fd86ca9f12c665f21270b0d88b09a0f13bfdede3fcd795f5fda`.
