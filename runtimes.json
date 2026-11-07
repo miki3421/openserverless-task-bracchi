@@ -147,7 +147,7 @@
                 "image": {
                     "prefix": "docker.io/miki3421",
                     "name": "ops-advanced-nodejs",
-                    "tag": "22-20261106-npm-r2"
+                    "tag": "22-20261107-bookworm-r1"
                 },
                 "deprecated": false,
                 "attached": {
@@ -167,6 +167,20 @@
                         }
                     }
                 ]
+            },
+            {
+                "kind": "nodejs:22-trixie",
+                "default": false,
+                "image": {
+                    "prefix": "docker.io/miki3421",
+                    "name": "ops-advanced-nodejs",
+                    "tag": "22-trixie-20261107-r1"
+                },
+                "deprecated": false,
+                "attached": {
+                    "attachmentName": "codefile",
+                    "attachmentType": "text/plain"
+                }
             },
             {
                 "kind": "nodejs:20",
