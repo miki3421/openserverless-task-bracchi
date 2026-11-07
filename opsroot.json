@@ -25,7 +25,7 @@
       "seaweedfs": "docker.io/chrislusf/seaweedfs:4.48@sha256:4e61d15fd35994cb1e43e1e553dff106794841fd9a99ade2fc8c8bfce4d7872d",
       "busybox": "docker.io/library/busybox:1.36.0",
       "registry": "docker.io/miki3421/ops-advanced-registry:3.1.2-20261106-r1",
-      "milvus": "docker.io/miki3421/ops-advanced-milvus:3.0.2-zero-grace-20261016@sha256:2d0aeb4c19a657369636a1592d56ccac164a718a3f447ee7683ce53769153c37",
+      "milvus": "docker.io/miki3421/ops-advanced-milvus:3.0.2-zero-grace-20261016@sha256:40e575fa5d4f7fc717ecf9fc0a4d980848a41d47804788eb92e9a383f5f4f3f2",
       "nginx": "docker.io/nginx/nginx-unprivileged:1.30.6@sha256:e17bfe33eecc8fd86ca9f12c665f21270b0d88b09a0f13bfdede3fcd795f5fda",
       "pgvector": "docker.io/pgvector/pgvector:0.8.6-pg18-bookworm@sha256:2ba9ca5f2e7daa0f0e7723cba1ee9167bab54efd3640516a44ac1a928dd67e7a",
       "kubegres": "docker.io/reactivetechio/kubegres:1.18",
