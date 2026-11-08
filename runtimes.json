@@ -147,7 +147,7 @@
                 "image": {
                     "prefix": "docker.io/miki3421",
                     "name": "ops-advanced-nodejs",
-                    "tag": "22-20261108-native-r1"
+                    "tag": "22-20261108-aom-r1"
                 },
                 "deprecated": false,
                 "attached": {
