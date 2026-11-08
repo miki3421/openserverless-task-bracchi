@@ -39,12 +39,10 @@ env:
         ops util kubeget ingress/apihost .spec.rules[0].host
 
   OW_APIHOST:
-    sh: |
-      HOST=$(ops util kubeget ingress/apihost .spec.rules[0].host)
-      if [ "$OPERATOR_COMPONENT_INVOKER" = "true" ];
-        then echo "$HOST"
-        else echo "http://controller:3233"
-      fi
+    # Both full and slim profiles expose the private controller Service here.
+    # A public hostname has no scheme and the streamer defaults it to HTTPS.
+    # Keep in-cluster invocation independent of public ingress and TLS.
+    sh: echo "http://controller:3233"
 
   INGRESS_TYPE:
     sh: ops util ingress-type

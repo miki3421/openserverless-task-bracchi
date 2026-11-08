@@ -19,3 +19,12 @@ merely because the Kafka broker now uses KRaft.
 
 No generic `ops upgrade` implementation or production migration is delivered by
 this backlog entry. Fresh single-node qualification also does not establish HA.
+
+The [2026-11-08 full-profile Alpha/Beta rehearsal](advanced-kafka-full-20261108.md)
+passed steady-state checks after the canonical Streamer endpoint correction.
+Broker recreation preserved KRaft storage identity but temporarily produced 503
+responses and one failed scheduled job before automatic client recovery. A future
+upgrade procedure must coordinate scheduler/producer admission and verify invoker
+recovery rather than using broker Pod readiness as proof of application readiness.
+Missed-work recovery and duplicate prevention require their own design and tests;
+do not add blind retries to conceal this availability window.
