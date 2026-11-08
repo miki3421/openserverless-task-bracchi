@@ -12,14 +12,14 @@
       "coreutils": "arch b2sum b3sum base32 basename basenc cat chgrp chmod chown chroot cksum comm cp csplit cut date dd df dir dircolors dirname du env expand expr factor fmt fold groups hashsum head hostid hostname id install join kill link ln logname ls md5sum mkdir mkfifo mknod mktemp more mv nice nl nohup nproc numfmt od paste pathchk pinky pr printenv printf ptx pwd readlink realpath rm rmdir seq sha1sum sha224sum sha256sum sha3-224sum sha3-256sum sha3-384sum sha3-512sum sha384sum sha3sum sha512sum shake128sum shake256sum shred shuf sleep sort split stat stdbuf stty sum sync tac tail tee timeout touch tr truncate tsort tty uname unexpand uniq unlink uptime users vdir wc who whoami yes"
     },
     "images": {
-      "operator": "docker.io/miki3421/ops-advanced-operator:20261107-kafka-kraft-r1@sha256:eabe50cd9e00b8dd58eaed26e0ea8da3727f327063f39d09f35f36bc07645c14",
+      "operator": "docker.io/miki3421/ops-advanced-operator:20261108-couchdb-debian-r1@sha256:c4cc14aca0caa47373add89a922e9165936e32ebcc713fda4dddfe27e597589d",
       "controller": "docker.io/miki3421/ops-advanced-controller:20261106-kafka-azure-r3",
       "invoker": "docker.io/miki3421/ops-advanced-invoker:20261106-kafka-azure-r3",
       "streamer": "docker.io/miki3421/ops-advanced-streamer:20261106-go1273-r1",
       "systemapi": "docker.io/miki3421/ops-advanced-admin-api:20261105-r1",
       "devcontainer": "docker.io/apache/openserverless-devcontainer:0.9.0-incubating.26i21w32-snapshot",
       "ingress": "registry.k8s.io/ingress-nginx/controller:v1.7.0",
-      "couchdb": "docker.io/apache/couchdb:3.5.2@sha256:c703989c0a370a1a6b179785bcb5b2b5501347bb0219d02d597d0a9107eb8d28",
+      "couchdb": "docker.io/miki3421/ops-advanced-couchdb:3.5.2-20261108-r1@sha256:4db3bd054c2123bf58b650344b325690fec6228871e97d7bff4ae6f942cce82f",
       "etcd": "docker.io/miki3421/ops-advanced-etcd:3.7.2-20261016@sha256:02969ce1a6172cfd0d4363224e6fc8e9de3051bc43dd384ae82af5ffbca5e3ea",
       "redis": "docker.io/library/redis:8.10.2@sha256:2c2dff791878316e3b083188be0d578423b24813cdda5de0e80ea4f7b3e6bfd6",
       "seaweedfs": "docker.io/chrislusf/seaweedfs:4.48@sha256:4e61d15fd35994cb1e43e1e553dff106794841fd9a99ade2fc8c8bfce4d7872d",
