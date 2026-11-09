@@ -147,7 +147,7 @@
                 "image": {
                     "prefix": "docker.io/miki3421",
                     "name": "ops-advanced-nodejs",
-                    "tag": "22-20261108-libxml2-r1"
+                    "tag": "22-20261109-no-openssh-r1"
                 },
                 "deprecated": false,
                 "attached": {
@@ -246,7 +246,7 @@
                 "image": {
                     "prefix": "docker.io/miki3421",
                     "name": "ops-advanced-python",
-                    "tag": "3.12-20261105-r1"
+                    "tag": "3.12-20261109-native-r1"
                 },
                 "deprecated": false,
                 "attached": {
