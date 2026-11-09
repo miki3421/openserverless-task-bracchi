@@ -12,7 +12,7 @@
       "coreutils": "arch b2sum b3sum base32 basename basenc cat chgrp chmod chown chroot cksum comm cp csplit cut date dd df dir dircolors dirname du env expand expr factor fmt fold groups hashsum head hostid hostname id install join kill link ln logname ls md5sum mkdir mkfifo mknod mktemp more mv nice nl nohup nproc numfmt od paste pathchk pinky pr printenv printf ptx pwd readlink realpath rm rmdir seq sha1sum sha224sum sha256sum sha3-224sum sha3-256sum sha3-384sum sha3-512sum sha384sum sha3sum sha512sum shake128sum shake256sum shred shuf sleep sort split stat stdbuf stty sum sync tac tail tee timeout touch tr truncate tsort tty uname unexpand uniq unlink uptime users vdir wc who whoami yes"
     },
     "images": {
-      "operator": "docker.io/miki3421/ops-advanced-operator:20261109-sqlite-r1@sha256:deb6d770a3e139a58bddf39c71fa1e656a59ecaed272e2ce9c00d156960a8ff6",
+      "operator": "docker.io/miki3421/ops-advanced-operator:20261109-pg-libxml2-r2@sha256:d417e356ba5c7a055e1e7c4d9ebcc7985ae3e5e785f2569ee46c298b1f31fe86",
       "controller": "docker.io/miki3421/ops-advanced-controller:20261106-kafka-azure-r3",
       "invoker": "docker.io/miki3421/ops-advanced-invoker:20261106-kafka-azure-r3",
       "streamer": "docker.io/miki3421/ops-advanced-streamer:20261106-go1273-r1",
@@ -27,7 +27,7 @@
       "registry": "docker.io/miki3421/ops-advanced-registry:3.1.2-20261106-r1",
       "milvus": "docker.io/miki3421/ops-advanced-milvus:3.0.2-zero-grace-20261016@sha256:40e575fa5d4f7fc717ecf9fc0a4d980848a41d47804788eb92e9a383f5f4f3f2",
       "nginx": "docker.io/nginx/nginx-unprivileged:1.30.6@sha256:e17bfe33eecc8fd86ca9f12c665f21270b0d88b09a0f13bfdede3fcd795f5fda",
-      "pgvector": "docker.io/pgvector/pgvector:0.8.6-pg18-bookworm@sha256:2ba9ca5f2e7daa0f0e7723cba1ee9167bab54efd3640516a44ac1a928dd67e7a",
+      "pgvector": "docker.io/miki3421/ops-advanced-postgres:18.6-pgvector0.8.6-20261109-libxml2-r1@sha256:eece1d6ad7208838a4eaa56beef57bc82db2e7ff17b7fcce23dbcf29740cf5b9",
       "kubegres": "docker.io/reactivetechio/kubegres:1.18",
       "rbacproxy": "quay.io/brancz/kube-rbac-proxy:v0.23.1@sha256:bb7c6fbfbb00cc2892e97fd102b8f01eb19eef09ce216385a7cf68ea7a9e7fac",
       "tika": "docker.io/miki3421/ops-advanced-tika:3.3.3-20261107-http-r3@sha256:af67ed502767ed03f350fc85f324c449132c1203aacc1639a317648c4894d8b6",

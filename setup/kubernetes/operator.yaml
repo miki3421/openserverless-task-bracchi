@@ -83,6 +83,8 @@ spec:
             value: "${OPERATOR_JOB_IMAGE}"
           - name: OPERATOR_TAG
             value: "${OPERATOR_JOB_TAG}"
+          - name: OPERATOR_REFERENCE
+            value: ${IMAGES_OPERATOR}
           command:
           - bash
           - -c
