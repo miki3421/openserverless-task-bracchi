@@ -78,6 +78,9 @@ spec:
       containers:
         - name: openserverless-operator
           image: ${IMAGES_OPERATOR}
+          env:
+          - name: OPERATOR_REFERENCE
+            value: ${IMAGES_OPERATOR}
           command:
           - bash
           - -c
