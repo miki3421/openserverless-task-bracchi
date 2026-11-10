@@ -204,7 +204,7 @@
                 "image": {
                     "prefix": "docker.io/miki3421",
                     "name": "ops-advanced-python",
-                    "tag": "sys-20261105-r1"
+                    "tag": "sys-20261110-sqlite-r1@sha256:c70050c3fca2254b895014d59ee8777a781e88d0bc3e5265a7ca2dc16ca35485"
                 },
                 "deprecated": false,
                 "attached": {
