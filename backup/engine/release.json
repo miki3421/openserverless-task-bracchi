@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
   "repository": "https://github.com/miki3421/ops-k3s-backup",
-  "revision": "9459d1097a2d0623b102329d9aafb9bfbb7ae195",
+  "revision": "9bd0f61a59c35cbaa9b9a3a154dff8a640268177",
   "files": [
     {
       "path": "adapters/ops-native/LICENSE",
@@ -19,14 +19,19 @@
       "sha256": "a9ce0e00e9eedb84371e32146915b1b9a32aa2112444f333faae8710f7f00c5c"
     },
     {
+      "path": "adapters/ops-native/data-postgres.ts",
+      "bytes": 7942,
+      "sha256": "757ef64c5d3a4c30fd64a59967afa22a79796cef65470f7d5dfa70e7c04fb751"
+    },
+    {
       "path": "adapters/ops-native/data-tools.ts",
       "bytes": 2453,
       "sha256": "824265c915420bb2ef98805f7bdc10cca15a48f4255a1026915a0b2fc3fa08ad"
     },
     {
       "path": "adapters/ops-native/data.ts",
-      "bytes": 22167,
-      "sha256": "f0e1c339bf0872cd75539a5cadbc32e5a6c3cdb03dfa324981eb9b99e2d82aaa"
+      "bytes": 24236,
+      "sha256": "4ec3864389eba4aeb6245406e62c5850a96d013ee83f091304bce62c75ad38fb"
     },
     {
       "path": "adapters/ops-native/empty-milvus.ts",

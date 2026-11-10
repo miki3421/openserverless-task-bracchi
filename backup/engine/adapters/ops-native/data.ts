@@ -12,6 +12,7 @@ import { collectNativeComponent, kubeNativeExecutor } from "./update/native";
 import { readOwnedMilvusCatalog, assertEmptyCatalog } from "./empty-milvus";
 import { collectSeaweed } from "./update/storage";
 import { ephemeralWeedRunner, verifyWeedToolParent } from "./data-tools";
+import { estimatePostgresLive, MAX_SIZE_RESPONSE } from "./data-postgres";
 
 export const EXCLUDED = ["container-images-and-registry", "kubernetes-control-plane-and-node",
   "redeployable-actions-and-activation-history", "operator-static-and-tika-files",
@@ -161,6 +162,39 @@ export async function dataPreflight(configPath: string, output: string) {
     // These two components have explicit non-filesystem sizing below. In
     // particular Redis can hold data in RAM with an almost empty PVC.
     if (["couchdb-data", "redis-acl"].includes(b.artifactId)) continue;
+    if (b.artifactId === "postgres-data") {
+      if (b.targets.length !== 1) throw Error("ambiguous_postgres_size_target");
+      let queryNumber=0;
+      const pg=await estimatePostgresLive(async(database,sql)=>{
+        const verifyTarget=()=>{
+          const pod=scoped(read,plan.source.namespace,"pod/"+target.pod);
+          if(pod.metadata?.uid!==target.podUid ||
+              !pod.status?.containerStatuses?.some((c:any)=>c.name===target.container&&c.ready&&c.state?.running))
+            throw Error("postgres_size_target_changed");
+          for(const m of target.mounts) {
+            const v=plan.volumeCoverage.find(v=>v.uid===m.uid);
+            if(!v || scoped(read,plan.source.namespace,"pvc/"+v.name).metadata?.uid!==m.uid)
+              throw Error("postgres_size_volume_changed");
+          }
+        };
+        verifyTarget();
+        const quote=(s:string)=>"'"+s.replaceAll("'","'\\''")+"'";
+        const path=join(output,"postgres-live-"+(++queryNumber)+".txt");
+        const fd=openSync(path,constants.O_CREAT|constants.O_EXCL|constants.O_WRONLY,0o600);
+        const err=openSync(path+".stderr",constants.O_CREAT|constants.O_EXCL|constants.O_WRONLY,0o600);
+        try {
+          if(await execute({...target,file:"measure-live",script:
+            'set -eu; export PGPASSWORD="${POSTGRES_PASSWORD:?}"; exec psql -X -qAt -v ON_ERROR_STOP=1 -h 127.0.0.1 -U postgres -d '+quote(database),
+            input:sql,validate:"binary"},fd,err)!==0)throw Error("postgres_live_size_query_failed");
+        } finally {closeSync(fd);closeSync(err);}
+        verifyTarget();
+        const {readFileSync,statSync}=await import("node:fs");
+        if(statSync(path).size+statSync(path+".stderr").size>MAX_SIZE_RESPONSE)throw Error("invalid_postgres_size_response");
+        return readFileSync(path,"utf8")+"\n"+readFileSync(path+".stderr","utf8");
+      });
+      estimates.push({component:b.artifactId,...pg}); estimated=measuredBytes(estimated+pg.bytes);
+      continue;
+    }
     let allocated = 0;
     for (const mount of target.mounts) {
       if (measured.has(mount.uid)) continue; measured.add(mount.uid);

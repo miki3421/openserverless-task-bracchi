@@ -120,3 +120,13 @@ maintenance/scheduler sources already exist in the supplied canonical baseline
 and are not invoked by the check. No manual generated-engine edits, actual
 backup, cleanup, upload, scheduler or global CLI update. Publication remains
 separately gated. See the canonical `docs/data-estimator-review-20261107.md`.
+
+## PostgreSQL live estimator candidate — 2026-11-10
+
+Current local pin:canonical9bd0f61a59c35cbaa9b9a3a154dff8a640268177,
+112 mechanically generated runtime files. PostgreSQL sizing now measures live
+logical UTF8 row text and large objects/sequences across all connectable DBs,
+not PGDATA allocation. Existing source/coverage/timeouts/capacity/recovery guards
+remain; actual pg_dumpall export is unchanged. Only synthetic tests and one
+check-only task entrypoint are authorized. No backup, source cleanup or CLI
+bootstrap. See canonical `docs/postgres-live-estimator-review-20261110.md`.
