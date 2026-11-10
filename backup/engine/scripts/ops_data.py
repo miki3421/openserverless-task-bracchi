@@ -158,6 +158,8 @@ class DataBackend:
                   'artifacts': [record(p, self.collection) for p in sorted(self.collection.rglob('*')) if p.is_file()]}
         write_json(self.collection / 'cluster-collection.json', report, self.archive)
         validate_data(self, self.collection, self.plan)
+        from data_compaction import compact
+        compact(self)
         return self.collection
 
     def validate(self, archive, directory):
@@ -165,6 +167,8 @@ class DataBackend:
         return validate_data(self, directory, self.plan)
 
     def seal(self):
+        from data_compaction import proof_complete
+        proof_complete(self)  # Fail closed after incomplete/uncertain compaction.
         return seal(self.archive, self.collection, self.run / 'repository', self.run / 'verification',
                     validator=self.validate, tag='ops-data-v1', receipt_name='cluster-collection.json',
                     result_schema='ops-cluster-sealed.v1')

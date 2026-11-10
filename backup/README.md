@@ -123,10 +123,28 @@ separately gated. See the canonical `docs/data-estimator-review-20261107.md`.
 
 ## PostgreSQL live estimator candidate — 2026-11-10
 
-Current local pin:canonical9bd0f61a59c35cbaa9b9a3a154dff8a640268177,
+Previous PG estimator pin:canonical9bd0f61a59c35cbaa9b9a3a154dff8a640268177,
 112 mechanically generated runtime files. PostgreSQL sizing now measures live
 logical UTF8 row text and large objects/sequences across all connectable DBs,
 not PGDATA allocation. Existing source/coverage/timeouts/capacity/recovery guards
 remain; actual pg_dumpall export is unchanged. Only synthetic tests and one
 check-only task entrypoint are authorized. No backup, source cleanup or CLI
 bootstrap. See canonical `docs/postgres-live-estimator-review-20261110.md`.
+
+## Data workspace compaction candidate — 2026-11-10
+
+Current local pin:canonicalade78f01728a92d7bee71a673fe9fdd42c6b14a4,
+114 mechanically generated runtime files. No manual edits to backup/engine.
+After complete independent collection validation and fsync, exact hash/inode-bound
+current-run duplicates are retired, preserving manifests, logs and recovery
+proofs. This selects a three-copy peak instead of five, without lowering the
+capture ceiling, free reserve or metadata allowance. Interrupted compaction
+blocks sealing. Full Restic data checking and fresh recovery/hash coverage remain.
+
+A separate canonical read-only keep-two planner counts only matching complete
+file-verified generations, protects recovery/current/unknown material and proposes
+older eligible generations. It does not prune, add an OPS command, enable a job
+or change the existing PA time-based/R2 policy. Applying a plan requires separate
+fresh exact approval. Local synthetic checks do not establish operational backup
+or application restore acceptance. See canonical `docs/data-compaction-review.md`
+and `docs/data-backup.md`. No real backup or live cleanup is authorized here.

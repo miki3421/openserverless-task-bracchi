@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
   "repository": "https://github.com/miki3421/ops-k3s-backup",
-  "revision": "9bd0f61a59c35cbaa9b9a3a154dff8a640268177",
+  "revision": "ade78f01728a92d7bee71a673fe9fdd42c6b14a4",
   "files": [
     {
       "path": "adapters/ops-native/LICENSE",
@@ -207,6 +207,11 @@
       "path": "scripts/couchdb_maintenance.py",
       "bytes": 28614,
       "sha256": "66f6d0702b6775eea8d216059fccc74a3992479c5f15a4641d1b328b52aa08e3"
+    },
+    {
+      "path": "scripts/data_compaction.py",
+      "bytes": 7485,
+      "sha256": "7c94cfc254ffb2d0901a41d3aa0582fc5534ae1c89feaaff44edcbc0d7c3fb85"
     },
     {
       "path": "scripts/export_ops_engine.py",
@@ -435,18 +440,23 @@
     },
     {
       "path": "scripts/ops_backup.py",
-      "bytes": 20723,
-      "sha256": "2212405bc53f90567fea9f0216546730ae2b81dcb13fc6c8fdadc5ffb8ca7f6a"
+      "bytes": 20839,
+      "sha256": "146f5dafdfdc973766b0d0973ff73fcd42ed22ec77fc72af484e2f74ddc8df59"
     },
     {
       "path": "scripts/ops_data.py",
-      "bytes": 10485,
-      "sha256": "24317104cf67ee206d3bb143e3cf1a3b4935a742e7b2539d9116c2d0253d1b13"
+      "bytes": 10685,
+      "sha256": "d95787c3a66269eb05181cca89c3d7c06d5ab38276b5c0455fc240084d059366"
     },
     {
       "path": "scripts/pack-real-backup.py",
       "bytes": 5315,
       "sha256": "37319f31aa477320216c0119d81aa09e71f334e4897ca21442e84ea51bde8000"
+    },
+    {
+      "path": "scripts/plan_data_retention.py",
+      "bytes": 4946,
+      "sha256": "2cd91500757b86fe02d685a4f087b1e68e7c270b6148bc2968a011ba53a39dc8"
     },
     {
       "path": "scripts/platform_support.py",
@@ -500,8 +510,8 @@
     },
     {
       "path": "scripts/storage_capacity.py",
-      "bytes": 2863,
-      "sha256": "410299743a0cd52379f6ba11ed387352b660430a8afd16ec68aaf84ddde2a35d"
+      "bytes": 2929,
+      "sha256": "bfab14aaf307d808d9b817c99791ea37157401b7475e1a07b681f06421261e78"
     },
     {
       "path": "scripts/store_capacity.py",

@@ -8,6 +8,7 @@ from runtime_config import require
 METADATA_RESERVE_BYTES = 2 * 1024**3
 RETAINED_WORKSPACE = 'retained-native-v1'
 COMPACTED_KIND_WORKSPACE = 'kind-native-verified-compaction-v1'
+COMPACTED_DATA_WORKSPACE = 'data-manifest-verified-compaction-v1'
 
 
 def workspace_bytes(run):
@@ -36,15 +37,15 @@ def require_separate_image_filesystem(backup_root, image_root):
 def local_backup_peak(maximum, reserve, *, workspace_policy=RETAINED_WORKSPACE):
     """Reserve the peak of collection and sealing, never add disjoint phases.
 
-    Only the native-kind implementation compacts its current owned intermediate
-    workspace after self-contained payload validation. Other routes retain five
-    copies. No compression, old-run deletion or deduplication is assumed.
+    Native-kind and data-only retire current owned intermediates only after
+    self-contained payload validation. Other routes retain five copies.
+    No compression, old-run deletion or deduplication is assumed.
     """
     require(type(maximum) is int and maximum > 0 and type(reserve) is int and reserve > 0,
             'Explicit local backup capacity bounds required')
-    require(workspace_policy in {RETAINED_WORKSPACE, COMPACTED_KIND_WORKSPACE},
+    require(workspace_policy in {RETAINED_WORKSPACE, COMPACTED_KIND_WORKSPACE, COMPACTED_DATA_WORKSPACE},
             'Unknown backup workspace lifecycle')
-    copies = 3 if workspace_policy == COMPACTED_KIND_WORKSPACE else 5
+    copies = 5 if workspace_policy == RETAINED_WORKSPACE else 3
     return {'workspacePolicy': workspace_policy, 'workspaceCopies': copies,
             'captureLimitBytes': maximum, 'metadataReserveBytes': METADATA_RESERVE_BYTES,
             'sourceReserveBytes': reserve, 'requiredFreeBytes': copies * maximum + METADATA_RESERVE_BYTES + reserve,

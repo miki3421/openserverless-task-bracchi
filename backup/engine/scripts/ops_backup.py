@@ -25,7 +25,7 @@ from kind_adapter.online_collection import collect as kind_collect, validate as 
 from image_cache import inspect_cache, inspect_references, ImageCacheIncomplete
 import native_bundle
 from storage_capacity import (workspace_bytes, local_backup_peak, require_local_backup_capacity,
-                              RETAINED_WORKSPACE, COMPACTED_KIND_WORKSPACE)
+                              RETAINED_WORKSPACE, COMPACTED_KIND_WORKSPACE, COMPACTED_DATA_WORKSPACE)
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -234,6 +234,9 @@ class KindBackend:
 
 def workspace_policy(backend):
     # Source-owned dispatch only; no private profile switch can lower the bound.
+    from ops_data import DataBackend
+    if isinstance(backend, DataBackend):
+        return COMPACTED_DATA_WORKSPACE
     if isinstance(backend, KindBackend) and backend.cfg.online.get('collector') == 'ops-native-v1':
         return COMPACTED_KIND_WORKSPACE
     return RETAINED_WORKSPACE
@@ -314,7 +317,7 @@ def run_backup(path, *, check_only=False, data_only=False, bun=None, backend_fac
                 require_local_backup_capacity(root, backend.capture_limit, storage['reserve_free_bytes'],
                                               workspace_policy=policy)
             copies = capacity['workspaceCopies'] if name == 'encrypt-and-verify' else 3
-            check(workspace_bytes(run) <= capacity['captureLimitBytes'] * max(copies, 4 if data_only else 0) + capacity['metadataReserveBytes'],
+            check(workspace_bytes(run) <= capacity['captureLimitBytes'] * copies + capacity['metadataReserveBytes'],
                   'Aggregate backup workspace budget exceeded')
         if not check_only:
             check(result.get('status') == 'encrypted-and-file-restore-verified', 'Missing complete file restore verification')
