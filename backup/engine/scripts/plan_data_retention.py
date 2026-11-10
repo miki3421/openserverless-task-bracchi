@@ -25,7 +25,7 @@ def verified_generation(cfg, archive, run):
           sealed.get('repository_data_check') == 'passed' and sealed.get('artifact_hashes') == 'passed' and
           re.fullmatch(r'[a-f0-9]{64}', sealed.get('snapshot', '')), 'Missing complete verification evidence')
     collection = run / 'collection'
-    context = SimpleNamespace(root=archive.root, directory=archive.directory,
+    context = SimpleNamespace(root=archive.root, directory=archive.directory, run=run,
                               fingerprint=cfg.fingerprint, source=cfg.source)
     report = validate_data(context, collection)
     check(report['plan_digest'] == sealed.get('plan_digest'), 'Sealed collection changed')

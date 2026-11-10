@@ -13,6 +13,7 @@ import { readOwnedMilvusCatalog, assertEmptyCatalog } from "./empty-milvus";
 import { collectSeaweed } from "./update/storage";
 import { ephemeralWeedRunner, verifyWeedToolParent } from "./data-tools";
 import { estimatePostgresLive, MAX_SIZE_RESPONSE } from "./data-postgres";
+import { dataCheckpoint } from "./data-checkpoint";
 
 export const EXCLUDED = ["container-images-and-registry", "kubernetes-control-plane-and-node",
   "redeployable-actions-and-activation-history", "operator-static-and-tika-files",
@@ -307,7 +308,7 @@ export async function dataCollect(configPath: string, output: string) {
       // for the public weed TOOL; keep all data and logs in protected staging.
       const tool=ephemeralWeedRunner(dirname(config.storage.restic_binary));
       try {
-        const rows=await collectSeaweed(plan,stage,read,kubeNativeExecutor(plan),undefined,tool.run);
+        const rows=await collectSeaweed(plan,stage,read,kubeNativeExecutor(plan),undefined,tool.run,dataCheckpoint);
         for(const row of rows) if(row.path!=="weed") files.push({...row,path:id+"/"+row.path});
       } finally {tool.dispose();}
     } else {
@@ -336,7 +337,7 @@ export async function dataCollect(configPath: string, output: string) {
   privateJSON(join(payload,"data-manifest.json"),{schemaVersion:1,kind:"ops-data-recovery",source:data.source,
     selected:data.selected,coverage:data.coverage,exclusions:EXCLUDED,target:data.target,
     formats:{postgres:"logical SQL with roles; reconcile target admin before import",couchdb:"logical documents, security and attachments",
-      redis:"RDB plus ACL; target RDB-version compatibility required",seaweedfs:"native filer metadata and volumes; target format compatibility required"},
+      redis:"RDB plus ACL; target RDB-version compatibility required",seaweedfs:"native-streamed-checkpoint-v1; captured reference closure and copied volumes; target format compatibility required"},
     consistency:"per-service online; not cross-backend atomic",applicationRestoreVerified:false,files});
   return {status:"data-collected",files:files.length};
 }

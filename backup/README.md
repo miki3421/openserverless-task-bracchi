@@ -133,7 +133,7 @@ bootstrap. See canonical `docs/postgres-live-estimator-review-20261110.md`.
 
 ## Data workspace compaction candidate — 2026-11-10
 
-Current local pin:canonicalade78f01728a92d7bee71a673fe9fdd42c6b14a4,
+Previous local pin:canonicalade78f01728a92d7bee71a673fe9fdd42c6b14a4,
 114 mechanically generated runtime files. No manual edits to backup/engine.
 After complete independent collection validation and fsync, exact hash/inode-bound
 current-run duplicates are retired, preserving manifests, logs and recovery
@@ -148,3 +148,20 @@ or change the existing PA time-based/R2 policy. Applying a plan requires separat
 fresh exact approval. Local synthetic checks do not establish operational backup
 or application restore acceptance. See canonical `docs/data-compaction-review.md`
 and `docs/data-backup.md`. No real backup or live cleanup is authorized here.
+
+## Online data checkpoint candidate — 2026-11-10
+
+Current local pin:canonicalfa4dd95f8e7204fb7e304462b9e554bb5521dc96,
+116 mechanically generated runtime files. Both entrypoint pins and every member
+must match the canonical immutable export. Data-only native SeaweedFS3.97 now
+uses the native streamed metadata export as its captured scope, verifies copied
+volume/index references and logical content, and repeats that closure check on
+fresh Restic-recovered files. Live additions no longer require whole-tree
+equality; missing/tombstoned/corrupt captured content still fails closed. This
+does not claim a globally atomic cut or application restore acceptance.
+
+No dependency install, service stop, source-data deletion, upload, scheduler or
+automatic retry. The operator authorized one real online data backup of this
+exact tested candidate after the correction; outcome belongs in private
+operational evidence, not this generic source tree. See canonical
+`docs/data-online-checkpoint-review.md` for checks, limits and lifecycle.

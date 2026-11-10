@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
   "repository": "https://github.com/miki3421/ops-k3s-backup",
-  "revision": "ade78f01728a92d7bee71a673fe9fdd42c6b14a4",
+  "revision": "fa4dd95f8e7204fb7e304462b9e554bb5521dc96",
   "files": [
     {
       "path": "adapters/ops-native/LICENSE",
@@ -19,6 +19,11 @@
       "sha256": "a9ce0e00e9eedb84371e32146915b1b9a32aa2112444f333faae8710f7f00c5c"
     },
     {
+      "path": "adapters/ops-native/data-checkpoint.ts",
+      "bytes": 1669,
+      "sha256": "df34db2f1b250f1eee36869c2f56fb111ff64f3a4b568239fe10373324586196"
+    },
+    {
       "path": "adapters/ops-native/data-postgres.ts",
       "bytes": 7942,
       "sha256": "757ef64c5d3a4c30fd64a59967afa22a79796cef65470f7d5dfa70e7c04fb751"
@@ -30,8 +35,8 @@
     },
     {
       "path": "adapters/ops-native/data.ts",
-      "bytes": 24236,
-      "sha256": "4ec3864389eba4aeb6245406e62c5850a96d013ee83f091304bce62c75ad38fb"
+      "bytes": 24346,
+      "sha256": "d94286d9e39a221154e76a57b4705adc4af641abf16e26a16435bae2f319a0cc"
     },
     {
       "path": "adapters/ops-native/empty-milvus.ts",
@@ -135,8 +140,8 @@
     },
     {
       "path": "adapters/ops-native/update/storage.ts",
-      "bytes": 26764,
-      "sha256": "9542c3351bd07acfbf73bbedfaed6c52d2fb9dc8bfa8ca4b521087017d18d475"
+      "bytes": 28601,
+      "sha256": "ee0cd8bedfb4d95a924d4e3520f205f5572864e809ece55f7e5922b5483c49e3"
     },
     {
       "path": "adapters/ops-native/yaml.ts",
@@ -445,8 +450,8 @@
     },
     {
       "path": "scripts/ops_data.py",
-      "bytes": 10685,
-      "sha256": "d95787c3a66269eb05181cca89c3d7c06d5ab38276b5c0455fc240084d059366"
+      "bytes": 11370,
+      "sha256": "4c7027412b39911ace8dbaa57540a24efd245965ac867e0335442c8597bcd798"
     },
     {
       "path": "scripts/pack-real-backup.py",
@@ -455,8 +460,8 @@
     },
     {
       "path": "scripts/plan_data_retention.py",
-      "bytes": 4946,
-      "sha256": "2cd91500757b86fe02d685a4f087b1e68e7c270b6148bc2968a011ba53a39dc8"
+      "bytes": 4955,
+      "sha256": "848c16c54a196da596724e5406aa50b4dd7df99a644ba1e584b85e715f432286"
     },
     {
       "path": "scripts/platform_support.py",
@@ -477,6 +482,11 @@
       "path": "scripts/scheduled_data_backup.py",
       "bytes": 24556,
       "sha256": "f07d827d9d21e8dd9ce1b02190b6baeda80a10904a6fe27c41a02812078a0014"
+    },
+    {
+      "path": "scripts/seaweed_checkpoint.py",
+      "bytes": 14052,
+      "sha256": "773c3e6fccbcf81c4d296b10990bb1e8a0fc97e7ae6f57c38d32dbd018e39330"
     },
     {
       "path": "scripts/seaweed_metadata.py",

@@ -73,6 +73,14 @@ def validate_data(cfg, directory, expected=None):
         if path.is_dir(): continue
         private_file(path); actual.add(str(path.relative_to(directory)))
     check(actual == names | {'data-manifest.json', 'cluster-collection.json'}, 'Undeclared data payload')
+    if str(manifest.get('formats', {}).get('seaweedfs', '')).startswith('native-streamed-checkpoint-v1'):
+        check('seaweedfs-data/filer-checkpoint.json' in names or 'seaweedfs-data' not in selected,
+              'Required online SeaweedFS checkpoint proof missing')
+    if 'seaweedfs-data/filer-checkpoint.json' in names:
+        from seaweed_checkpoint import checkpoint
+        expected_checkpoint = read_json(directory / 'seaweedfs-data/filer-checkpoint.json', cfg)
+        check(checkpoint(directory / 'seaweedfs-data', verify=True, work_parent=getattr(cfg, 'run', cfg.root)) == expected_checkpoint,
+              'Restored SeaweedFS checkpoint reference closure mismatch')
     return report
 
 

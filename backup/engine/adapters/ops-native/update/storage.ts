@@ -194,7 +194,8 @@ export async function filerTreeToDisk(origin: string, path: string, get: JSONCli
   } catch (error) { index.close(); throw error; }
 }
 export async function collectSeaweed(plan: BackupPlan, output: string, read: KubeRead, execute: NativeExecutor,
-    get: JSONClient = internalJSON, run: PrivateRunner = runPrivate): Promise<ExportFile[]> {
+    get: JSONClient = internalJSON, run: PrivateRunner = runPrivate,
+    checkpoint?: (mode: "inspect" | "verify", output: string) => Promise<any>): Promise<ExportFile[]> {
   const { target, pod } = checkedTarget(plan, "seaweedfs-data", read);
   const container = pod.spec.containers.find((c: any) => c.name === target.container);
   const args = container.args || [];
@@ -217,13 +218,24 @@ export async function collectSeaweed(plan: BackupPlan, output: string, read: Kub
       prefix.readUInt16LE(18) !== (plan.architectures[0] === "amd64" ? 62 : 183)) throw new Error("invalid_seaweed_binary");
   chmodSync(tool, 0o700);
   await run(tool, ["version"], output, "weed-version");
+  if (checkpoint && !/\b3\.97\b/.test(readFileSync(join(output, "weed-version.stdout"), "utf8")))
+    throw Error("unqualified_seaweed_checkpoint_version");
   const temporary = join(output, "tmp"); mkdirSync(temporary, { mode: 0o700, recursive: true });
   if (!lstatSync(temporary).isDirectory() || lstatSync(temporary).isSymbolicLink()) throw new Error("unsafe_native_storage_temporary_directory");
   const indexes = join(temporary, "filer-inventory"); mkdirSync(indexes, { mode: 0o700 });
-  const before = await filerTreeToDisk(filer, join(indexes, "filer-before.sqlite"), get);
+  const before = checkpoint ? undefined : await filerTreeToDisk(filer, join(indexes, "filer-before.sqlite"), get);
   let after: DiskInventory | undefined;
   try {
-  before.writeJSON(join(output, "filer-before.json"));
+  before?.writeJSON(join(output, "filer-before.json"));
+  const saveMetadata = async () => {
+    await run(tool, ["shell", "-master=" + master, "-filer=" + filer.slice(7)], output, "weed-metadata", "fs.meta.save -o filer.meta /\n");
+    if (!lstatSync(join(output, "filer.meta")).isFile()) throw Error("missing_seaweed_metadata_backup");
+  };
+  // A captured native export is the immutable scope. Later live additions or
+  // metadata changes are not corruption of this saved cut. Verify its actual
+  // references in the copied volumes instead of requiring an idle source.
+  let cut: any;
+  if (checkpoint) { await saveMetadata(); cut = await checkpoint("inspect", output); }
   const volumes = (await get(volume, "/status")).Volumes;
   if (!Array.isArray(volumes)) throw new Error("invalid_seaweed_volume_inventory");
   const ids = new Set<number>();
@@ -233,35 +245,50 @@ export async function collectSeaweed(plan: BackupPlan, output: string, read: Kub
     ids.add(v.Id);
   }
   const volumeIdentities = (rows: any[]) => rows.map(v => [v.Id, v.Collection || ""]).sort();
+  if (checkpoint && cut.volumeIds.some((id: number) => !ids.has(id))) throw Error("checkpoint_volume_missing_from_source");
   privateJSON(join(output, "volumes-before.json"), volumeIdentities(volumes));
   mkdirSync(join(output, "volumes"), { mode: 0o700 });
-  await run(tool, ["shell", "-master=" + master, "-filer=" + filer.slice(7)], output, "weed-metadata", "fs.meta.save -o filer.meta /\n");
-  if (!lstatSync(join(output, "filer.meta")).isFile()) throw new Error("missing_seaweed_metadata_backup");
+  if (!checkpoint) await saveMetadata();
   for (const v of volumes) {
     await run(tool, ["backup", "-server=" + master, "-dir=volumes", "-volumeId=" + v.Id, "-collection=" + (v.Collection || "")], output, "weed-volume-" + v.Id);
     const base = (v.Collection ? v.Collection + "_" : "") + v.Id;
     for (const extension of [".dat", ".idx"]) if (!lstatSync(join(output, "volumes", base + extension)).isFile()) throw new Error("missing_seaweed_volume_backup");
+  }
+  if (checkpoint) {
+    const verified = await checkpoint("verify", output);
+    const inspection = Object.fromEntries(Object.keys(cut).map(key => [key, verified[key]]));
+    if (canonical(inspection) !== canonical(cut) || verified.referenceClosureVerified !== true)
+      throw Error("saved_seaweed_checkpoint_changed");
+    checkedTarget(plan, "seaweedfs-data", read);
+    privateJSON(join(output, "filer-checkpoint.json"), verified);
+    privateJSON(join(output, "seaweed-backup.json"), { method: "native metadata export and verified copied-volume reference closure",
+      sourceImage: target.image, metadataEntries: verified.entries, volumes: volumes.length,
+      onlineWritesAllowed: true, referenceClosureVerified: true, restoredFilesVerified: false, backupComplete: false });
+    const paths = privateTree(output, new Set(["tmp"]))
+      .filter(p => !/\.(stdout|stderr)$/.test(p) && !p.endsWith("/collection.json"));
+    chmodSync(tool, 0o700);
+    return Promise.all(paths.map(path => artifactInfo(output, path)));
   }
   const afterVolumes = (await get(volume, "/status")).Volumes;
   if (!Array.isArray(afterVolumes)) throw new Error("invalid_seaweed_volume_inventory");
   after = await filerTreeToDisk(filer, join(indexes, "filer-after.sqlite"), get);
   privateJSON(join(output, "volumes-after.json"), volumeIdentities(afterVolumes));
   after.writeJSON(join(output, "filer-after.json"));
-  const comparison = before.compare(after);
+  const comparison = before!.compare(after);
   const volumesStable = canonical(volumeIdentities(volumes)) === canonical(volumeIdentities(afterVolumes));
   privateJSON(join(output, "consistency.json"), { volumesStable, ...comparison });
   if (!volumesStable || comparison.addedEntries || comparison.removedEntries || comparison.changedEntries)
     throw new Error("seaweed_source_changed_during_backup");
-  before.writeJSON(join(output, "filer-manifest.json"));
+  before!.writeJSON(join(output, "filer-manifest.json"));
   privateJSON(join(output, "seaweed-backup.json"), { method: "native fs.meta.save and weed backup", sourceImage: target.image,
-    metadataEntries: before.count, volumes: volumes.length, referencesStableDuringBackup: true,
+    metadataEntries: before!.count, volumes: volumes.length, referencesStableDuringBackup: true,
     restoredFilesVerified: false, backupComplete: false });
   const paths = privateTree(output, new Set(["tmp"]))
     .filter(p => !/\.(stdout|stderr)$/.test(p) && !p.endsWith("/collection.json"));
   // privateTree normalizes binary mode too; retain the captured recovery tool as a private executable.
   chmodSync(tool, 0o700);
   return Promise.all(paths.map(path => artifactInfo(output, path)));
-  } finally { before.close(); after?.close(); }
+  } finally { before?.close(); after?.close(); }
 }
 export async function verifyMilvusTool(directory: string): Promise<string> {
   if (platform() !== MILVUS_BACKUP_TOOL.platform) throw new Error("unsupported_milvus_backup_runner");
