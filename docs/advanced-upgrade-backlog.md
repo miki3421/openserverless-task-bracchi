@@ -8,7 +8,7 @@ separate source/target identity, custody, capacity, consistency and recovery gat
 | Component | Source to ADV target | Required migration qualification |
 | --- | --- | --- |
 | PostgreSQL | Existing supported source major to PostgreSQL 18 / pgvector 0.8.6 | Export/restore or explicitly supported major upgrade, extensions, roles, credentials, application acceptance and rollback. Existing layout refusal remains active. |
-| Mongo interface | FerretDB 1.6.0 to native MongoDB 9.0.2 | Logical data conversion/restore, indexes and BSON semantics, tenant credentials and isolation, application acceptance and recovery. Do not attach FerretDB storage as native MongoDB data. |
+| Mongo interface | FerretDB 1.6.0 remains the default; native MongoDB is an optional custom profile | A future backend switch requires logical data conversion/restore, indexes and BSON semantics, tenant credentials and isolation, application acceptance and recovery. Do not attach FerretDB storage as native MongoDB data. |
 | Kafka | Kafka 2.3.1 / ZooKeeper to Kafka 4.4.0 / KRaft | Explicit staged Kafka upgrade and ZooKeeper-to-KRaft metadata migration, stable cluster/broker IDs, topics/configuration, consumer groups/offsets and pending-work accounting. Coordinate maintenance and application producers/consumers. Do not format legacy volumes or reset offsets. |
 
 Kafka 4.4.0 is the selected fresh single-node ADV candidate. Its new KRaft PVC
