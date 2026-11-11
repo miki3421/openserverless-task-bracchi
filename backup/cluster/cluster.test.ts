@@ -16,9 +16,17 @@
 // under the License.
 
 import { describe, expect, test } from "bun:test";
-import { buildPlan, isInside, isValidRunId, managerFirst, pendingSnapshotPods } from "./cluster.ts";
+import { buildPlan, isInside, isValidRunId, managerFirst, pendingSnapshotPods, matchesLocalK3sCluster } from "./cluster.ts";
 
 describe("cluster backup preflight", () => {
+  test("local backup is available only for the same single-node cluster identity", () => {
+    const node = {metadata:{uid:"synthetic-local-node"}};
+    expect(matchesLocalK3sCluster([node],[node])).toBe(true);
+    expect(matchesLocalK3sCluster([{metadata:{uid:"remote-node"}}],[node])).toBe(false);
+    expect(matchesLocalK3sCluster([],[])).toBe(false);
+    expect(matchesLocalK3sCluster([{}],[{}])).toBe(false);
+    expect(matchesLocalK3sCluster([node,node],[node])).toBe(false);
+  });
   test("snapshot waits for terminating database pods, active Jobs and orphan action pods", () => {
     const pods = [
       {metadata:{namespace:"openserverless",name:"postgres-0",deletionTimestamp:"2026-11-11T00:00:00Z"},status:{phase:"Running"}},

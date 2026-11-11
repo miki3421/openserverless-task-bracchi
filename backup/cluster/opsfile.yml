@@ -40,7 +40,8 @@ tasks:
     desc: inspect cluster backup coverage and report gaps
     silent: true
     cmds:
-      - bun cluster.ts plan {{.__json}}
+      - |
+        if {{.__json}}; then bun cluster.ts plan --json; else bun cluster.ts plan; fi
 
   create:
     desc: create an offline single-node K3s backup outside the cluster data directory

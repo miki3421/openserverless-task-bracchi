@@ -568,14 +568,16 @@ async function plan(): Promise<BackupPlan> {
   let contextResult = await run("kubectl", ["config", "current-context"], { allowFailure: true });
   if (contextResult.exitCode !== 0) contextResult = await sudo(["k3s", "kubectl", "config", "current-context"]);
   const context = contextResult.stdout.trim();
-  const [nodes, pvs, deployment, locations, kubeconfig] = await Promise.all([
+  const [nodes, pvs, deployment, locations] = await Promise.all([
     kubectlJson(["get", "nodes", "-o", "json"]),
     kubectlJson(["get", "pv", "-o", "json"]),
     kubectlJson(["-n", "velero", "get", "deployment", "velero", "-o", "json"], true),
     kubectlJson(["get", "backupstoragelocations.velero.io", "-A", "-o", "json"], true),
-    kubectlJson(["config", "view", "--minify", "-o", "json"], true),
   ]);
-  const localServer = ["https://127.0.0.1:6443", "https://localhost:6443"].includes(kubeconfig?.clusters?.[0]?.cluster?.server ?? "");
+  // The installer exports a kubeconfig using this node's reachable address.
+  // Match cluster identity rather than assuming that local means loopback.
+  const localNodes = await sudo(["k3s", "kubectl", "--kubeconfig=/etc/rancher/k3s/k3s.yaml", "get", "nodes", "-o", "json"], { allowFailure: true });
+  const localClusterMatches = localNodes.exitCode === 0 && matchesLocalK3sCluster(nodes?.items ?? [], JSON.parse(localNodes.stdout).items ?? []);
   const k3sActive = (await sudo(["systemctl", "is-active", "--quiet", "k3s"], { allowFailure: true })).exitCode === 0;
   const sqlitePresent = (await sudo(["test", "-s", `${K3S_ROOT}/server/db/state.db`], { allowFailure: true })).exitCode === 0;
   const oneNode = (nodes?.items ?? []).length === 1;
@@ -583,7 +585,7 @@ async function plan(): Promise<BackupPlan> {
     const volumePath = pv.spec?.local?.path ?? pv.spec?.hostPath?.path;
     return Boolean(volumePath && isInside(volumePath, K3S_ROOT));
   });
-  const nativeK3sReady = localServer && k3sActive && sqlitePresent && oneNode && localPvs;
+  const nativeK3sReady = localClusterMatches && k3sActive && sqlitePresent && oneNode && localPvs;
 
   return buildPlan({
     context,
@@ -593,6 +595,12 @@ async function plan(): Promise<BackupPlan> {
     backupLocations: locations?.items ?? [],
     nativeK3sReady,
   });
+}
+
+export function matchesLocalK3sCluster(selected: JsonObject[], local: JsonObject[]): boolean {
+  return selected.length === 1 && local.length === 1 &&
+    typeof selected[0].metadata?.uid === "string" && Boolean(selected[0].metadata.uid) &&
+    selected[0].metadata.uid === local[0].metadata?.uid;
 }
 
 async function main() {
