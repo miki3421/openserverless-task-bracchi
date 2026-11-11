@@ -22,8 +22,8 @@ tasks:
     desc: add reversible synthetic backup markers to every local-path volume
     silent: true
     env:
-      OPS_BACKUP_RUN_ID: '{{._run_id_}}'
-      OPS_BACKUP_DESTINATION: '{{._destination_}}'
+      OPS_BACKUP_RUN_ID: '{{.__run_id}}'
+      OPS_BACKUP_DESTINATION: '{{.__destination}}'
     cmds:
       - bun cluster.ts seed
 
@@ -31,8 +31,8 @@ tasks:
     desc: verify synthetic Kubernetes and persistent-volume markers
     silent: true
     env:
-      OPS_BACKUP_RUN_ID: '{{._run_id_}}'
-      OPS_BACKUP_DESTINATION: '{{._destination_}}'
+      OPS_BACKUP_RUN_ID: '{{.__run_id}}'
+      OPS_BACKUP_DESTINATION: '{{.__destination}}'
     cmds:
       - bun cluster.ts verify-data
 
@@ -47,7 +47,7 @@ tasks:
     desc: create an offline single-node K3s backup outside the cluster data directory
     silent: true
     env:
-      OPS_BACKUP_DESTINATION: '{{._destination_}}'
+      OPS_BACKUP_DESTINATION: '{{.__destination}}'
     cmds:
       - bun cluster.ts create
 
@@ -55,7 +55,7 @@ tasks:
     desc: verify a K3s backup archive and its checksum
     silent: true
     env:
-      OPS_BACKUP_PATH: '{{._backup_}}'
+      OPS_BACKUP_PATH: '{{.__backup}}'
     cmds:
       - bun cluster.ts verify
 
@@ -63,7 +63,7 @@ tasks:
     desc: delete the local K3s cluster after verifying its backup
     silent: true
     env:
-      OPS_BACKUP_PATH: '{{._backup_}}'
+      OPS_BACKUP_PATH: '{{.__backup}}'
       OPS_BACKUP_CONFIRM_DELETE: '{{.__confirm_cluster_delete}}'
     cmds:
       - bun cluster.ts delete
@@ -72,7 +72,7 @@ tasks:
     desc: restore the local K3s cluster from a verified offline backup
     silent: true
     env:
-      OPS_BACKUP_PATH: '{{._backup_}}'
+      OPS_BACKUP_PATH: '{{.__backup}}'
       OPS_BACKUP_CONFIRM_RESTORE: '{{.__confirm_cluster_restore}}'
     cmds:
       - bun cluster.ts restore
