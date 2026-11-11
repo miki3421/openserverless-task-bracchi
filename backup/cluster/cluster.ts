@@ -246,9 +246,11 @@ async function waitForWorkloadsReady(timeoutSeconds = 900) {
   fail(`OPS stateful sets/deployments did not return to Ready within ${timeoutSeconds} seconds`);
 }
 
+function isManager(item: { namespace: string; name: string }) {
+  return item.namespace === "openserverless" && ["openserverless-operator", "kubegres-controller-manager"].includes(item.name);
+}
+
 export function managerFirst(workloads: Array<{ kind: string; namespace: string; name: string; replicas: number }>) {
-  const isManager = (item: { namespace: string; name: string }) =>
-    item.namespace === "openserverless" && ["openserverless-operator", "kubegres-controller-manager"].includes(item.name);
   return [...workloads].sort((a, b) => Number(isManager(b)) - Number(isManager(a)));
 }
 
@@ -271,7 +273,24 @@ async function quiesceWorkloads(metadata: JsonObject) {
   for (const job of metadata.cronJobs ?? []) {
     if (!job.suspended) await suspendCronJob({ ...job, suspended: true });
   }
-  for (const workload of managerFirst(metadata.workloads ?? [])) {
+  const workloads = managerFirst(metadata.workloads ?? []);
+  for (const workload of workloads.filter(isManager)) {
+    if (workload.replicas > 0) await scaleWorkload({ ...workload, replicas: 0 });
+  }
+  // A successful scale request does not mean that the operator process has
+  // exited. Otherwise it can reconcile a database back up during shutdown.
+  for (const manager of workloads.filter(isManager)) {
+    const result = await sudo(["k3s", "kubectl", "get", `${manager.kind}/${manager.name}`, "-n", manager.namespace, "-o", "json"]);
+    const selector = JSON.parse(result.stdout).spec?.selector;
+    if (!selector?.matchLabels || !Object.keys(selector.matchLabels).length || selector.matchExpressions?.length)
+      fail(`unsupported manager selector: ${manager.namespace}/${manager.name}`);
+    const labels = Object.entries(selector.matchLabels).map(([key, value]) => `${key}=${value}`).join(",");
+    const pods = await sudo(["k3s", "kubectl", "get", "pods", "-n", manager.namespace, "-l", labels, "-o", "json"]);
+    for (const pod of JSON.parse(pods.stdout).items ?? [])
+      await sudo(["k3s", "kubectl", "wait", "--for=delete", `pod/${pod.metadata.name}`, "-n", manager.namespace, "--timeout=180s"]);
+  }
+  console.log("Operator pods have terminated; stopping managed workloads.");
+  for (const workload of workloads.filter((item) => !isManager(item))) {
     if (workload.replicas > 0) await scaleWorkload({ ...workload, replicas: 0 });
   }
   for (let attempt = 0; attempt < 120; attempt++) {
