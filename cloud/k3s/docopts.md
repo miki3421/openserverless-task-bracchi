@@ -29,6 +29,7 @@ Usage:
   k3s info
   k3s kubeconfig <server> [<user>]
   k3s registry <server> [<user>]
+  k3s traefik <server> [<user>]
   k3s status
 ```
 
@@ -40,6 +41,7 @@ Usage:
   info       info on the server
   kubeconfig recover the kubeconfig from a k3s server <server> with user <username>
   registry   configure the scoped OPS internal registry mirror on a k3s server
+  traefik    reconcile the qualified ingress image, preserving existing configuration
   status     status of the server
 ```
 
@@ -48,3 +50,14 @@ mirror applies only to `openserverless-registry-svc:5000`; public registries
 remain unchanged. Existing custom `/etc/rancher/k3s/registries.yaml` files are
 never overwritten. When `registry` installs the file on a running server, K3s
 is restarted so that containerd loads the new configuration.
+
+`traefik` uses the immutable `config.images.traefik` catalog entry and a separate
+HelmChartConfig file. It preserves existing nodePorts and unrelated values, and
+keeps an atomic-write rollback copy outside the manifests directory. Fresh
+configurations default to ports 30080/30081. Conflicting live/file configuration,
+higher-precedence image selectors, marketplace images and secret-valued Helm
+overrides require separate compatibility review and are not silently replaced.
+YAML scalars that JSON cannot preserve exactly are rejected before mutation.
+The command waits for the selected image to converge on a running K3s server.
+For a fresh configuration only, `K3S_TRAEFIK_HTTP_NODEPORT` / `HTTPS_NODEPORT`
+override `TRAEFIK_HTTP_NODEPORT` / `HTTPS_NODEPORT`; existing ports are retained.

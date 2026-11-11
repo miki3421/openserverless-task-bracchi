@@ -40,28 +40,19 @@ tasks:
     cmds:
       - test -n "{{._server_}}" || die "required <server> ip or hostname"
       - bun "$OPS_ROOT/cloud/k3s/registry.ts" configure "{{._server_}}" "{{.INSTALL_USER}}"
-      - |
-        traefik_http_nodeport="${K3S_TRAEFIK_HTTP_NODEPORT:-${TRAEFIK_HTTP_NODEPORT:-30080}}"
-        traefik_https_nodeport="${K3S_TRAEFIK_HTTPS_NODEPORT:-${TRAEFIK_HTTPS_NODEPORT:-30081}}"
-        {{.SSH}} '{{.INSTALL_USER}}@{{._server_}}' "sudo mkdir -p /var/lib/rancher/k3s/server/manifests"
-        cat <<EOF | {{.SSH}} '{{.INSTALL_USER}}@{{._server_}}' "sudo tee /var/lib/rancher/k3s/server/manifests/traefik-config.yaml >/dev/null"
-        apiVersion: helm.cattle.io/v1
-        kind: HelmChartConfig
-        metadata:
-          name: traefik
-          namespace: kube-system
-        spec:
-          valuesContent: |-
-            ports:
-              web:
-                nodePort: ${traefik_http_nodeport}
-              websecure:
-                nodePort: ${traefik_https_nodeport}
-        EOF
+      - bun "$OPS_ROOT/cloud/k3s/traefik.ts" configure "{{._server_}}" "{{.INSTALL_USER}}"
       - >
         k3sup install --k3s-version="{{.K3S_VERSION}}"
         --host="{{._server_}}" --user="{{.INSTALL_USER}}"
         --local-path=$OPS_TMP/kubeconfig
+
+  traefik:
+    silent: true
+    desc: pin and reconcile the qualified Traefik image without reinstalling K3s
+    vars:
+      INSTALL_USER: '{{._user_ | default "root"}}'
+    cmds:
+      - bun "$OPS_ROOT/cloud/k3s/traefik.ts" configure "{{._server_}}" "{{.INSTALL_USER}}"
 
   registry:
     silent: true
@@ -82,6 +73,7 @@ tasks:
         while ! kubectl --kubeconfig $OPS_TMP/kubeconfig get storageclass | rg default
         do echo waiting default storage class ; sleep 1
         done
+      - task: traefik
       - ops util cert-manager
       - cp "$OPS_TMP/kubeconfig" "$OPS_TMP/k3s-{{._server_}}.kubeconfig"
 
