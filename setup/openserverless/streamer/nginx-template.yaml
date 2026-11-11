@@ -22,7 +22,7 @@ metadata:
     nginx.ingress.kubernetes.io/proxy-read-timeout: "300"
     nginx.ingress.kubernetes.io/proxy-send-timeout: "300"
 
-$T    cert-manager.io/cluster-issuer: letsencrypt-prod
+$T    cert-manager.io/cluster-issuer: ${OPERATOR_CONFIG_TLS_ISSUER_NAME:-letsencrypt-issuer}
 $T    nginx.ingress.kubernetes.io/force-ssl-redirect: "true"
 
   name: openserverless-streamer-api-ingress

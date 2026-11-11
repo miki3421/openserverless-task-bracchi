@@ -368,6 +368,7 @@ tasks:
     desc: prepare deploy
     cmds:
       - task: context
+      - bun "$OPS_ROOT/setup/external-issuer.ts"
       - task: secrets
       - task: runtimes
 

@@ -26,6 +26,7 @@ Configure OpenServerless
 Usage:
   config (enable|disable) [--all] [--redis] [--mongodb] [--cron] [--static] [--postgres] [--prometheus] [--slack] [--mail] [--affinity] [--tolerations] [--quota] [--milvus] [--registry] [--seaweedfs] [--etcd] [--alertmanager]
   config apihost (<apihost>|auto) [--tls=<email>] [--protocol=<http/https>|auto]
+  config tls --external-issuer=<name>
   config sso
   config activations [--days=<days>]
   config runtimes [<runtimesjson>]
@@ -60,6 +61,7 @@ Usage:
 
 ```
   config apihost          configure the apihost (auto: auto assign) and enable tls
+  config tls              select a pre-provisioned Ready ClusterIssuer (for example an internal CA)
   config sso              configure SSO/OIDC integration for admin-api; run `ops config sso --help` for details
   config activations      configure activation and log retention for installation (30 days; 0 suspends cleanup)
   config runtime          show the current runtime.json or import the <runtime-json> if provided
@@ -150,3 +152,13 @@ alone does not apply it. The operator image must include the retention worker.
 An operator-only update of an old resource with no retention field does not
 enable historical deletion. Cleanup is logical deletion; CouchDB compaction
 reclaims obsolete bodies later, and backups retain their separate lifetimes.
+
+For a new installation using an internal or corporate CA, provision a Ready
+cert-manager ClusterIssuer first, run `config apihost <host> --protocol=https`,
+then `config tls --external-issuer=<name>` before `setup cluster` and before
+provisioning tenants. Setup verifies issuer readiness before deploying the
+operator. The operator reads the issuer but does not create, replace, adopt,
+delete it or read its private key. Distribute the CA trust to clients explicitly;
+this does not make the certificate publicly trusted. CA rotation and trust
+distribution remain owned by the external PKI. Migration of pre-existing HTTP
+tenant endpoints is a separate operation from this fresh-install profile.

@@ -353,9 +353,18 @@ spec:
                   required:
                   - schedule                  
                 tls:
-                  description: required to configure a let's encrypt cluster issue used to autorenew the apihost SSL certificates
+                  description: TLS issuer configuration for ACME or an externally managed PKI
                   type: object
                   properties:
+                    issuer-name:
+                      description: ClusterIssuer used by API and tenant ingress resources
+                      type: string
+                      maxLength: 63
+                      pattern: '^[a-z0-9]([-a-z0-9]*[a-z0-9])?$'
+                    external-issuer:
+                      description: Use an existing Ready ClusterIssuer without creating or deleting it
+                      type: boolean
+                      default: false
                     acme-registered-email:
                       description: an email address to receive let's encrypt notification about SSL/TLS certificate expiration
                       type: string
@@ -933,4 +942,4 @@ spec:
           type: string
           priority: 0
           jsonPath: .status.whisk_create.seaweedfs
-          description: Seaweedfs                                                                                                                        
+          description: Seaweedfs

@@ -22,7 +22,7 @@ metadata:
     nginx.ingress.kubernetes.io/proxy-read-timeout: "300"
     nginx.ingress.kubernetes.io/proxy-send-timeout: "300"
 
-$T    cert-manager.io/cluster-issuer: letsencrypt-prod
+$T    cert-manager.io/cluster-issuer: ${OPERATOR_CONFIG_TLS_ISSUER_NAME:-letsencrypt-issuer}
 $T    nginx.ingress.kubernetes.io/force-ssl-redirect: "true"
 
   name: ${USERNAME}-my-streamer-ingress
@@ -34,7 +34,7 @@ spec:
 $T  tls:
 $T  - hosts:
 $T      - ${USERNAME}.${BASE_HOST:-localhost}
-$T    secretName: streamer-api-tls
+$T    secretName: ${USERNAME}-crt
 
   rules:
   - host: ${USERNAME}.${BASE_HOST:-localhost}
@@ -68,7 +68,7 @@ metadata:
     nginx.ingress.kubernetes.io/use-regex: "true"
     nginx.ingress.kubernetes.io/rewrite-target: /web/${USERNAME}/$$2
 
-$T    cert-manager.io/cluster-issuer: letsencrypt-prod
+$T    cert-manager.io/cluster-issuer: ${OPERATOR_CONFIG_TLS_ISSUER_NAME:-letsencrypt-issuer}
 $T    nginx.ingress.kubernetes.io/force-ssl-redirect: "true"
 
   name: ${USERNAME}-my-streamer-web-ingress
@@ -80,7 +80,7 @@ spec:
 $T  tls:
 $T  - hosts:
 $T      - ${USERNAME}.${BASE_HOST:-localhost}
-$T    secretName: streamer-api-tls
+$T    secretName: ${USERNAME}-crt
 
   rules:
   - host: ${USERNAME}.${BASE_HOST:-localhost}
@@ -107,7 +107,7 @@ metadata:
     nginx.ingress.kubernetes.io/use-regex: "true"
     nginx.ingress.kubernetes.io/rewrite-target: /action/${USERNAME}/$$2
 
-$T    cert-manager.io/cluster-issuer: letsencrypt-prod
+$T    cert-manager.io/cluster-issuer: ${OPERATOR_CONFIG_TLS_ISSUER_NAME:-letsencrypt-issuer}
 $T    nginx.ingress.kubernetes.io/force-ssl-redirect: "true"
 
   name: ${USERNAME}-my-streamer-action-ingress
@@ -119,7 +119,7 @@ spec:
 $T  tls:
 $T  - hosts:
 $T      - ${USERNAME}.${BASE_HOST:-localhost}
-$T    secretName: streamer-api-tls
+$T    secretName: ${USERNAME}-crt
 
   rules:
   - host: ${USERNAME}.${BASE_HOST:-localhost}
@@ -149,7 +149,7 @@ metadata:
     nginx.ingress.kubernetes.io/proxy-read-timeout: "300"
     nginx.ingress.kubernetes.io/proxy-send-timeout: "300"
 
-$T    cert-manager.io/cluster-issuer: letsencrypt-prod
+$T    cert-manager.io/cluster-issuer: ${OPERATOR_CONFIG_TLS_ISSUER_NAME:-letsencrypt-issuer}
 $T    nginx.ingress.kubernetes.io/force-ssl-redirect: "true"
 
   name: ${USERNAME}-my-s3-ingress
@@ -161,7 +161,7 @@ spec:
 $T  tls:
 $T  - hosts:
 $T      - ${USERNAME}.${BASE_HOST:-localhost}
-$T    secretName: streamer-api-tls
+$T    secretName: ${USERNAME}-crt
 
   rules:
   - host: ${USERNAME}.${BASE_HOST:-localhost}

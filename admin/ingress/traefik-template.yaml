@@ -22,7 +22,7 @@ metadata:
     traefik.ingress.kubernetes.io/transport.respondingTimeouts.readTimeout: "600"
     traefik.ingress.kubernetes.io/transport.respondingTimeouts.writeTimeout: "600"
 
-$T    cert-manager.io/cluster-issuer: letsencrypt-prod
+$T    cert-manager.io/cluster-issuer: ${OPERATOR_CONFIG_TLS_ISSUER_NAME:-letsencrypt-issuer}
 $T    traefik.ingress.kubernetes.io/router.tls: "true"
 $T    traefik.ingress.kubernetes.io/router.entrypoints: websecure,web
 
@@ -35,7 +35,7 @@ spec:
 $T  tls:
 $T    - hosts:
 $T        - ${USERNAME}.${BASE_HOST:-localhost}
-$T      secretName: streamer-api-tls
+$T      secretName: ${USERNAME}-crt
 
   rules:
   - host: ${USERNAME}.${BASE_HOST:-localhost}
@@ -91,7 +91,7 @@ metadata:
     traefik.ingress.kubernetes.io/transport.respondingTimeouts.readTimeout: "600"
     traefik.ingress.kubernetes.io/transport.respondingTimeouts.writeTimeout: "600"
 
-$T    cert-manager.io/cluster-issuer: letsencrypt-prod
+$T    cert-manager.io/cluster-issuer: ${OPERATOR_CONFIG_TLS_ISSUER_NAME:-letsencrypt-issuer}
 $T    traefik.ingress.kubernetes.io/router.tls: "true"
 $T    traefik.ingress.kubernetes.io/router.entrypoints: websecure,web
 
@@ -104,7 +104,7 @@ spec:
 $T  tls:
 $T    - hosts:
 $T        - ${USERNAME}.${BASE_HOST:-localhost}
-$T      secretName: streamer-api-tls
+$T      secretName: ${USERNAME}-crt
 
   rules:
   - host: ${USERNAME}.${BASE_HOST:-localhost}
@@ -129,7 +129,7 @@ metadata:
     traefik.ingress.kubernetes.io/transport.respondingTimeouts.readTimeout: "600"
     traefik.ingress.kubernetes.io/transport.respondingTimeouts.writeTimeout: "600"
 
-$T    cert-manager.io/cluster-issuer: letsencrypt-prod
+$T    cert-manager.io/cluster-issuer: ${OPERATOR_CONFIG_TLS_ISSUER_NAME:-letsencrypt-issuer}
 $T    traefik.ingress.kubernetes.io/router.tls: "true"
 $T    traefik.ingress.kubernetes.io/router.entrypoints: websecure,web
 
@@ -142,7 +142,7 @@ spec:
 $T  tls:
 $T    - hosts:
 $T        - ${USERNAME}.${BASE_HOST:-localhost}
-$T      secretName: streamer-api-tls
+$T      secretName: ${USERNAME}-crt
 
   rules:
   - host: ${USERNAME}.${BASE_HOST:-localhost}
@@ -172,7 +172,7 @@ metadata:
     traefik.ingress.kubernetes.io/transport.respondingTimeouts.readTimeout: "600"
     traefik.ingress.kubernetes.io/transport.respondingTimeouts.writeTimeout: "600"
 
-$T    cert-manager.io/cluster-issuer: letsencrypt-prod
+$T    cert-manager.io/cluster-issuer: ${OPERATOR_CONFIG_TLS_ISSUER_NAME:-letsencrypt-issuer}
 $T    traefik.ingress.kubernetes.io/router.tls: "true"
 $T    traefik.ingress.kubernetes.io/router.entrypoints: websecure,web
 
@@ -185,7 +185,7 @@ spec:
 $T  tls:
 $T    - hosts:
 $T        - ${USERNAME}.${BASE_HOST:-localhost}
-$T      secretName: streamer-api-tls
+$T      secretName: ${USERNAME}-crt
 
   rules:
   - host: ${USERNAME}.${BASE_HOST:-localhost}

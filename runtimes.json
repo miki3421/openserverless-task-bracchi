@@ -39,9 +39,9 @@
                 "kind": "go:1.26",
                 "default": true,
                 "image": {
-                    "prefix": "docker.io/apache",
-                    "name": "openserverless-runtime-go",
-                    "tag": "v1.26-26i22h40-snapshot@sha256:94eb04a290cbba70ed51a051ece44e0a6771b017ef230310e431b92879fffcfc"
+                    "prefix": "docker.io/miki3421",
+                    "name": "ops-advanced-go",
+                    "tag": "1.26-20261111-r1@sha256:d8742780dab07d96d1fadedfa694d6b4e42a5d0489d41327b6c7a52ced979b82"
                 },
                 "deprecated": false,
                 "attached": {
@@ -114,9 +114,9 @@
                 "kind": "java:8",
                 "default": true,
                 "image": {
-                    "prefix": "docker.io/apache",
-                    "name": "openserverless-runtime-java",
-                    "tag": "v8-26i22h40-snapshot@sha256:19682a175bf6e53816d8b6d203b48dedf63e02a63967be946db7009f51fe2cb0"
+                    "prefix": "docker.io/miki3421",
+                    "name": "ops-advanced-java",
+                    "tag": "8-20261111-r3@sha256:1b17be8d7d27a6c135cc1cf6c53b271639fa9764635bf1e1d80d32e883bc5593"
                 },
                 "deprecated": false,
                 "attached": {

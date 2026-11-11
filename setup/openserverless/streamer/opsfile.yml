@@ -47,6 +47,9 @@ env:
   INGRESS_TYPE:
     sh: ops util ingress-type
 
+  OPERATOR_CONFIG_TLS_ISSUER_NAME:
+    sh: ops util kubeget wsk/controller .spec.tls.issuer-name
+
 tasks:
 
   deploy:

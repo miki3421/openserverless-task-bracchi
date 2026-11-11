@@ -22,6 +22,16 @@ vars:
   VAL: ""
 
 tasks:
+  tls:
+    desc: use an existing ClusterIssuer without changing its lifecycle
+    silent: true
+    env:
+      OPS_TLS_EXTERNAL_ISSUER_INPUT: '{{.__external_issuer}}'
+    cmds:
+      - |
+        CHANGES=$(bun "$OPS_ROOT/config/tls.ts") || exit 1
+        for SETTING in $CHANGES; do config "$SETTING"; done
+        echo "External ClusterIssuer selected; provision it before setup cluster."
   activations:
     desc: configure activation and log retention for installation
     silent: true
@@ -37,6 +47,7 @@ tasks:
     silent: true
     cmds:
       - config OPERATOR_CONFIG_APIHOST="{{._apihost_}}"
+      - config OPERATOR_CONFIG_TLS_ISSUER_NAME=letsencrypt-issuer OPERATOR_CONFIG_TLS_EXTERNAL_ISSUER=false
       - config -dump | rg OPERATOR_CONFIG_APIHOST
       - |
         if test -n "{{.__tls}}"

@@ -68,6 +68,8 @@ spec:
     # REGISTRY enabled or not
     seaweedfs: ${OPERATOR_COMPONENT_SEAWEEDFS:-false}    
   tls:
+    issuer-name: ${OPERATOR_CONFIG_TLS_ISSUER_NAME:-letsencrypt-issuer}
+    external-issuer: ${OPERATOR_CONFIG_TLS_EXTERNAL_ISSUER:-false}
     acme-registered-email: ${OPERATOR_CONFIG_TLSEMAIL:-no-reply@email.com}
     acme-server-url: https://acme-v02.api.letsencrypt.org/directory
   openwhisk:
