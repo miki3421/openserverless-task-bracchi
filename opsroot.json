@@ -12,7 +12,7 @@
       "coreutils": "arch b2sum b3sum base32 basename basenc cat chgrp chmod chown chroot cksum comm cp csplit cut date dd df dir dircolors dirname du env expand expr factor fmt fold groups hashsum head hostid hostname id install join kill link ln logname ls md5sum mkdir mkfifo mknod mktemp more mv nice nl nohup nproc numfmt od paste pathchk pinky pr printenv printf ptx pwd readlink realpath rm rmdir seq sha1sum sha224sum sha256sum sha3-224sum sha3-256sum sha3-384sum sha3-512sum sha384sum sha3sum sha512sum shake128sum shake256sum shred shuf sleep sort split stat stdbuf stty sum sync tac tail tee timeout touch tr truncate tsort tty uname unexpand uniq unlink uptime users vdir wc who whoami yes"
     },
     "images": {
-      "operator": "docker.io/miki3421/ops-advanced-operator:20261111-ferretdb-r3@sha256:6543afa0d5a72799d81e755d8884d29f1467dbb2f1552457c3aa7ce93b93625e",
+      "operator": "docker.io/miki3421/ops-advanced-operator:20261111-engine-freeze-r1@sha256:120f0388ca57b9789f6a0cb0ba06f2e6b78f0a27580c1fc3b87988c82376479c",
       "controller": "docker.io/miki3421/ops-advanced-controller:20261106-kafka-azure-r3@sha256:e926b6578abdf8ff0c3be1a1477e89ae098d4c3a84764d034562783476d90c57",
       "invoker": "docker.io/miki3421/ops-advanced-invoker:20261106-kafka-azure-r3@sha256:0190540ea64c7187870e6298148061c245a486ea6bd64d10e81fd2311d1577d4",
       "streamer": "docker.io/miki3421/ops-advanced-streamer:20261106-go1273-r1@sha256:5aa7a68a4be7ea75f20de996656623a46d639d2d933856ae393d979a1f374911",
@@ -23,7 +23,7 @@
       "etcd": "docker.io/miki3421/ops-advanced-etcd:3.7.2-20261016@sha256:02969ce1a6172cfd0d4363224e6fc8e9de3051bc43dd384ae82af5ffbca5e3ea",
       "redis": "docker.io/library/redis:8.10.2@sha256:2c2dff791878316e3b083188be0d578423b24813cdda5de0e80ea4f7b3e6bfd6",
       "seaweedfs": "docker.io/chrislusf/seaweedfs:4.48@sha256:4e61d15fd35994cb1e43e1e553dff106794841fd9a99ade2fc8c8bfce4d7872d",
-      "busybox": "docker.io/library/busybox:1.36.0",
+      "busybox": "docker.io/library/busybox:1.36.0@sha256:9e2bbca079387d7965c3a9cee6d0c53f4f4e63ff7637877a83c4c05f2a666112",
       "registry": "docker.io/miki3421/ops-advanced-registry:3.1.2-20261106-r1@sha256:75a843bf4b74c23c6776dbabbbd674b1ba5bc4ff1a1b7af3bce5d31a2b866351",
       "milvus": "docker.io/miki3421/ops-advanced-milvus:3.0.2-zero-grace-20261016@sha256:40e575fa5d4f7fc717ecf9fc0a4d980848a41d47804788eb92e9a383f5f4f3f2",
       "nginx": "docker.io/nginx/nginx-unprivileged:1.30.6@sha256:e17bfe33eecc8fd86ca9f12c665f21270b0d88b09a0f13bfdede3fcd795f5fda",
