@@ -254,7 +254,7 @@ tasks:
       - task: wait
         vars:
           OBJECT: pod/openserverless-operator-0
-          COND: trues
+          COND: true
 
   secrets:
     silent: true
