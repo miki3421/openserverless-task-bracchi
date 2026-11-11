@@ -59,10 +59,7 @@ tasks:
     vars:
       T:
         sh: |
-            if ops util kubeget wsk/controller .status.whisk_create.tls | rg on >/dev/null
-            then echo ""
-            else echo "#"
-            fi
+            bun "$OPS_ROOT/setup/ingress-tls.ts"
     cmds:
     - test -e ${INGRESS_TYPE}-template.yaml || die "No avalable template for ingress type ${INGRESS_TYPE}."
     - test -n "$IMAGES_STREAMER" || die "IMAGES_STREAMER is not set. Please set it to the desired image version."

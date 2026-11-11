@@ -41,7 +41,7 @@
                 "image": {
                     "prefix": "docker.io/miki3421",
                     "name": "ops-advanced-go",
-                    "tag": "1.26-20261111-r1@sha256:d8742780dab07d96d1fadedfa694d6b4e42a5d0489d41327b6c7a52ced979b82"
+                    "tag": "1.26-20261111-r2@sha256:5293e8edc93135fad8a34af9c9432ceb0dcb37e6a014a527c32eba71fde055d6"
                 },
                 "deprecated": false,
                 "attached": {
@@ -116,7 +116,7 @@
                 "image": {
                     "prefix": "docker.io/miki3421",
                     "name": "ops-advanced-java",
-                    "tag": "8-20261111-r3@sha256:1b17be8d7d27a6c135cc1cf6c53b271639fa9764635bf1e1d80d32e883bc5593"
+                    "tag": "8-20261111-r4@sha256:830b4346cc32297540d17ae812b6619208231acab9a204b9f776e621f0ab5344"
                 },
                 "deprecated": false,
                 "attached": {

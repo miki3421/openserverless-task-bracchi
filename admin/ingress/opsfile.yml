@@ -33,10 +33,7 @@ env:
 
   T:
     sh: |
-        if ops util kubeget wsk/controller .status.whisk_create.tls | rg on >/dev/null
-        then echo ""
-        else echo "#"
-        fi
+        bun "$OPS_ROOT/setup/ingress-tls.ts"
 
   BASE_HOST:
       sh: |
