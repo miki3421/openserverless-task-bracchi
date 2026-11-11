@@ -414,14 +414,12 @@ tasks:
 
   operator-update:
     silent: true
-    desc: update the operator using the latest version configured in nuvroot.json if it is different than the current deployed one
+    desc: apply the operator selected by this task catalog and wait for rollout
     cmds:
+      - task: context
       - "kubectl apply -f crds"
       - task: operator
-      - kubectl -n openserverless rollout restart statefulset openserverless-operator
-    preconditions:
-      - sh: '[ $ENT_IMAGES_OPERATOR != $(nuv debug operator:version) ]'
-        msg: "Current OpenServerless operator it is already updated to newest version. Request ignored."
+      - kubectl -n openserverless rollout status statefulset/openserverless-operator --timeout=300s
 
   instance-update:
     desc: render and apply the current instance configuration

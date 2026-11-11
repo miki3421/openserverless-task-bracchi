@@ -65,3 +65,9 @@ sequence; direct namespace deletion can remove it before cleanup completes.
 - `kubernetes`: prepare kubernetes
 - `openserverless`: install openserverless
 - `docker`: prepare docker
+
+`ops setup kubernetes operator-update` applies the operator image from the
+selected task catalog and waits for its StatefulSet rollout. Repeating it with
+the same catalog does not force a restart. It neither upgrades database schemas
+nor verifies application health: preserve a verified backup and the previous
+catalog, then run tenant/data checks after any operator image change.
