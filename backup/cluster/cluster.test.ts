@@ -16,9 +16,21 @@
 // under the License.
 
 import { describe, expect, test } from "bun:test";
-import { buildPlan, isInside, isValidRunId, managerFirst } from "./cluster.ts";
+import { buildPlan, isInside, isValidRunId, managerFirst, pendingSnapshotPods } from "./cluster.ts";
 
 describe("cluster backup preflight", () => {
+  test("snapshot waits for terminating database pods, active Jobs and orphan action pods", () => {
+    const pods = [
+      {metadata:{namespace:"openserverless",name:"postgres-0",deletionTimestamp:"2026-11-11T00:00:00Z"},status:{phase:"Running"}},
+      {metadata:{namespace:"openserverless",name:"cron-job"},status:{phase:"Pending"}},
+      {metadata:{namespace:"openserverless",name:"action"},status:{phase:"Running"}},
+      {metadata:{namespace:"openserverless",name:"completed"},status:{phase:"Succeeded"}},
+      {metadata:{namespace:"openserverless",name:"failed"},status:{phase:"Failed"}},
+      {metadata:{namespace:"kube-system",name:"coredns"},status:{phase:"Running"}},
+    ];
+    expect(pendingSnapshotPods(pods)).toEqual(["openserverless/postgres-0","openserverless/cron-job","openserverless/action"]);
+    expect(pendingSnapshotPods(pods.slice(3))).toEqual([]);
+  });
   test("reports local-path hostPath data as an uncovered blocker", () => {
     const plan = buildPlan({
       context: "lab",

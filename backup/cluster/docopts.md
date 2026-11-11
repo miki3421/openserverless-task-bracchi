@@ -61,6 +61,9 @@ SQLite datastore and PV data under `/var/lib/rancher/k3s`. The archive includes
 the K3s database, token, configuration, binary, systemd unit, and local-path
 volume data. `create` suspends CronJobs and scales workload controllers down
 gracefully (operator controllers first), then stops K3s for the file snapshot.
+The snapshot waits for all non-system pods to terminate, including active Jobs
+and action pods; zero Ready replicas alone is not accepted as proof of shutdown.
+An unowned or stuck active pod blocks the snapshot rather than being deleted.
 It excludes the containerd runtime/image cache. Public images must be pulled
 again after restore; private images must be pullable with the cluster's
 registry credentials or imported from a separately saved image bundle while

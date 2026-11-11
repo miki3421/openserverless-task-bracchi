@@ -261,6 +261,12 @@ async function suspendCronJob(job: { namespace: string; name: string; suspended:
   await sudo(["k3s", "kubectl", "patch", "cronjob", job.name, "-n", job.namespace, "--type=merge", `-p=${patch}`]);
 }
 
+export function pendingSnapshotPods(pods: JsonObject[]): string[] {
+  return pods.filter((pod) => pod.metadata?.namespace !== "kube-system" &&
+    !["Succeeded", "Failed"].includes(pod.status?.phase))
+    .map((pod) => `${pod.metadata.namespace}/${pod.metadata.name}`);
+}
+
 async function quiesceWorkloads(metadata: JsonObject) {
   for (const job of metadata.cronJobs ?? []) {
     if (!job.suspended) await suspendCronJob({ ...job, suspended: true });
@@ -272,7 +278,12 @@ async function quiesceWorkloads(metadata: JsonObject) {
     const result = await sudo(["k3s", "kubectl", "get", "statefulsets,deployments", "-A", "-o", "json"]);
     const live = JSON.parse(result.stdout).items ?? [];
     const pending = live.filter((item: JsonObject) => item.metadata.namespace !== "kube-system" && Number(item.status?.readyReplicas ?? 0) > 0);
-    if (!pending.length) return;
+    if (!pending.length) {
+      // Ready=0 is also true for a terminating database pod. K3s stop does
+      // not guarantee that container processes have stopped: wait for pods.
+      const podResult = await sudo(["k3s", "kubectl", "get", "pods", "-A", "-o", "json"]);
+      if (!pendingSnapshotPods(JSON.parse(podResult.stdout).items ?? []).length) return;
+    }
     await Bun.sleep(5000);
   }
   fail("workloads did not shut down within 10 minutes; the K3s service was not stopped");
