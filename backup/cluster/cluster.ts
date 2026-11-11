@@ -312,8 +312,9 @@ async function restoreWorkloads(metadata: JsonObject) {
   for (const workload of managerFirst(metadata.workloads ?? []).reverse()) {
     if (workload.replicas > 0) await scaleWorkload(workload);
   }
-  for (const job of metadata.cronJobs ?? []) await suspendCronJob(job);
   await waitForWorkloadsReady(1200);
+  // Resume schedules only after their APIs and datastores are available.
+  for (const job of metadata.cronJobs ?? []) await suspendCronJob(job);
 }
 
 async function localPersistentVolumes(): Promise<Array<{ pv: string; namespace: string; claim: string; path: string }>> {
