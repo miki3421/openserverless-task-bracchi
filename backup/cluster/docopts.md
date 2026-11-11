@@ -37,8 +37,8 @@ Usage:
 
 ```text
 plan    Read-only inventory of persistent volumes and supported backup paths.
-seed    Write an identifiable synthetic marker to every local-path volume and a ConfigMap.
-verify-data Check the marker ConfigMap and every persistent-volume marker.
+seed    Disabled: use application-owned APIs to prepare recovery data.
+verify-data Read-only compatibility check for previously created marker sets.
 create  Stop K3s briefly and create a compressed, offline archive.
 verify  Check the archive checksum and required K3s state files.
 delete  Remove the local K3s cluster only after verifying its archive.
@@ -79,7 +79,9 @@ The task refuses multi-node/etcd clusters and PVs outside the K3s data tree.
 It does not provide application-level consistency for external volumes or
 replace database-native backup policies.
 
-`seed` and `verify-data` provide repeatable, non-secret test markers for all
-bound local-path PVs and a ConfigMap listing the OPS component families. Use a
-unique run ID; the marker files are placed at the root of each PV and are not
-application-native database records.
+`seed` now refuses before accessing cluster data: files added to a PV root can
+violate a database storage-format guard (including the Kafka KRaft guard).
+Prepare synthetic records through the owning applications and verify their
+original counts/digests, credentials and PVC identity after restore.
+`verify-data` remains a read-only compatibility check for old marker sets; it
+does not prove that a marker-bearing database can restart.

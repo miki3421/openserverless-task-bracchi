@@ -16,9 +16,26 @@
 // under the License.
 
 import { describe, expect, test } from "bun:test";
+import { mkdtemp, rm, access } from "node:fs/promises";
+import os from "node:os";
+import path from "node:path";
 import { buildPlan, isInside, isValidRunId, managerFirst, pendingSnapshotPods, matchesLocalK3sCluster } from "./cluster.ts";
 
 describe("cluster backup preflight", () => {
+  test("legacy seed refuses before creating any output or accessing the cluster", async () => {
+    const scratch = await mkdtemp(path.join(os.tmpdir(), "ops-seed-refusal-"));
+    const destination = path.join(scratch, "must-not-be-created");
+    try {
+      const child = Bun.spawn([process.execPath, path.join(import.meta.dir, "cluster.ts"), "seed"], {
+        env: {...process.env, OPS_BACKUP_RUN_ID:"synthetic", OPS_BACKUP_DESTINATION:destination},
+        stdout:"pipe", stderr:"pipe",
+      });
+      const stderr = await new Response(child.stderr).text();
+      expect(await child.exited).toBe(1);
+      expect(stderr).toContain("PV-root marker seeding is disabled");
+      expect(await access(destination).then(() => true, () => false)).toBe(false);
+    } finally { await rm(scratch,{recursive:true,force:true}); }
+  });
   test("local backup is available only for the same single-node cluster identity", () => {
     const node = {metadata:{uid:"synthetic-local-node"}};
     expect(matchesLocalK3sCluster([node],[node])).toBe(true);

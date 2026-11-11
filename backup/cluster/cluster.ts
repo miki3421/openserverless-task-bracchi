@@ -329,67 +329,8 @@ async function localPersistentVolumes(): Promise<Array<{ pv: string; namespace: 
   });
 }
 
-async function applyJsonManifest(manifest: JsonObject) {
-  const temporary = path.join(os.tmpdir(), `ops-backup-lab-${crypto.randomUUID()}.json`);
-  await writeFile(temporary, JSON.stringify(manifest), { mode: 0o600 });
-  try {
-    await sudo(["k3s", "kubectl", "apply", "-f", temporary]);
-  } finally {
-    await rm(temporary, { force: true });
-  }
-}
-
-async function seedSyntheticData(runId: string) {
-  if (!isValidRunId(runId)) fail("run id must be 1-44 lowercase letters, digits, dots, or hyphens");
-  const persistPath = path.resolve(process.env.OPS_BACKUP_DESTINATION || path.join(os.homedir(), "ops-cluster-backups"));
-  await mkdir(persistPath, { recursive: true, mode: 0o700 });
-  const manifestPath = path.join(persistPath, `synthetic-data-${runId}.json`);
-  if (await Bun.file(manifestPath).exists()) fail(`synthetic run manifest already exists: ${manifestPath}`);
-  const volumes = await localPersistentVolumes();
-  const fileName = `ops-backup-lab.${runId}.json`;
-  const markerRecords = volumes.map(({ pv, namespace, claim }) => ({ pv, namespace, claim, runId }));
-  const markerContents = JSON.stringify({ format: 1, runId, kind: "synthetic-persistent-volume-marker" }, null, 2) + "\n";
-
-  for (const volume of volumes) {
-    const target = path.join(volume.path, fileName);
-    if ((await sudo(["test", "-e", target], { allowFailure: true })).exitCode === 0) {
-      fail(`synthetic marker already exists; choose a new run id (${volume.pv})`);
-    }
-  }
-  for (const volume of volumes) {
-    const temporary = path.join(os.tmpdir(), `ops-backup-lab-${crypto.randomUUID()}.json`);
-    await writeFile(temporary, markerContents, { mode: 0o600 });
-    try {
-      await sudo(["install", "-o", "root", "-g", "root", "-m", "0644", temporary, path.join(volume.path, fileName)]);
-    } finally {
-      await rm(temporary, { force: true });
-    }
-  }
-
-  const manifest = {
-    apiVersion: "v1",
-    kind: "ConfigMap",
-    metadata: {
-      name: `ops-backup-lab-${runId}`,
-      namespace: "openserverless",
-      labels: { "ops-advanced-test": "cluster-backup" },
-    },
-    data: {
-      runId,
-      components: JSON.stringify([
-        "postgres", "mongodb", "couchdb", "redis", "etcd", "kafka", "zookeeper",
-        "milvus", "seaweedfs", "registry", "prometheus", "alertmanager", "static",
-        "controller", "invoker", "operator", "streamer-api", "system-api", "tika",
-      ]),
-      volumes: JSON.stringify(markerRecords),
-    },
-  };
-  await applyJsonManifest(manifest);
-  const markerManifest = { runId, fileName, volumeCount: volumes.length, volumes: markerRecords };
-  await writeFile(manifestPath, `${JSON.stringify(markerManifest, null, 2)}\n`, { flag: "wx", mode: 0o600 });
-  console.log(`Seeded ${volumes.length} persistent-volume markers and Kubernetes component data.`);
-  console.log(`Synthetic data manifest: ${manifestPath}`);
-  console.log(`Run ID: ${runId}; file marker: ${fileName}`);
+async function seedSyntheticData(_runId: string) {
+  fail("PV-root marker seeding is disabled: marker files can prevent databases from restarting. Seed through application-owned APIs and verify the original records after restore.");
 }
 
 async function verifySyntheticData(runId: string) {

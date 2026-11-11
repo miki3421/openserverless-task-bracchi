@@ -19,7 +19,7 @@ version: "3"
 
 tasks:
   seed:
-    desc: add reversible synthetic backup markers to every local-path volume
+    desc: refuse unsafe PV marker seeding; use application-owned records
     silent: true
     env:
       OPS_BACKUP_RUN_ID: '{{.__run_id}}'
