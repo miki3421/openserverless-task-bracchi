@@ -116,12 +116,14 @@ tasks:
   kubectl:
     desc: download kubectl
     vars:
-      VERSION: 1.33.1
+      VERSION: 1.36.4
+      URL: "https://dl.k8s.io/release/v{{.VERSION}}/bin/{{.OS}}/{{.ARCH}}/kubectl{{.EXE}}"
     cmds:
-      - task: download
-        vars:
-          URL: "https://dl.k8s.io/release/v{{.VERSION}}/bin/{{.OS}}/{{.ARCH}}/kubectl{{.EXE}}"
-          OUT: kubectl
+      - curl -fsSL --retry 3 "{{.URL}}" -o "kubectl{{.EXE}}"
+      - curl -fsSL --retry 3 "{{.URL}}.sha256" -o "kubectl{{.EXE}}.sha256"
+      - bun "$OPS_ROOT/prereq/verify-download.ts" "kubectl{{.EXE}}" "kubectl{{.EXE}}.sha256"
+      - executable "kubectl{{.EXE}}"
+      - remove "kubectl{{.EXE}}.sha256"
 
   kind:
     desc: download kind
