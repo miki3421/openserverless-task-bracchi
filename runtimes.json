@@ -41,7 +41,7 @@
                 "image": {
                     "prefix": "docker.io/apache",
                     "name": "openserverless-runtime-go",
-                    "tag": "v1.26-26i22h40-snapshot"
+                    "tag": "v1.26-26i22h40-snapshot@sha256:94eb04a290cbba70ed51a051ece44e0a6771b017ef230310e431b92879fffcfc"
                 },
                 "deprecated": false,
                 "attached": {
@@ -116,7 +116,7 @@
                 "image": {
                     "prefix": "docker.io/apache",
                     "name": "openserverless-runtime-java",
-                    "tag": "v8-26i22h40-snapshot"
+                    "tag": "v8-26i22h40-snapshot@sha256:19682a175bf6e53816d8b6d203b48dedf63e02a63967be946db7009f51fe2cb0"
                 },
                 "deprecated": false,
                 "attached": {
@@ -147,7 +147,7 @@
                 "image": {
                     "prefix": "docker.io/miki3421",
                     "name": "ops-advanced-nodejs",
-                    "tag": "22-20261109-no-openssh-r1"
+                    "tag": "22-20261109-no-openssh-r1@sha256:6681bdf2d99e482f6a699e657c41936c9f835c9ea29db7ca7eb5ba6e9dc0fb1f"
                 },
                 "deprecated": false,
                 "attached": {
@@ -246,7 +246,7 @@
                 "image": {
                     "prefix": "docker.io/miki3421",
                     "name": "ops-advanced-python",
-                    "tag": "3.12-20261109-native-r1"
+                    "tag": "3.12-20261109-native-r1@sha256:d808617099c9860b20b0f557db2014aa22a6596db934608032f486d47008ebd6"
                 },
                 "deprecated": false,
                 "attached": {

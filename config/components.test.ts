@@ -31,7 +31,7 @@ test("full includes services but not notifications or scheduling",()=>{
 });
 test("enable adds transitive dependencies",()=>{
  expect(plan("enable",["milvus"],{})).toEqual({[keys.milvus]:"true",[keys.etcd]:"true",[keys.seaweedfs]:"true"});
- expect(plan("enable",["mongodb"],{})).toEqual({[keys.mongodb]:"true"});
+ expect(plan("enable",["mongodb"],{})).toEqual({[keys.mongodb]:"true",[keys.postgres]:"true"});
  expect(plan("enable",["static"],{})[keys.seaweedfs]).toBe("true");
 });
 test("disable cascades and preserves unrelated prerequisites",()=>{
@@ -40,7 +40,7 @@ test("disable cascades and preserves unrelated prerequisites",()=>{
  expect(plan("disable",["milvus"],{})[keys.etcd]).toBeUndefined();
  expect(plan("disable",["etcd"],{})[keys.milvus]).toBe("false");
  expect(plan("disable",["seaweedfs"],{})[keys.static]).toBe("false");
- expect(plan("disable",["postgres"],{})[keys.mongodb]).toBeUndefined();
+ expect(plan("disable",["postgres"],{})[keys.mongodb]).toBe("false");
 });
 test("notifications require configuration before any changes",()=>{
  expect(()=>plan("enable",["all","mail"],{})).toThrow("Configure notifications");
@@ -52,6 +52,7 @@ test("preflight rejects missing frontend, dependencies and unconfigured alerts",
  expect(()=>validate({})).toThrow("frontend");
  const full=plan("full",[],{});
  expect(()=>validate({...full,[keys.etcd]:"false"})).toThrow("milvus requires etcd");
+ expect(()=>validate({...full,[keys.postgres]:"false"})).toThrow("mongodb requires postgres");
  expect(()=>validate({...full,[keys.mail]:"true"})).toThrow("Configure notifications");
 });
 test("unknown input is rejected",()=>{expect(()=>plan("enable",["bogus"],{})).toThrow("Unknown component")});

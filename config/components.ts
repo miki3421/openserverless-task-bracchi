@@ -19,7 +19,7 @@ export const keys: Record<string,string> = Object.fromEntries(
   ["redis","mongodb","cron","static","postgres","prometheus","quota","milvus","registry","seaweedfs","etcd"].map(x => [x, `OPERATOR_COMPONENT_${x.toUpperCase()}`])
 );
 Object.assign(keys, {alertmanager:"OPERATOR_COMPONENT_AM", slack:"OPERATOR_CONFIG_ALERTSLACK", mail:"OPERATOR_CONFIG_ALERTGMAIL", affinity:"OPERATOR_CONFIG_AFFINITY", tolerations:"OPERATOR_CONFIG_TOLERATIONS"});
-const dependencies: Record<string,string[]> = {milvus:["etcd","seaweedfs"], static:["seaweedfs"], alertmanager:["prometheus"], slack:["alertmanager"], mail:["alertmanager"]};
+const dependencies: Record<string,string[]> = {mongodb:["postgres"], milvus:["etcd","seaweedfs"], static:["seaweedfs"], alertmanager:["prometheus"], slack:["alertmanager"], mail:["alertmanager"]};
 export function plan(mode: string, flags: string[], env: Record<string,string|undefined>) {
   if (!["enable","disable","full"].includes(mode)) throw new Error("Invalid configuration operation");
   for (const flag of flags) if (flag !== "all" && !keys[flag]) throw new Error(`Unknown component: ${flag}`);

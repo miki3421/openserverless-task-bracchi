@@ -36,3 +36,16 @@ test("release catalog has remotely downloadable custom images and sidecar", () =
     for (const runtime of family) expect(runtime.image.prefix).not.toBe("localhost");
   expect(catalog.config.images.volume_exporter).toStartWith("docker.io/miki3421/ops-advanced-volume-exporter:");
 });
+
+test("default database catalog and qualified runtime choices are immutable", () => {
+  const catalog = JSON.parse(readFileSync(`${import.meta.dir}/../../opsroot.json`, "utf8"));
+  expect(catalog.config.images.mongodb).toBeUndefined();
+  expect(catalog.config.images.ferretdb).toStartWith("ghcr.io/nuvolaris/ferretdb:1.6.0@sha256:");
+  for (const key of ["operator", "controller", "invoker", "streamer", "registry", "volume_exporter", "kubegres"])
+    expect(catalog.config.images[key]).toMatch(/@sha256:[0-9a-f]{64}$/);
+  const runtimes = JSON.parse(readFileSync(`${import.meta.dir}/../../runtimes.json`, "utf8"));
+  for (const family of Object.values(runtimes.runtimes) as any[][])
+    for (const runtime of family)
+      if (runtime.default || runtime.kind === "python:sys")
+        expect(runtime.image.tag).toMatch(/@sha256:[0-9a-f]{64}$/);
+});
