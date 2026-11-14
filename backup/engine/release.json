@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
   "repository": "https://github.com/miki3421/ops-k3s-backup",
-  "revision": "49007939f13736aafe8d581505a773cc61862534",
+  "revision": "256e0951fb519429ba14c7fdb534724b8e5b92fe",
   "files": [
     {
       "path": "adapters/ops-native/LICENSE",
@@ -482,6 +482,11 @@
       "path": "scripts/scheduled_data_backup.py",
       "bytes": 24556,
       "sha256": "f07d827d9d21e8dd9ce1b02190b6baeda80a10904a6fe27c41a02812078a0014"
+    },
+    {
+      "path": "scripts/scheduled_ssh_data_backup.py",
+      "bytes": 16821,
+      "sha256": "3afeabf3ef1492023c21719cfaf731b6cffb8df9a3ffc542be016cb4eadc78e4"
     },
     {
       "path": "scripts/seaweed_checkpoint.py",

@@ -2,8 +2,8 @@
 
 ## Opt-in SSH data-retention helper — 2026-11-14
 
-Current candidate pins canonical engine49007939f13736aafe8d581505a773cc61862534,
-119 mechanically generated runtime members. The separate post-backup helper
+Current candidate pins canonical engine256e0951fb519429ba14c7fdb534724b8e5b92fe,
+120 mechanically generated runtime members. The separate post-backup helper
 `engine/scripts/ssh_data_retention.py` checks/publishes an already verified data
 generation over strict pinned SSH, then retains two verified local generations
 and their recovery proofs. It does not collect, change the cluster, add an OPS
@@ -17,6 +17,12 @@ The native compatibility correction preserves only the exact INFO/WARNING log
 aliases as no-follow metadata and verifies them unchanged during replay; other
 links and all payload guards remain strict. The old native copied extractor
 has an exact private hash-bound retirement lifecycle, not unlimited retention.
+
+The optional `engine/scripts/scheduled_ssh_data_backup.py` entry point wraps the
+same pinned data task with per-cycle 1Password/sudo authentication, SSH and local
+keep-two. See canonical `docs/data-ssh-schedule.md`: separate private deployment
+and explicit timer approval are mandatory. Existing R2/global task behavior is
+unchanged. Synthetic scheduling tests do not qualify a real scheduled capture.
 
 ## Read-only repository metadata correction — 2026-11-14
 
