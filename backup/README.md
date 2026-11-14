@@ -1,5 +1,17 @@
 # Installation backup candidate
 
+## Read-only repository metadata correction — 2026-11-14
+
+This candidate pins canonical engine660e9a92111a52f839ec552070e966607b8803dd.
+The mechanically generated116-file runtime accepts owner-only0400 or private0600
+Restic config/snapshot metadata in the existing data-retention dry-run planner.
+It never chmods backups or relaxes generic0600 profile/key/manifest guards;
+links, hardlinks, wrong owners, special files, exposed modes and changed identities
+still fail closed. The focused54-case Python regression passed normally and
+optimized, including real installed-Restic synthetic encryption/file recovery.
+The planner still does not prune or schedule backups. Autonomous local/remote
+retention is not qualified by this compatibility correction.
+
 Run on the selected installation host:
 
 ```sh

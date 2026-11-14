@@ -3,13 +3,40 @@
 import argparse
 from datetime import datetime, timezone
 import json
+import os
+from pathlib import Path
 import re
+import stat
 from types import SimpleNamespace
 
-from kind_adapter import check, digest, read_json, private_file
+from kind_adapter import check, digest, read_json
 from ops_data import validate_data
 
 RUN = re.compile(r'run-([a-f0-9]{32})\Z')
+
+
+def private_repository_metadata(path):
+    """Restic metadata may be owner-read-only; never relax profile/key rules."""
+    path = Path(path)
+    check(path.is_absolute() and '..' not in path.parts, 'Explicit repository metadata path required')
+    for parent in (path, *path.parents):
+        check(not parent.is_symlink(), 'Linked repository metadata rejected')
+    before = path.lstat()
+    def allowed(info):
+        return (stat.S_ISREG(info.st_mode) and info.st_nlink == 1 and
+                info.st_uid == os.geteuid() and stat.S_IMODE(info.st_mode) in {0o400, 0o600})
+    check(allowed(before), 'Private owner-controlled repository metadata required')
+    fd = os.open(path, os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK)
+    try:
+        opened, current = os.fstat(fd), path.lstat()
+        def identity(info):
+            return (info.st_dev, info.st_ino, info.st_mode, info.st_uid, info.st_nlink,
+                    info.st_size, info.st_mtime_ns, info.st_ctime_ns)
+        check(allowed(opened) and identity(before) == identity(opened) == identity(current),
+              'Repository metadata changed during inspection')
+    finally:
+        os.close(fd)
+    return path
 
 
 def verified_generation(cfg, archive, run):
@@ -34,8 +61,8 @@ def verified_generation(cfg, archive, run):
           digest(restored / 'cluster-collection.json') == digest(collection / 'cluster-collection.json'),
           'Recovery witness changed')
     archive.directory(run / 'repository')
-    private_file(run / 'repository/config')
-    private_file(run / 'repository/snapshots' / sealed['snapshot'])
+    private_repository_metadata(run / 'repository/config')
+    private_repository_metadata(run / 'repository/snapshots' / sealed['snapshot'])
     completed = datetime.fromisoformat(journal['updatedAt'])
     check(completed.tzinfo is not None, 'Timezone required for retention ordering')
     return {'runId': journal['runId'], 'completedAt': completed.astimezone(timezone.utc).isoformat(),
