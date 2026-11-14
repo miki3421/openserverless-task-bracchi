@@ -13,6 +13,7 @@ import os
 from pathlib import Path
 import re
 import shlex
+import stat
 import subprocess
 import sys
 
@@ -26,6 +27,28 @@ FIELDS = {'version', 'sourceProfile', 'sourceConfigurationSha256', 'sshHost', 'i
           'identitySha256', 'knownHostsFile', 'knownHostsSha256', 'hostKeySha256', 'remote'}
 REMOTE_FIELDS = {'root', 'hostname', 'uid', 'rootInode', 'filesystem', 'reserveBytes', 'bootstrap'}
 ROOT = Path(__file__).resolve().parent
+LOG_ALIASES = {'data-stage/ops/seaweedfs-data/tmp/weed.INFO',
+               'data-stage/ops/seaweedfs-data/tmp/weed.WARNING'}
+EXTRACTOR = 'data-stage/ops/seaweedfs-data/weed'
+
+
+def preserved_entry(run, relative):
+    """Record two excluded native log aliases as links, never open their targets."""
+    parent, name = f.parent_fd(run, relative)
+    try:
+        before = os.stat(name, dir_fd=parent, follow_symlinks=False)
+        if stat.S_ISLNK(before.st_mode):
+            f.require(relative in LOG_ALIASES and before.st_uid == os.geteuid() and
+                      before.st_nlink == 1 and before.st_dev == os.fstat(parent).st_dev,
+                      'unsupported_preserved_link')
+            target = os.readlink(name, dir_fd=parent)
+            f.require(0 < len(os.fsencode(target)) <= 4096 and
+                      f.identity(os.stat(name, dir_fd=parent, follow_symlinks=False)) == f.identity(before) and
+                      os.readlink(name, dir_fd=parent) == target, 'preserved_log_alias_changed')
+            return {'kind': 'preserved-log-alias', 'identity': f.identity(before), 'target': target}
+    finally:
+        os.close(parent)
+    return f.inspect(run, relative)
 
 
 def load(path):
@@ -137,7 +160,10 @@ def replay(state, cfg, archive, report, payload, c, transport):
         f.directory(run)
         f.require(all(not (run / name).exists() and not (run / name).is_symlink() for name in intent['targets']),
                   'retired_payload_reappeared')
-        f.require(all(f.inspect(run, name) == row for name, row in intent['preservedFiles'].items()), 'retired_proof_changed')
+        f.require(all(preserved_entry(run, name) == row for name, row in intent['preservedFiles'].items()), 'retired_proof_changed')
+        if intent.get('discardedExtractor'):
+            cache = run / EXTRACTOR
+            f.require(not cache.exists() and not cache.is_symlink(), 'retired_extractor_reappeared')
     f.require(transport(c, {**payload, 'phase': 'publish'}) == f.read_json(state / 'transfer-verified.json'),
               'remote_replay_receipt_changed')
     return {**result, 'replayVerified': True}
@@ -153,21 +179,35 @@ def retire_local(cfg, archive, candidate, retained, state):
     f.require(pointer['runId'] in {r['runId'] for r in retained} and pointer['runId'] != candidate['runId'],
               'current_pointer_protected')
     targets = {name: f.inventory(run / name) for name in ['repository', 'collection', 'verification/restored']}
+    # Native collection owns this copied rebuildable tool; data manifests forbid
+    # it in the recovery payload. Do not accumulate140MiB per retired generation.
+    extractor = None
+    cache = run / EXTRACTOR
+    if cache.exists() or cache.is_symlink():
+        extractor = f.inspect(run, EXTRACTOR, allowed_modes={0o400, 0o600, 0o700})
+        f.require(0 < extractor['bytes'] <= 256 * 1024**2, 'unexpected_extractor_cache_size')
     # Preserve ALL existing metadata/logs/proofs byte-for-byte; delete only the three explicit payload trees.
     protected = {}
     for path in run.rglob('*'):
-        f.require(not path.is_symlink(), 'linked_retirement_metadata')
-        if any(path.is_relative_to(run / name) for name in targets) or path.is_dir(): continue
+        if any(path.is_relative_to(run / name) for name in targets): continue
+        if stat.S_ISDIR(path.lstat().st_mode): continue
         relative = path.relative_to(run).as_posix()
-        protected[relative] = f.inspect(run, relative)
-    intent = {'candidate': candidate, 'retained': retained, 'targets': targets, 'preservedFiles': protected}
+        if extractor is not None and relative == EXTRACTOR: continue
+        protected[relative] = preserved_entry(run, relative)
+    intent = {'candidate': candidate, 'retained': retained, 'targets': targets, 'preservedFiles': protected,
+              'discardedExtractor': extractor}
     marker = state / ('retire-' + candidate['runId'] + '.intent.json')
     f.write_new(marker, intent)
     for name, tree in targets.items():
         f.retire(run / name, tree)
-    f.require(all(f.inspect(run, name) == row for name, row in protected.items()), 'recovery_proof_changed')
+    if extractor is not None:
+        f.inspect(run, EXTRACTOR, remove=True, expected=extractor, allowed_modes={0o400, 0o600, 0o700})
+        f.require(not cache.exists() and not cache.is_symlink(), 'retired_extractor_still_present')
+    f.require(all(preserved_entry(run, name) == row for name, row in protected.items()), 'recovery_proof_changed')
     result = {'runId': candidate['runId'], 'payloadAbsenceVerified': True, 'recoveryProofsPreserved': True,
-              'retiredBytes': sum(r['bytes'] for tree in targets.values() for r in tree['files'].values())}
+              'retiredBytes': sum(r['bytes'] for tree in targets.values() for r in tree['files'].values()) +
+                              (extractor['bytes'] if extractor else 0),
+              'unusedExtractorRetired': extractor is not None}
     f.write_new(state / ('retire-' + candidate['runId'] + '.complete.json'), result)
     return result
 

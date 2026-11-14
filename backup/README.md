@@ -2,16 +2,21 @@
 
 ## Opt-in SSH data-retention helper — 2026-11-14
 
-Current candidate pins canonical enginec52768c268d0e47d223ad8f968302e6475e33102,
+Current candidate pins canonical engine49007939f13736aafe8d581505a773cc61862534,
 119 mechanically generated runtime members. The separate post-backup helper
 `engine/scripts/ssh_data_retention.py` checks/publishes an already verified data
 generation over strict pinned SSH, then retains two verified local generations
 and their recovery proofs. It does not collect, change the cluster, add an OPS
 command, enable a timer or change the R2 policy. Requires its explicit private
 configuration and operational transfer/retention authorization. See canonical
-`docs/data-ssh-retention.md` and its author review.76 synthetic Python checks
+`docs/data-ssh-retention.md` and its author review.80 synthetic Python checks
 passed normally and optimized, including native Restic and remote-worker wire
 tests; network/hosted acceptance remains installation-specific.
+
+The native compatibility correction preserves only the exact INFO/WARNING log
+aliases as no-follow metadata and verifies them unchanged during replay; other
+links and all payload guards remain strict. The old native copied extractor
+has an exact private hash-bound retirement lifecycle, not unlimited retention.
 
 ## Read-only repository metadata correction — 2026-11-14
 
