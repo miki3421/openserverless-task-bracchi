@@ -1,8 +1,21 @@
 # Installation backup candidate
 
+## Opt-in SSH data-retention helper — 2026-11-14
+
+Current candidate pins canonical enginec52768c268d0e47d223ad8f968302e6475e33102,
+119 mechanically generated runtime members. The separate post-backup helper
+`engine/scripts/ssh_data_retention.py` checks/publishes an already verified data
+generation over strict pinned SSH, then retains two verified local generations
+and their recovery proofs. It does not collect, change the cluster, add an OPS
+command, enable a timer or change the R2 policy. Requires its explicit private
+configuration and operational transfer/retention authorization. See canonical
+`docs/data-ssh-retention.md` and its author review.76 synthetic Python checks
+passed normally and optimized, including native Restic and remote-worker wire
+tests; network/hosted acceptance remains installation-specific.
+
 ## Read-only repository metadata correction — 2026-11-14
 
-This candidate pins canonical engine660e9a92111a52f839ec552070e966607b8803dd.
+The previous metadata-fix candidate pinned engine660e9a92111a52f839ec552070e966607b8803dd.
 The mechanically generated116-file runtime accepts owner-only0400 or private0600
 Restic config/snapshot metadata in the existing data-retention dry-run planner.
 It never chmods backups or relaxes generic0600 profile/key/manifest guards;

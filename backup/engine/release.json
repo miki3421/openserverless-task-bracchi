@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
   "repository": "https://github.com/miki3421/ops-k3s-backup",
-  "revision": "660e9a92111a52f839ec552070e966607b8803dd",
+  "revision": "c52768c268d0e47d223ad8f968302e6475e33102",
   "files": [
     {
       "path": "adapters/ops-native/LICENSE",
@@ -507,6 +507,21 @@
       "path": "scripts/sqlite_online.py",
       "bytes": 1692,
       "sha256": "02b16fd7afb46d14db1730737cbe2d1860fdc9c6a15bf13ffce008ddfcaa3e78"
+    },
+    {
+      "path": "scripts/ssh_data_files.py",
+      "bytes": 8234,
+      "sha256": "8077a6698595b7a7c1db1388c0ca4f5cfa4c8f920bd98bd5db9c7fda5a7a4d3a"
+    },
+    {
+      "path": "scripts/ssh_data_remote.py",
+      "bytes": 6583,
+      "sha256": "190fc4022cdffd4aa91aa05aedff1691e9743e99fabc83377fd7a44a0406fa5d"
+    },
+    {
+      "path": "scripts/ssh_data_retention.py",
+      "bytes": 16650,
+      "sha256": "9e703e58e55094ccff1506de3cd6fee9a009dd573989cc5b0c63de74209577fd"
     },
     {
       "path": "scripts/stage-private-artifact.py",
